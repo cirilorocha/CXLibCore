@@ -1,0 +1,10 @@
+#Define	ImpBox 		U_CXImpBox
+#Define	ImpTexto 	U_CXImpTexto
+#Define	ImpBoxTxt 	U_CXImpBxTx
+#Define	ImpBitmap 	U_CXImpBitmap
+#Define	PosLin 		U_CXPosLin
+#Define	PosLinT 	U_CXPosLinT
+#Define	PosCol 		U_CXPosCol
+#Define	PosColT 	U_CXPosColT
+#Define	AjAltFont 	U_CXAjAltFont
+#Define	NovaPag 	U_CXNovaPag
