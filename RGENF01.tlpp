@@ -1,8 +1,9 @@
 #INCLUDE "PROTHEUS.CH"
 #INCLUDE "TOPCONN.CH"
-#include "rwmake.ch"  
+#include "rwmake.ch" 
+#include "CXInclude.ch" 
 
-Static lRetAnt	:= Nil
+//Static lRetAnt	:= Nil
 
 //ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ
 //±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±
@@ -29,10 +30,10 @@ Static lRetAnt	:= Nil
 //±±ÈÍÍÍÍÍÍÍÍÍÍÏÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÏÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ¼±±
 //±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±
 //ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß  
-Static cUsrDir	:= SuperGetMV('MS_USRDIR',.F.,'000201,000032,000082,000081,000012,000013')
-Static cGrpDir	:= SuperGetMV('MS_GRPDIR',.F.,'000002')
-Static cUsrTi 	:= SuperGetMV('MS_USRTI' ,.F.,'000198,000202,000264,000177')
-Static cGrpTi	:= SuperGetMV('MS_GRPTI' ,.F.,'') //O grupo 000000 ja e' padrao
+Static cUsrDir	:= GetMV('MS_USRDIR',.F.,'000201,000032,000082,000081,000012,000013')
+Static cGrpDir	:= GetMV('MS_GRPDIR',.F.,'000002')
+Static cUsrTi 	:= GetMV('MS_USRTI' ,.F.,'000198,000202,000264,000177')
+Static cGrpTi	:= GetMV('MS_GRPTI' ,.F.,'') //O grupo 000000 ja e' padrao
 
 //-----------------------------------------------------------------------------
 User Function RGENF01(cParUSR,lDiretoria,lTi,cUsrDefault)
@@ -43,7 +44,7 @@ User Function RGENF01(cParUSR,lDiretoria,lTi,cUsrDefault)
 	Local i
 	
 	Default lDiretoria	:= .T.
-	Default lTi				:= .T.
+	Default lTi			:= .T.
 	Default cUsrDefault	:= ''
 	
 	//If Type('lRetAnt') == 'L'
