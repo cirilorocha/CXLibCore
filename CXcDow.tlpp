@@ -1,0 +1,46 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#INCLUDE "CXInclude.ch"
+#include "CXDow.ch"
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXcDow   | Autor | Cirilo Rocha       | Data | 17/10/2013  |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descr.    | Retorna a descrição do dia da semana                       |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXcDow(dData);	//01 dData
+						AS Character
+
+	//Declaração de Variáveis----------------------------------------------------------------------
+	Local cDesc	:= ""		AS Character
+	Local nDia				AS Numeric
+
+	If !Empty(dData)
+		nDia	:= Dow(dData)
+		
+		If nDia == nDomingo
+			cDesc	:= 'Domingo'
+		ElseIf nDia == nSegunda
+			cDesc	:= 'Segunda-Feira'
+		ElseIf nDia == nTerca
+			cDesc	:= 'Terça-Feira'
+		ElseIf nDia == nQuarta
+			cDesc	:= 'Quarta-Feira'
+		ElseIf nDia == nQuinta
+			cDesc	:= 'Quinta-Feira'
+		ElseIf nDia == nSexta
+			cDesc	:= 'Sexta-Feira'
+		ElseIf nDia == nSabado
+			cDesc	:= 'Sábado'
+		EndIf
+	EndIf
+
+Return cDesc

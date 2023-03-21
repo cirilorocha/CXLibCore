@@ -1,0 +1,98 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#Include "CXInclude.ch"
+
+//#############################################################################
+//##+==========+============+=======+===================+======+============+##
+//##|Programa  | CXGravaLog | Autor | Cirilo Rocha      | Data | 29/03/2012 |##
+//##+==========+============+=======+===================+======+============+##
+//##|Desc.     | Função genérica para gravar arquivos de log.               |##
+//##|          | Se o arquivo já exisitr apenda o texto no final do arquivo |##
+//##+==========+===========+================================================+##
+//##|   DATA   |Programador| Manutenção Efetuada                            |##
+//##+==========+===========+================================================+##
+//##| 24/11/16 | Cirilo R. | Pequena revisao no fonte                       |##
+//##| 23/08/19 | Cirilo R. | Pequena revisao no fonte                       |##
+//##| 04/10/19 | Cirilo R. | Tratamento para criar o diretorio de log       |##
+//##| 12/10/21 | Cirilo R. | Pequena revisão (release 33)                   |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+==========+===========+================================================+##
+//#############################################################################
+User Function CXGravaLog(	cArquivo,;	//01
+							cTexto	,;	//02
+							lMsg	);	//03
+								AS Logical
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cBuffer	AS Character
+	Local cDirLog	AS Character
+	Local cDrive	AS Character
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cArquivo	AS Character
+	ParamType 1		VAR cTexto		AS Character		Optional Default ''
+	ParamType 2		VAR lMsg		AS Logical			Optional Default .Not. U_CXRotAuto()	
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	cBuffer		:= ''
+
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+
+	SplitPath( cArquivo, @cDrive, @cDirLog, /*@cFile*/, /*@cExten*/ )
+	
+	If Empty(cDrive+cDirLog)
+		cDirLog		:= '\LogProc\'
+		cArquivo	:= cDirLog+cArquivo 
+	EndIf
+	
+	If 	.Not. ExistDir(cDrive+cDirLog) .And. ;
+		MakeDir(cDrive+cDirLog) <> 0
+		
+		cCodErr	:= U_CXTxtMsg(,,.T.)
+		cMsgErr	:= 'Falha ao criar o diretório de logs: '+CRLF+;
+					cDirLog+CRLF+;
+					u_CXDescErro()
+		cSoluc	:= 'INFORME O SETOR DE T.I.'
+		cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+		If lMsg
+			U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+		EndIf
+
+		Return .F.
+	EndIf
+
+	//Verifica se o arquivo ja existe e carrega conteudo
+	If FiLe(cArquivo)	//Nao utilizar a CXFile para nao poluir as mensagens de erro desnecessariamente
+		cBuffer	:= U_CXReadFile(cArquivo)
+		If 	ValType(cBuffer) == 'C'
+			cBuffer	+= 	CRLF+CRLF+;
+						Replicate('#',70)+CRLF+CRLF
+		Else
+			cBuffer	:= ''
+		EndIf
+	EndIf
+	
+	//Concatena o conteudo anterior se houver
+	cBuffer	+= StrTran(cTexto,'<br>',CRLF)
+	
+	//Regrava o arquivo
+	If .Not. U_CXWriteFile(cArquivo,cBuffer)
+		cCodErr	:= U_CXTxtMsg(,,.T.)+cCodErr
+//		cMsgErr	:= 'Falha ao gravar arquivo de log '+cArquivo+CRLF+;
+//					u_CXDescErro()
+//		cSoluc	:= 'INFORME O SETOR DE T.I.'
+//		cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+		If lMsg
+			U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+		EndIf
+
+		Return .F.
+	EndIf
+	
+Return .T.

@@ -1,0 +1,63 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXBase64 | Autor | Cirilo Rocha       | Data | 21/09/2011  |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descr.    | Funcao generica para conversar de um valor numerico em uma |##
+//##|          | string base 64 (0~9,A~Z,a-z,+/)                            |##
+//##|          | NÃO É COMPATÍVEL COM A CODIFICAÇÃO BASE64                  |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção Efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 04/09/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXBase64(	nDividendo	,;	//01
+						nTam		);	//02
+							AS Character
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local nDivisor   	AS Numeric
+	Local nResto     	AS Numeric
+	Local cRet	   		AS Character
+	Local aTabBase64 	AS Array
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR nDividendo		AS Numeric
+	ParamType 1		VAR nTam			AS Numeric					Optional Default 2
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	nDivisor   	:= 64
+	nResto     	:= 0
+	cRet	   	:= ""
+	aTabBase64 	:= {;
+					"A","B","C","D","E","F","G","H","I",;
+					"J","K","L","M","N","O","P","Q","R",;
+					"S","T","U","V","W","X","Y","Z","+",;
+					"a","b","c","d","e","f","g","h","i",;
+					"j","k","l","m","n","o","p","q","r",;
+					"s","t","u","v","w","x","y","z","/",;
+					"1","2","3","4","5","6","7","8","9","0"}
+
+	While nDividendo > 0
+	   If nDividendo < nDivisor
+	       cRet := aTabBase64[nDividendo] + cRet
+	       Exit
+	   EndIf
+	   nResto     := (nDividendo % nDivisor)
+	   If nResto > 0
+	       cRet := aTabBase64[nResto  ] + cRet
+	   Else
+	       cRet := aTabBase64[nDivisor] + cRet
+	   EndIf
+	   nDividendo := Int(nDividendo / nDivisor)
+	EndDo
+        
+Return PadL(cRet,nTam,'0')

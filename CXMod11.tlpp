@@ -1,0 +1,88 @@
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+#INCLUDE 'CXInclude.ch'
+
+//#############################################################################
+//##+----------+----------+-------+-----------------------+------+----------+##
+//##|Funcao	   | CXMod11  | Autor | Cirilo Rocha          | Data | 21/01/15 |##
+//##+----------+----------+-------+-----------------------+------+----------+##
+//##|Descr.    | Cálculo do DV modulo 11                                    |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 01/03/23 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+//-----------------------------------------------------------------------------------//
+// Funcionamento do ultimo parametro lDif11 e o Resto10 e Resto11                    //
+//  - Se lDif11 significa que o resto da divisao sera subtraido de 11, ou seja       //
+//    Resto 9 => Digito => 11-9 => 2                                                 //
+//    Isso gera duas possibilidades extras, quando o resto e' 0 ou 1, gera um digito //
+//    digito 11 e 10, respectivamente, geralmente na documentacao eles se referem    //
+//    como resto 0 ou 1, o que e' a mesma coisa aqui.                                //
+//  - Se nao houver subtracao, entao o resto 11 nunca vai existir, e havera apenas   //
+//    o resto 10 que precisara ser tratado                                           //
+//-----------------------------------------------------------------------------------//
+User Function CXMod11(	cCodigo		,;
+						nPesoIni	,;	//Peso Inicio (esquerda <- direita) (def 2)
+						nPesoFim	,;	//Peso Final (esquerda <- direita) (def 9)
+						cResto10	,; 	//Resto 10, Se lDif11 entao entenda resto 1 (def 1)
+						cResto11	,; 	//Resto 11 (nao existe se !lDif11), Se lDif1l entao entenda resto 0 (def 1)
+						cRestoZero	,; 	//Resto  0, So existe se nao lDif11 resto 11 (def 0)
+						lDif11		);  //Se deve ou nao subtrair o resto da divisao por 11 (def .T.)
+							AS Character
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cDigito		AS Character
+	Local nPeso			AS Numeric
+	Local nResto		AS Numeric
+	Local nSoma			AS Numeric
+	Local nJ			AS Numeric
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cCodigo			AS Character
+	ParamType 1		VAR nPesoIni		AS Numeric				Optional Default 2
+	ParamType 2		VAR nPesoFim		AS Numeric				Optional Default 9
+	ParamType 3		VAR cResto10		AS Character			Optional Default '1'
+	ParamType 4		VAR cResto11		AS Character			Optional Default '1'
+	ParamType 5		VAR cRestoZero		AS Character			Optional Default '0'
+	ParamType 6		VAR lDif11			AS Logical				Optional Default .T.
+
+	//---------------------------------------------------------------------------------------------
+	nSoma	:= 0
+	nPeso	:= nPesoIni
+	For nJ := Len(cCodigo) To 1 Step -1
+		nSoma  += Val(SubStr(cCodigo,nJ,1))*nPeso
+
+		If nPeso == nPesoFim
+			nPeso := nPesoIni
+		Else
+			If nPesoFim > nPesoIni
+				nPeso ++
+			Else
+				nPeso --
+			EndIf
+		EndIf
+
+	Next nJ
+
+	nResto	:=	( nSoma % 11 )
+
+	If lDif11
+		nResto	:= 11 - nResto
+	EndIf
+
+	If nResto == 0
+		cDigito	:=	cRestoZero
+	ElseIf nResto == 10
+		cDigito	:=	cResto10
+	ElseIf nResto == 11
+		cDigito	:=	cResto11
+	Else
+		cDigito	:=	Str(nResto,1)
+	EndIf
+
+Return(cDigito)

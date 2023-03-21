@@ -1,0 +1,115 @@
+#INCLUDE "PROTHEUS.CH"
+#INCLUDE "TOPCONN.CH"
+#include "rwmake.ch"  
+
+Static lRetAnt	:= Nil
+
+//ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ
+//ฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑ
+//ฑฑษออออออออออัออออออออออหอออออออัอออออออออออออออออออออหออออออัออออออออออออปฑฑ
+//ฑฑบPrograma  ณ RGENF01  บ Autor ณ Cirilo Rocha        บ Data ณ 26/01/2012 บฑฑ
+//ฑฑฬออออออออออุออออออออออสอออออออฯอออออออออออออออออออออสออออออฯออออออออออออนฑฑ
+//ฑฑบDescricao ณ Funcao generica para ser utilizada como validacao se o usu-บฑฑ
+//ฑฑบ          ณ ario pode efetuar algum procedimento.                      บฑฑ
+//ฑฑบ          ณ Valida se esta no parametro passado, se e' da diretoria ou บฑฑ
+//ฑฑบ          ณ da equipe de TI                                            บฑฑ
+//ฑฑบ          ณ Pode ser utilizado no When de campos ou em alguma validacaoบฑฑ
+//ฑฑบ          ณ                                                            บฑฑ
+//ฑฑบ          ณ                                                            บฑฑ
+//ฑฑบ          ณ                                                            บฑฑ
+//ฑฑฬออออออออออุอออออออออออออออัออออออออออออออออออออออออออออออออออออออออออออนฑฑ
+//ฑฑบ   DATA   ณ Programador   ณ Manutencao Efetuada                        บฑฑ
+//ฑฑฬออออออออออุอออออออออออออออุออออออออออออออออออออออออออออออออออออออออออออนฑฑ
+//ฑฑบ 05/09/13 ณ Cirilo Rocha  ณ Adicionado valor padrao para os codigos de บฑฑ
+//ฑฑบ          ณ               ณ usuario                                    บฑฑ
+//ฑฑบ          ณ               ณ                                            บฑฑ
+//ฑฑบ          ณ               ณ                                            บฑฑ
+//ฑฑศออออออออออฯอออออออออออออออฯออออออออออออออออออออออออออออออออออออออออออออผฑฑ
+//ฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑ
+//฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿  
+User Function RGENF01(cParUSR,lDiretoria,lTi,cUsrDefault)
+
+Local lRetorno	:= .F.
+Local cUsrDir	:= SuperGetMV('MS_USRDIR',.F.,'000201,000032,000082,000081,000012,000013')
+Local cGrpDir	:= SuperGetMV('MS_GRPDIR',.F.,'000002')
+Local cUsrTi 	:= SuperGetMV('MS_USRTI' ,.F.,'000198,000202,000264,000177')
+Local cGrpTi	:= SuperGetMV('MS_GRPTI' ,.F.,'') //O grupo 000000 ja e' padrao
+Local cUsrPar	:= ''
+Local aGrpPerm := {}
+Local i
+
+Default lDiretoria	:= .T.
+Default lTi				:= .T.
+Default cUsrDefault	:= ''
+
+//If Type('lRetAnt') == 'L'
+//	Return lRetAnt
+//EndIf
+
+//Obtem informacoes do usuario
+PswOrder(1)
+PswSeek(__CUSERID,.T.)
+
+aGrpPerm	:= PswRet()[1][10]
+
+//Obtem os usuarios passados pelo parametro
+If !Empty(cParUSR)
+	cUsrPar	:= SuperGetMV(cParUSR,.F.,cUsrDefault)
+EndIf
+
+//Verifica se esta no parametro passado
+If !Empty(cUsrPar)
+	lRetorno	:= __cUserID $ cUsrPar
+EndIf
+
+//ฺฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฟ
+//ณ Verifica se deve autorizar a diretoria ณ
+//ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
+
+//Verifica primeiro nos grupos
+If !lRetorno
+	For i := 1 to len(aGrpPerm)
+		If aGrpPerm[i] $ cGrpDir
+			lRetorno	:= .T.
+			exit
+		EndIf
+	Next
+EndIf
+
+//Depois pelo parametro
+If !lRetorno .And. lDiretoria
+	lRetorno	:= __cUserID $ cUsrDir
+EndIf
+
+//ฺฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฟ
+//ณ Verifica se pode dar acesso aos usuarios da T.I. ณ
+//ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
+
+//Busca pelo grupo
+If !lRetorno .And. lTi
+	For i := 1 to len(aGrpPerm)
+		If aGrpPerm[i] $ cGrpTi + '/' + '000000'
+			lRetorno	:= .T.
+			exit
+		EndIf
+	Next
+EndIf
+
+//Busca pelo parametro
+If !lRetorno .And. lTi
+	lRetorno	:= __cUserID $ cUsrTi
+EndIf
+
+//Se usuario administrador
+If !lRetorno .And. lTi
+	lRetorno	:= __cUserID == '000000'
+EndIf
+
+//ฺฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฟ
+//ณ Salva retorno para otimizar os resultados da funcao, ณ
+//ณ pois ela pode ser chamada muitas vezes repetidas     ณ
+//ณ em um campo When por exemplo                         ณ
+//ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
+//lRetAnt	:= lRetorno
+
+Return lRetorno

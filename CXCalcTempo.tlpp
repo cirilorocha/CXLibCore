@@ -1,0 +1,334 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+
+//#############################################################################
+//##+----------+-------------+-------+-----------------+------+-------------+##
+//##|Programa  | CXCalcTempo | Autor | Cirilo Rocha    | Data | 15/01/2011  |## 
+//##+----------+-------------+-------+-----------------+------+-------------+##
+//##|Descr.    | Funcao generica para calculo de diferenca entre duas datas |##
+//##|          | e tempos.                                                  |##
+//##+----------+------------------------------------------------------------+##
+//##|Retornos  | Array:                                                     |##
+//##|          | [01] {Anos, Meses, Dias, Hrs, Min, Seg, lNegativo} Int     |##
+//##|          | [02] (+/-) Anos  Int                                       |##
+//##|          | [03] (+/-) Meses Int                                       |##
+//##|          | [04] (+/-) Dias  Int                                       |##
+//##|          | [05] (+/-) Horas Int                                       |##
+//##|          | [06] (+/-) Anos:Meses:Dias                                 |##
+//##|          | [07] (+/-) 99 Anos 99 Meses 99 Dias                        |##
+//##|          | [08] (+/-) 99a 99m 99d                                     |##
+//##|          | [09] (+/-) Anos:Meses:Dias:Hrs:Min:Seg                     |##
+//##|          | [10] (+/-) 99 Anos 99 Meses 99 Dias 99 Hrs 99 Min 99 Seg   |##
+//##|          | [11] (+/-) 99a 99m 99d 99h 99m 99s                         |##
+//##|          | [12] (+/-) Hrs:Min:Seg                                     |##
+//##|          | [13] (+/-) 99 Hrs 99 Min 99 Seg                            |##
+//##|          | [14] (+/-) 99h 99m 99s                                     |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 06/01/12 | Cirilo R. | Pequena correcao nos calculos de horas         |##
+//##| 20/12/19 | Cirilo R. | Pequena revisao no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXCalcTempo(	dData1	,;	//01 dData1
+							dData2	,;	//02 dData2
+							cTempo1	,;	//03 cTempo1
+							cTempo2  )	//04 cTempo2
+	
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	Local dDataIni		AS Date
+	Local dDataFim		AS Date
+	Local lNegativo		AS Logical
+
+	//+-----------------------+
+	//| Variveis para calculo |
+	//+-----------------------+
+	Local aTempo		AS Array
+	Local nX			AS Numeric
+	Local nBissextos	AS Numeric
+	Local nAnos         AS Numeric
+	Local nMeses        AS Numeric
+	Local nDias         AS Numeric
+	Local nHoras        AS Numeric
+	Local nMinutos      AS Numeric
+	Local nSegundos     AS Numeric
+
+	Local nVaiUm	    AS Numeric
+
+	Local nAnoIni       AS Numeric
+	Local nAnoFim       AS Numeric
+
+	Local nMesIni       AS Numeric
+	Local nMesFim       AS Numeric
+
+	Local nDiaIni       AS Numeric
+	Local nDiaFim       AS Numeric
+
+	Local nHrsIni 	    AS Numeric
+	Local nHrsFim 	    AS Numeric
+
+	Local nMinIni       AS Numeric
+	Local nMinFim       AS Numeric
+
+	Local nSegIni       AS Numeric
+	Local nSegFim       AS Numeric
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR dData1		AS Date				Optional Default StoD('20010101') 
+	ParamType 1		VAR dData2		AS Date				Optional Default StoD('20010101')
+	ParamType 2		VAR cTempo1		AS Character		Optional Default '12:00:00'
+	ParamType 3		VAR cTempo2		AS Character		Optional Default '12:00:00'
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	nBissextos	:= 0
+	
+	//se a data estiver vazia
+	If Empty(dData1)
+		dData1 := StoD('20010101')
+	EndIf
+
+	If Empty(dData2)
+		dData2 := StoD('20010101')
+	EndIf
+
+	//+-----------------+
+	//| Valida as horas |
+	//+-----------------+
+	If 	.Not. StrHora(cTempo1) .Or. ;
+		.Not. StrHora(cTempo2)
+
+		Return .F.
+	EndIf
+
+	//+----------------+
+	//| Tempo negativo |
+	//+----------------+
+	If 	DtoS(dData1) + cTempo1 > DtoS(dData2) + cTempo2
+		lNegativo 	:= .T.
+		
+		dDataIni	:= dData2
+		dDataFim 	:= dData1
+		cTempoIni	:= cTempo2
+		cTempoFim	:= cTempo1
+	Else	
+		lNegativo	:= .F.
+	
+		dDataIni	:= dData1
+		dDataFim 	:= dData2
+		cTempoIni	:= cTempo1
+		cTempoFim	:= cTempo2
+	EndIf
+
+	//+----------------------------------+
+	//| Se hora no formato da hora 99:99 |
+	//+----------------------------------+
+	If Len(cTempoIni) == 5
+		cTempoIni := cTempoIni + ':00'
+	EndIf
+
+	If Len(cTempoFim) == 5
+		cTempoFim := cTempoFim + ':00'
+	EndIf
+
+	//+---------------------------------------------+
+	//| Calcula anos, meses, dias, horas, minutos,  |
+	//| segundos inicias e finais                   |
+	//+---------------------------------------------+
+	nAnoIni 	:= Year(dDataIni)
+	nAnoFim 	:= Year(dDataFim)
+
+	nMesIni  	:= Month(dDataIni)
+	nMesFim  	:= Month(dDataFim)
+	
+	nDiaIni  	:= Day(dDataIni)
+	nDiaFim  	:= Day(dDataFim)
+
+	nHrsIni 	:= Val(Left(cTempoIni,2))
+	nHrsFim 	:= Val(Left(cTempoFim,2))
+
+	nMinIni  	:= Val(SubStr(cTempoIni,4,2))
+	nMinFim  	:= Val(SubStr(cTempoFim,4,2))
+
+	nSegIni  	:= Val(Right(cTempoIni,2))
+	nSegFim  	:=	Val(Right(cTempoFim,2))
+
+	//+---------------------+
+	//| Inicio dos calculos |
+	//+---------------------+
+
+	//Segundos
+	nVaiUm  := 0
+	nSegIni += nVaiUm
+	If nSegIni > nSegFim
+		nVaiUm	:= 1
+	Else
+		nVaiUm  := 0
+	EndIf
+
+	nSegundos 	:= nSegFim - nSegIni + 60*nVaiUm
+
+	//Minutos
+	nMinIni 	+= nVaiUm
+	If nMinIni > nMinFim
+		nVaiUm 	:= 1
+	Else
+		nVaiUm  := 0
+	EndIf
+
+	nMinutos	:= nMinFim - nMinIni + 60*nVaiUm
+
+	//Horas
+	nHrsIni 	+= nVaiUm
+	If nHrsIni > nHrsFim
+		nVaiUm 	:= 1
+	Else
+		nVaiUm  := 0
+	EndIf
+
+	nHoras		:= nHrsFim - nHrsIni + 24*nVaiUm
+
+	//Dias
+	nDiaIni 	+= nVaiUm
+	If nDiaIni > nDiaFim
+		nVaiUm 	:= 1
+	Else
+		nVaiUm  := 0
+	EndIf
+
+	nDiasMes 	:= F_ULTDIA(dDataIni)
+	nDias		:= nDiaFim - nDiaIni + nDiasMes*nVaiUm
+
+	//Meses
+	nMesIni 	+= nVaiUm
+	If nMesIni > nMesFim
+		nVaiUm 	:= 1
+	Else
+		nVaiUm  := 0
+	EndIf
+
+	nMeses		:= nMesFim - nMesIni + 12*nVaiUm
+
+	//Anos
+	nAnoIni 	+= nVaiUm
+	nAnos		:= nAnoFim - nAnoIni
+
+	//--------------------------------------------//
+	//Conta anos bissextos (29 dias em feveiro)   //
+	//--------------------------------------------//
+	nInicio 	:= nAnoIni
+	If nMesIni > 2
+		nInicio ++
+	EndIf
+
+	nFim 		:= nAnoFim
+	If nMesFim < 2
+		nFim --
+	EndIf
+
+	//--------------------------------------------//
+	//De 4 em 4 anos e' ano bissexto.             //
+	//De 100 em 100 anos nao e' ano bissexto.     //
+	//De 400 em 400 anos e' ano bissexto.         //
+	//--------------------------------------------//
+	For nX := nInicio to nFim
+		If Mod(nX,4) == 0 .And. ( Mod(nX,100) <> 0 .Or. Mod(nX,400) == 0  )
+			nBissextos++
+		EndIf
+	Next
+
+	//+----------------+
+	//| Monta retornos |
+	//+----------------+
+
+	//{Anos, Meses, Dias, Horas, Minutos, Segundos} Int
+	aTempo 	:= {nAnos 		,;	//01
+				nMeses 		,;	//02
+				nDias 		,;	//03
+				nHoras 		,;	//04
+				nMinutos	,;	//04
+				nSegundos 	,;	//05
+				lNegativo 	 }	//06
+
+	//(+/-)Anos:Meses:Dias
+	cDataAbr1 	:= Iif(lNegativo,'-','')+StrZero(nAnos,2)+':'+StrZero(nMeses,2)+':'+StrZero(nDias,2)
+
+	//(+/-) 99 Anos 99 Meses 99 Dias
+	cDataAbr2 	:= Iif(lNegativo,'-','')+StrZero(nAnos,2)+' Anos '+StrZero(nMeses,2)+' Meses '+StrZero(nDias,2)+' Dias'
+
+	//(+/-) 99a 99m 99d
+	cDataAbr3 	:= Iif(lNegativo,'-','')+StrZero(nAnos,2)+'a '+StrZero(nMeses,2)+'m '+StrZero(nDias,2)+'d '
+
+	//(+/-)Anos:Meses:Dias:Hrs:Min:Seg
+	cDataCmp1 	:=  cDataAbr1+':'+StrZero(nHoras,2)+':'+StrZero(nMinutos,2)+':'+StrZero(nSegundos,2)
+
+	//(+/-) 99 Anos 99 Meses 99 Dias 99 Hrs 99 Min 99 Seg
+	cDataCmp2	:=  cDataAbr2+' '+StrZero(nHoras,2)+' Hrs '+StrZero(nMinutos,2)+' Min '+StrZero(nSegundos,2)+' Seg'
+
+	//(+/-) 99a 99m 99d 99h 99m 99s
+	cDataCmp3 	:=  cDataAbr3+' '+StrZero(nHoras,2)+'h '+StrZero(nMinutos,2)+'m '+StrZero(nSegundos,2)+'s'
+
+	//Calcula total de meses
+	nMeses 		:= ( nAnos * 12 + nMeses ) * Iif(lNegativo,-1,1)
+
+	//Calcula total de dias
+
+	//nDias := dDataFim - dDataIni
+
+	/*if dDataIni <> dDataFim
+		nDias		:= ( nAnos * 365 + nBissextos )
+		
+		//Soma dias do mes inicial
+		nDias 	+= F_ULTDIA(dDataIni) - nDiaIni
+		
+		//Soma dias do ano inicial
+		For I := nMesIni + 1 to 12
+			nDias	+= F_ULTDIA(StoD(StrZero(nAnoIni,4)+StrZero(I,2)+'01'))
+		Next
+		
+		//Soma dias do mes final
+		nDias 	+= nDiaFim
+		
+		//Soma dias do ano final
+		For I := 1 to nMesFim - 1
+			nDias	+= F_ULTDIA(StoD(StrZero(nAnoFim,4)+StrZero(I,2)+'01'))
+		Next
+	endif
+	*/
+	//Calcula total de horas
+
+	nHoras		:= nDias * 24 + nHoras
+
+	//(+/-)Hrs:Min:Seg
+	cHoraCmp1 	:= Iif(lNegativo,'-','')+StrZero(nHoras,3)+':'+StrZero(nMinutos,2)+':'+StrZero(nSegundos,2)
+
+	//(+/-)99 Hrs 99 Min 99 Seg         
+	cHoraCmp2 	:= Iif(lNegativo,'-','')+StrZero(nHoras,3)+' Hrs '+StrZero(nMinutos,2)+' Min '+StrZero(nSegundos,2)+' Seg'
+
+	//(+/-) 99h 99m 99s                 
+	cHoraCmp3 	:= Iif(lNegativo,'-','')+StrZero(nHoras,3)+'h '+StrZero(nMinutos,2)+'m '+StrZero(nSegundos,2)+'s'
+
+Return {aTempo		,;	//01
+		nAnos		,;	//02
+		nMeses		,;	//03
+		nDias		,;	//04
+		nHoras		,;	//05
+		cDataAbr1	,;	//06
+		cDataAbr2	,;	//07
+		cDataAbr3	,;	//08
+		cDataCmp1	,;	//09
+		cDataCmp2	,;	//10
+		cDataCmp3	,;	//11
+		cHoraCmp1	,;	//12
+		cHoraCmp2	,;	//13
+		cHoraCmp3	 }	//14
+
+//-------------------------------------------------------------------------------------------------
+//Para manter a compatibilidade
+//-------------------------------------------------------------------------------------------------
+User Function Calc_Tempo( dData1, dData2, cTempo1, cTempo2 )
+
+Return U_CXCalcTempo( dData1, dData2, cTempo1, cTempo2 )

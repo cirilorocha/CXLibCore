@@ -1,0 +1,89 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+#Include "CXApMsg.ch"
+
+//ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ
+//ฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑ
+//ฑฑษออออออออออัอออออออออออออหอออออออัอออออออออออออออออหออออออัอออออออออออออปฑฑ
+//ฑฑบPrograma  ณ CXApMsg     บ Autor ณ Cirilo Rocha    บ Data ณ  02/04/2012 บฑฑ
+//ฑฑฬออออออออออุอออออออออออออสอออออออฯอออออออออออออออออสออออออฯอออออออออออออนฑฑ
+//ฑฑบDesc.     ณ Funcao para mostrar uma mensagem ao usuario ou exibi-la no บฑฑ
+//ฑฑบ          ณ console se foi via Job                                     บฑฑ
+//ฑฑบ          ณ                                                            บฑฑ
+//ฑฑบ          ณ                                                            บฑฑ
+//ฑฑฬออออออออออุอออออออออออออออัออออออออออออออออออออออออออออออออออออออออออออนฑฑ
+//ฑฑบ   DATA   ณ Programador   ณ Manutencao Efetuada                        บฑฑ
+//ฑฑฬออออออออออุอออออออออออออออุออออออออออออออออออออออออออออออออออออออออออออนฑฑ
+//ฑฑบ 06/06/16 ณ Cirilo Rocha  ณ Ajuste para alimentar a variavel de erro   บฑฑ
+//ฑฑบ          ณ               ณ global cMsg                                บฑฑ
+//ฑฑบ          ณ               ณ Pequena revisao na rotina                  บฑฑ
+//ฑฑบ 28/08/19 ณ Cirilo Rocha  ณ Pequena revisao no fonte                   บฑฑ
+//ฑฑบ          ณ               ณ                                            บฑฑ
+//ฑฑบ          ณ               ณ                                            บฑฑ
+//ฑฑศออออออออออฯอออออออออออออออฯออออออออออออออออออออออออออออออออออออออออออออผฑฑ
+//ฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑ
+//฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿
+User Function CXApMsg(	cMensagem	,;	//01
+						nTipo		,;	//02
+						lJob		,;	//03
+						cLogGrv		,;	//04
+						lConsole	,;	//05
+						cTitulo		) 	//06
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cMensagem			AS Character
+	ParamType 1		VAR nTipo				AS Numeric						Optional Default nMsg_Alert
+	ParamType 2		VAR lJob				AS Logical						Optional Default .F.
+	ParamType 3		VAR cLogGrv				AS Character					Optional Default ''
+	ParamType 4		VAR lConsole			AS Logical						Optional Default .T.
+	ParamType 5		VAR cTitulo				AS Character					Optional Default NIL
+
+	//---------------------------------------------------------------------------------------------
+	If !Empty(cMensagem)
+
+		If cTitulo == NIL
+			If nTipo	== nMsg_Alert
+				cTitulo	:= 'A T E N ว ร O'
+			ElseIf nTipo == nMsg_Help
+				cTitulo	:= 'A T E N ว ร O'
+			ElseIf nTipo == nMsg_Stop
+				cTitulo	:= '! ! !  E R R O  ! ! !'
+			Else
+				cTitulo	:= 'A V I S O'
+			EndIf				
+		EndIf
+			
+		//Grava no log passdo por referencia
+		cLogGrv	+= cMensagem+'<br>'
+      
+		If Type('cLog') == 'C'
+			cLog	+= cMensagem+CRLF	//Variavel global de logs
+		EndIf
+		cMsg		:= cMensagem 		//Variavel global de mensagem de erros
+		
+		//Mapeia caractere de quebra de linhas
+		cMensagem	:= StrTran(cMensagem,'<br>',CRLF)
+	
+		If 	lJob .Or. ;
+			lConsole
+			
+			U_CXConOut(ANSIToOEM(cMensagem))
+		EndIf
+			
+		If !lJob
+			If nTipo == nMsg_Alert
+				ApMsgAlert(cMensagem,cTitulo)
+			ElseIf nTipo == nMsg_Stop
+				ApMsgStop(cMensagem,cTitulo)
+			ElseIf nTipo == nMsg_Help
+				U_CXHelp(cTitulo,,cMensagem)
+			Else
+				ApMsgInfo(cMensagem,cTitulo)
+			EndIf
+		EndIf
+
+	EndIf
+
+Return

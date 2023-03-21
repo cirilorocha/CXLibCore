@@ -1,0 +1,69 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXBase36 | Autor | Cirilo Rocha       | Data | 21/09/2011  |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descr.    | Funcao generica para conversar de um valor numerico em uma |##
+//##|          | string base 36 (0~9 e A~Z)                                 |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção Efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 04/09/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXBase36(	nDividendo	,;	//01
+						nTam		);	//02
+							AS Character
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local nDivisor   	AS Numeric
+	Local nResto     	AS Numeric
+	Local cRet	   		AS Character
+	Local aTabBase36 	AS Array
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR nDividendo		AS Numeric
+	ParamType 1		VAR nTam			AS Numeric					Optional Default 2
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	nDivisor   	:= 36
+	nResto     	:= 0
+	cRet	   	:= ""
+	aTabBase36 	:= {"1","2","3","4","5","6","7","8","9",;
+					"A","B","C","D","E","F","G","H","I",;
+					"J","K","L","M","N","O","P","Q","R",;
+					"S","T","U","V","W","X","Y","Z","0" }
+	
+	While nDividendo > 0
+	   If nDividendo < nDivisor
+	       cRet := aTabBase36[nDividendo] + cRet
+	       Exit
+	   EndIf
+	   nResto     := (nDividendo % nDivisor)
+	   If nResto > 0
+	       cRet := aTabBase36[nResto  ] + cRet
+	   Else
+	       cRet := aTabBase36[nDivisor] + cRet
+	   EndIf
+	   nDividendo := Int(nDividendo / nDivisor)
+	EndDo
+        
+Return PadL(cRet,nTam,'0')
+
+//--------------------------------------------------------------------
+//Compatibilidade
+//--------------------------------------------------------------------
+User Function Base36(nDividendo,nTam)
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR nDividendo		AS Numeric
+	ParamType 1		VAR nTam			AS Numeric					Optional Default 2
+
+Return U_CXBase36(nDividendo,nTam)

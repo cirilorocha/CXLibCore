@@ -1,0 +1,102 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXSetUsr | Autor | Cirilo Rocha       | Data |  21/07/2016 |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descr.    | Função para execução de testes, permitindo mudar de usuário|##
+//##|          |  durante o tempo de execução                               |##
+//##+----------+----------+-------------------------------------------------+##
+//##|DATA      | ANALISTA | MOTIVO                                          |##
+//##+----------+----------+-------------------------------------------------+##
+//##| 12/08/19 | Cirilo R.| Pequena revisão no fonte                        |##
+//##| 23/10/19 | Cirilo R.| Adicionado tratamento para execução via fonte   |##
+//##| 22/03/22 | Cirilo R.| Pequena revisão no fonte                        |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+----------+----------+-------------------------------------------------+##
+//#############################################################################
+User Function CXSetUsr(	cCodUsr	,;	//01
+						lMsg	);	//02
+							AS Logical
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aParam	AS Array
+	Local cPerg		AS Character
+	Local cUsrPsw	AS Character
+	Local nOrdem	AS Numeric
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cCodUsr			AS Character			Optional Default NIL
+	ParamType 1		VAR lMsg			AS Logical				Optional Default .T.
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+
+	If ValType(cCodUsr) <> 'C'
+		If lMsg
+			aParam		:= U_CXGetParam(1) //Salva parametros
+			cPerg		:= 'CXSETUSR'
+
+			U_CXPergunta({	{"Usuário ?" 	,"C", len(__cUserID), 0,'NaoVazio() .And. UsrExist(MV_PAR01)','USR'}},cPerg)
+			
+			If .Not. Pergunte(cPerg,.T.)
+				U_CXRestParam(aParam) //Restaura parametros
+				Return .F.
+			EndIf
+			cCodUsr	:= MV_PAR01
+			U_CXRestParam(aParam) 	//Restaura parametros
+		Else
+			cCodErr	:= U_CXTxtMsg(,,.T.)
+			cMsgErr	:= 'ERRO: NÃO FOI PASSADO O CÓDIGO DE USUÁRIO.'
+			cSoluc	:= 'INFORME O SETOR DE T.I.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			If lMsg
+				U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+			EndIf
+
+			Return .F.
+		EndIf
+	ElseIf Empty(cCodUsr)
+		cCodErr	:= U_CXTxtMsg(,,.T.)
+		cMsgErr	:= 'ERRO: NÃO FOI PASSADO O CÓDIGO DE USUÁRIO.'
+		cSoluc	:= 'INFORME O SETOR DE T.I.'
+		cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+		If lMsg
+			U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+		EndIf
+
+		Return .F.
+	EndIf
+	
+	//Salva dados atuais
+	cUsrPsw	:= PswID()
+	nOrdem	:= PswOrder(1)	//Ordem por codigo
+	If PswSeek(cCodUsr)
+		__cUserID	:= cCodUsr
+		cUserName	:= UsrRetName(__cUserID)	//Atualizo o nome de usuario
+	Else
+		PswSeek(cUsrPsw)		//Restauro usuario PSW
+		PswOrder(nOrdem)		//Restaura ordem
+		
+		cCodErr	:= U_CXTxtMsg(,,.T.)
+		cMsgErr	:= 	'ERRO AO SETAR USUÁRIO '+cCodUsr+CRLF+;
+					'NÃO FOI POSSÍVEL LOCALIZAR O CÓDIGO.'
+		cSoluc	:= 'INFORME O SETOR DE T.I.'
+		cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+		If lMsg
+			U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+		EndIf
+
+		Return .F.
+	EndIf
+
+Return .T.

@@ -1,0 +1,80 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#INCLUDE "CXInclude.ch"
+#INCLUDE "CXFerMov.CH"
+#Include "ParmType.ch"
+#Include "CXInclude.ch"
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXFerMov | Autor | Cirilo Rocha       | Data | 06/06/2013  |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descr.    | Função para calcular os feriados móveis (carnaval,Sexta da |##
+//##|          | Paixao, Corpus Christi)                                    |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção Efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 02/01/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 12/10/21 | Cirilo R. | Pequena revisão (release 33)                   |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXFerMov(nAno);
+						AS Array
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aRet			AS Array
+
+	Local dDtPascoa   	AS Date 	//Domingo de Pascoa
+	Local dDtCarnaval 	AS Date 	//Terca Feira de Carnaval
+	Local dDtSexta    	AS Date 	//Sexta Feira da Paixao
+	Local dDtCorpus   	AS Date 	//Corpus Christi
+
+	Local nMes			AS Integer
+	Local nDia			AS Integer
+
+	Local nA			AS Numeric
+	Local nB			AS Numeric
+	Local nC			AS Numeric
+	Local nD			AS Numeric
+	Local nE			AS Numeric
+	Local nF			AS Numeric
+	Local nG			AS Numeric
+	Local nH			AS Numeric
+	Local nI			AS Numeric
+	Local nK			AS Numeric
+	Local nL			AS Numeric
+	Local nM			AS Numeric
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR nAno  	  		AS Numeric
+
+	//---------------------------------------------------------------------------------------------
+	nA	:= Int( Mod(nAno,19) )
+	nB	:= Int( nAno/100 )
+	nC	:= Int( Mod(nAno,100) )
+	nD	:= Int( nB / 4 )
+	nE	:= Int( Mod(nB,4) )
+	nF	:= Int( (nB+8)/25 )
+	nG	:= Int( (nB-nF+1)/3 )
+	nH	:= Int( Mod( (19*nA+nB-nD-nG+15) , 30 ) )
+	nI	:= Int( nC/4 )
+	nK	:= Int( Mod(nC,4) )
+	nL	:= Int( Mod( (32+2*nE+2*nI-nH-nK) , 7 ) )
+	nM	:= Int( (nA+11*nH+22*nL)/451 )
+
+	nMes 		:=  Int( (nH+nL-7*nM+114)/31 )
+	nDia 	  	:=  Int( ((nH+nL-7*nM+114)%31)+1 )
+	dDtPascoa	:= StoD( StrZero(nAno,4)+StrZero(nMes,2)+StrZero(nDia,2) ) //Domingo de Pascoa
+
+	dDtCarnaval	:= dDtPascoa - 47 //Terca feira de carnaval
+	dDtSexta	:= dDtPascoa - 2  //Sexta feira da paixao
+	dDtCorpus	:= dDtPascoa + 60 //Corpus Christi
+
+	aRet	:= Array(nFR_TAMARR)
+	aRet[nFR_CARNAVAL]	:= dDtCarnaval
+	aRet[nFR_SEXTA]		:= dDtSexta
+	aRet[nFR_CORPUS]	:= dDtCorpus
+
+Return aRet

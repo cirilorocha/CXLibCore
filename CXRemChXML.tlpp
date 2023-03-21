@@ -1,0 +1,55 @@
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+#INCLUDE 'CXInclude.ch'
+
+//#############################################################################
+//##+----------+------------+-------+------------------+------+-------------+##
+//##|Programa  | CXRemChXML | Autor | Cirilo Rocha     | Data | 19/04/2018  |##
+//##+----------+------------+-------+------------------+------+-------------+##
+//##|Descr.    | Função genérica para retirar caracteres inválidos de textos|##
+//##|          | para strings que serão utilizadas em arquivos XML          |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção Efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 28/04/18 | Cirilo R. | Feitos tratamentos para outros caracteres espe-|##
+//##|          |           |  ciais usando a lib                            |##
+//##|          |           | Usando lib para caracteres XML                 |##
+//##| 26/10/21 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXRemChXML(	cTexto		,;	//Texto a ser processado
+							lTags		,;	//Converte os caracteres para
+							lNoAcento	);	//Remove os acentos do texto
+									AS Character
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cRet		AS Character
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cTexto		AS Character
+	ParamType 1		VAR lTags		AS Logical				Optional Default .F.	//Processa sinais < (menor) e > (maior)
+	ParamType 2		VAR lNoAcento	AS Logical				Optional Default .F. 	//Remove os acentos
+
+	//---------------------------------------------------------------------------------------------
+
+	//Quebra de linha
+	cRet := StrTran( cTexto, CRLF, " / " )
+	
+	//Processa sinais maior e menor
+	If lTags
+		cRet	:= U_CXXMLAcento(cRet)
+	EndIf
+
+	//Caso o XML nao aceite nenhum tipo de acento
+	If lNoAcento
+		cRet	:= FwNoAccent(cRet)
+	EndIf
+	
+	//Remove caracteres especiais
+	cRet	:= U_CXRemEsp(cRet,.F.)
+	
+Return cRet

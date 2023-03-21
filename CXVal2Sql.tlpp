@@ -1,0 +1,67 @@
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+#INCLUDE 'CXInclude.ch'
+
+//#############################################################################
+//##+==========+===========+=======+====================+======+============+##
+//##|Programa  | CXVal2Sql | Autor | Cirilo Rocha       | Data | 24/02/2022 |##
+//##+==========+===========+=======+====================+======+============+##
+//##|Desc.     | Função para converter qualquer valor em string para usar   |##
+//##|          |  em queries SQL                                            |##
+//##+==========+==========+=================================================+##
+//##| DATA     | ANALISTA | MANUTENÇÃO EFETUADA                             |##
+//##+==========+==========+=================================================+##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+==========+==========+=================================================+##
+//#############################################################################
+User Function CXVal2SQL(uValor	,;	//01 Valor a ser convertido
+						lQuery	,;	//02 Inserção na query acrescenta Aspas(C,D,L) e Parênteses (IN)
+						nPos	);	//03 Se os elementos do Array IN for um Array qual a posição a considerar
+							AS Character
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local nX		AS Integer
+	Local cType		AS Character
+	Local cRet		AS Character
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR uValor		AS Character,Date,Array,Numeric,Logical
+	ParamType 1		VAR lQuery	  	AS Logical									Optional Default .T.
+	ParamType 2		VAR nPos	  	AS Numeric									Optional Default 0
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	cType	:= ValType(uValor)
+
+	If cType == 'C'
+		cRet	:= uValor
+	ElseIf cType == 'D'
+		cRet	:= DtoS(uValor)
+	ElseIf cType == 'A'	//Array entende que é um IN
+		cRet	:= ''
+		For nX := 1 to Len(uValor)
+			If ValType(uValor[nX]) == 'A'
+				cRet	+= U_CXVal2SQL(uValor[nX][nPos],lQuery)
+			Else
+				cRet	+= U_CXVal2SQL(uValor[nX],lQuery)
+			EndIf
+			If nX <> Len(uValor)
+				cRet	+= ','
+			EndIf
+		Next
+	ElseIf cType == 'N'
+		cRet	:= LTrim(Str(uValor))
+	ElseIf cType == 'L'
+		cRet	:= IIF(uValor,'T','F')
+	EndIf
+
+	//Se for para usar direto na query acrescenta Aspas
+	If lQuery
+		If .Not. ( cType $ 'N/A' )
+			cRet	:= "'"+cRet+"'"
+		EndIf
+	EndIf
+
+Return cRet

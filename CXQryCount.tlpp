@@ -1,0 +1,115 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+#Include "CXApMsg.ch"
+
+//#############################################################################
+//##+----------+-------------+-------+--------------------+------+----------+##
+//##|Programa  | CXQryCount  | Autor | Cirilo Rocha       | Data |06/03/2012|##
+//##+----------+-------------+-------+--------------------+------+----------+##
+//##|Descr.    | Função para contar quantos registros são retornados de uma |##
+//##|          |  determinada query                                         |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 11/11/13 | Cirilo R. | Modificada para usar a função CXExecQuery      |##
+//##| 08/08/16 | Cirilo R. | Pequena revisão                                |##
+//##| 03/09/19 | Cirilo R. | Pequena revisão                                |##
+//##| 17/11/20 | Cirilo R. | Pequena revisão                                |##
+//##| 18/02/22 | Cirilo R. | Melhoria para utilizar BindParam               |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXQryCount(	cQuery		,;
+							aBindParam	);
+									AS Numeric
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aBindQry		AS Array
+	Local oArea			AS Object
+	Local cMsg			AS Character
+	Local cQueryTmp		AS Character
+	Local cQryProc		AS Character
+//	Local cQry			AS Character
+	Local nRet			AS Integer
+	Local nPosIni		AS Integer
+	Local nPosFim		AS Integer
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cQuery			AS Character
+	ParamType 1		VAR aBindParam		AS Array	   			Optional Default {}
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	oArea		:= tCtrlAlias():GetArea()
+	nRet		:= 0
+	cQueryTmp	:= cQuery
+
+	/*
+	//Query apenas para testes
+	cQueryTmp:= " SELECT  " + CRLF+;
+					"(	SELECT TOP 1 A1_NOME FROM SA1010  " + CRLF+;
+					"	WHERE SA1010.D_E_L_E_T_='' " + CRLF+;
+					"	AND SA1010.A1_NOME LIKE '%JOSE%' " + CRLF+;
+					"	ORDER BY SA1010.R_E_C_N_O_ DESC) TESTE_1 " + CRLF+;
+					",* " + CRLF+;
+					"FROM SE1010 WHERE  SE1010.D_E_L_E_T_ = '' " + CRLF+;
+					"		AND E1_EMISSAO BETWEEN '20120224' AND '20120229' " + CRLF+;
+					"		AND E1_TIPO = 'CTR' " + CRLF+;
+					"		AND E1_FILIAL = '01' " + CRLF+;
+					"		AND E1_SALDO > 0 " + CRLF+;
+					"		AND E1_CLIENTE = '015945' "+CRLF+;
+					"ORDER BY E1_FILIAL"
+	*/
+
+	If !Empty(cQueryTmp)
+		nPosIni	:= Rat('ORDER BY',cQueryTmp)	//Preciso remover o order by geral da query, senão o processo dá erro
+
+		//Busca se e' sub query
+		nPosFim	:= Rat(')',cQueryTmp)
+
+		//Se existe uma clausula Order By e esta no final da query
+		If nPosIni > 0 .And. ( nPosFim == 0 .Or. nPosFim < nPosIni )
+			cQueryTmp	:= Left(cQueryTmp,nPosIni-1)
+		EndIf
+
+		//Monta query para contagem de registros
+		cQueryTmp	:= 'SELECT COUNT(1) QTD_REG '+CRLF+;
+							'FROM '+CRLF+;
+							'	( '+CRLF+;
+							'	'+cQueryTmp+CRLF+;
+							') QUERY '
+
+		//Executa a query
+//		U_CXExecQuery(@cQry,cQueryTmp,/*lGravaQuery*/,/*lCpoData*/,/*cNomeFun*/) //Executa a query
+
+//		nRet	:= (cQry)->QTD_REG
+
+//		(cQry)->(dbCloseArea())
+
+		//Processa Bind Param da query e a query para o comando IN---------------------------------
+		aBindQry	:= aClone(aBindParam)
+		If Len(aBindParam) > 0
+			cQryProc	:= U_CXProcQBind(	@cQueryTmp	,;
+											@aBindQry	)
+		Else
+			cQryProc	:= cQueryTmp
+		EndIf
+
+		nRet	:= MpSysExecScalar(cQueryTmp,'QTD_REG',aBindQry)	//Executa uma consulta e retorna a primeira linha no conjunto de resultados retornados pela consulta
+	Else
+		cMsg := ''
+		cMsg += U_CXTxtMsg()+'Erro na execução da query.'+CRLF
+		If !Empty(cQuery)
+			cMsg += 'Query Vazia'+CRLF
+		EndIf
+
+		u_CXApMsg(cMsg,nMsg_Stop)
+	EndIf
+
+	oArea:RestArea()		//Restaura area
+	oArea:Destroy()
+	FWFreeVar(oArea)
+
+Return nRet

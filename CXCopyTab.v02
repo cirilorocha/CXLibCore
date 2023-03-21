@@ -1,0 +1,392 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#INCLUDE "Totvs.ch"
+#INCLUDE "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+#INCLUDE "CXRegua.ch"
+#INCLUDE "CXStruct.ch"
+
+//#############################################################################
+//##+----------+------------+-------+------------------+------+-------------+##
+//##|Programa  | CXCopyTab  | Autor | Cirilo Rocha     | Data | 03/05/2017  |##
+//##+----------+------------+-------+------------------+------+-------------+##
+//##|Descricao | Funcao semelhante a MsCopyFile, mas esta pode copiar tabe- |##
+//##|          | las entre drivers diferentes                               |##
+//##|          | O COPY TO E' MAIS RAPIDO POREM NAO MOSTRA O PROGRESSO      |##
+//##|          |                                                            |##
+//##|          | MELHORIAS: COPIA PARA SQL SERVER MANTENDO O RECNO!         |##
+//##|          |            COPIA DE QUERIES P/ TABELAS                     |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutencao Efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 08/05/17 | Cirilo R. | Pequena melhoria no fonte                      |##
+//##| 21/08/17 | Cirilo R. | Adicionado filtro para salvar apenas alguns    |##
+//##|          |           | campos                                         |##
+//##| 05/01/18 | Cirilo R. | Otimizacao geral do fonte                      |##
+//##| 24/01/18 | Cirilo R. | Correcao na regua de processamento             |##
+//##| 02/03/18 | Cirilo R. | Correcao na gravacao DTC com Memos             |##
+//##| 13/08/18 | Cirilo R. | Correcao para salvar e restaura o filtro dos   |##
+//##|          |           | deletados                                      |##
+//##| 23/08/19 | Cirilo R. | Pequena revisao no fonte                       |##
+//##| 10/03/23 | Cirilo R. | Pequena revisao no fonte                       |##
+//##|          |           | Ajustes para usar as classes zDBF para salvar  |##
+//##|          |           |  em DBF                                        |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXCopyTab(cFileSource	,; 	//01 Arquivo de origem (ex: \system\sx3010.dtc)
+						cFileTarget	,; 	//02 Arquivo de destino (ex: \backup\sx3010.dbf)
+						cDrvSrc		,; 	//03 Driver origem (def de acordo com a origem)
+						cDrvTgt		,; 	//04 Driver destino (def de acordo com a origem)
+						nTpRegua	,; 	//05 Regua de processamento (def Sem Regua)
+						cFiltro		,;	//06 Filtro de registros (def sem filtro)
+						aCpos		,; 	//07 Campos para gravacao (def todos)
+						lMsg		);	//08 Mostra mensagens de erro (def .T.)
+								AS Logical
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aCampos		AS Array
+	Local aDados		AS Array
+	Local aPosSrc		AS Array
+	Local aRecnoDel		AS Array
+	Local aStruSrc		AS Array
+	Local aStruTgt		AS Array
+	Local cFileExt		AS Character
+	Local cIndice		AS Character
+	Local cNmSrc		AS Character
+	Local cQry			AS Character
+	Local cQuery		AS Character
+	Local cSource		AS Character
+	Local cTarget		AS Character
+	Local lBack 		AS Logical
+	Local lCanUseBulk	AS Logical
+	Local lDelBak		AS Logical
+	Local lFiltro		AS Logical
+	Local lTgtDBF		AS Logical
+	Local lTgtTop		AS Logical
+	Local nBuffer		AS Numeric
+	Local nPos			AS Numeric
+	Local nPosRec		AS Numeric
+	Local nTamTgt		AS Numeric
+	Local nTotal		AS Numeric
+	Local nX			AS Numeric
+	Local oArea	  		AS Object
+	Local oBulk			AS Object
+	Local oDBFTgt		AS Object
+	Local uConteudo		AS Variant
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0 VAR cFileSource		AS Character
+	ParamType 1 VAR cFileTarget		AS Character
+	ParamType 2 VAR cDrvSrc			AS Character		Optional DEFAULT NIL
+	ParamType 3 VAR cDrvTgt			AS Character		Optional DEFAULT NIL
+	ParamType 4 VAR nTpRegua		AS Numeric			Optional DEFAULT nRG_SEMREGUA
+	ParamType 5 VAR cFiltro			AS Character		Optional DEFAULT ''
+	ParamType 6 VAR aCpos			AS Array			Optional DEFAULT {}
+	ParamType 7 VAR lMsg			AS Logical			Optional DEFAULT .T.
+
+	//Inicializa variaveis-------------------------------------------------------------------------
+	lBack 		:= .T.
+	lCanUseBulk	:= FWBulk():CanBulk()
+	nBuffer		:= 0
+	oArea	  	:= tCtrlAlias():GetArea() //U_CXGetArea({})
+	aRecnoDel	:= {}
+
+	//Isolamento da variavel recebida por parametro!
+	aCampos		:= aClone(aCpos)
+
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+
+	lFiltro		:= !Empty(cFiltro)
+
+	If cDrvSrc == NIL
+		cFileExt	:= U_CXFileExt(cFileSource)
+		cDrvSrc		:= U_CXGetDrv(cFileExt)
+	EndIf
+
+	If cDrvTgt == NIL
+		cFileExt	:= U_CXFileExt(cFileTarget)
+		cDrvTgt		:= U_CXGetDrv(cFileExt)
+	EndIf
+	lTgtTop	:= (cDrvTgt == 'TOPCONN')
+	lTgtDBF	:= (cDrvTgt == 'DBFCDXADS')
+
+	cTarget := Iif(".#DB" $ cFileTarget,Strtran(cFileTarget,".#DB","BKP"),U_CXRetFileName(cFileTarget))
+//  cTarget := RetFileName(cTarget)
+
+	cSource := Iif(".#DB" $ cFileSource,Strtran(cFileSource,".#DB","BKP"),U_CXRetFileName(cFileSource))
+//  cSource := RetFileName(cSource)
+	cNmSrc	:= U_CXRetFileName(cSource)
+
+	U_CXSetRegua(nTpRegua,0)
+	U_CXIncRegua(nTpRegua,'Copiando tabela '+cNmSrc+'...')
+
+	// Deletando arquivo de Destino caso exista
+	If MsFile(cTarget,cIndice,cDrvTgt)
+
+		cIndice := U_CXRetFileName(cTarget)+OrdBagExt()
+
+		lBack 	:= MsErase(cTarget,cIndice,cDrvTgt)
+	EndIf
+
+	//Obtem a estrutura do arquivo origem
+	If lBack
+		dbUseArea(.T.,cDrvSrc, cSource,'SOURCE', .T., .T.) //Abre a tabela origem
+		If Select('SOURCE') == 0
+			U_CXMsgErro("ERRO ao abrir tabela de origem "+cFileSource+" usando o driver "+cDrvSrc+".",;
+						/*cSolucao*/,lMsg,/*oArea*/)
+			lBack	:= .F.
+		Else
+			aStruSrc := SOURCE->(dbStruct())
+			aStruTgt := aClone(aStruSrc)
+			If !lTgtTop .And. ;
+				aScan(aStruTgt,{|x| x[nST_CAMPO] == 'CX_RECNO' }) == 0 //Nao existe o campo na tabela origem
+
+				aAdd(aStruTgt,array(nST_TAMARR))
+				aTail(aStruTgt)[nST_CAMPO]		:= 'CX_RECNO'
+				aTail(aStruTgt)[nST_TIPO]		:= 'N'
+				aTail(aStruTgt)[nST_TAMANHO]	:= 16
+				aTail(aStruTgt)[nST_DECIMAL]	:= 0
+			EndIf
+
+	//	    SOURCE->(dbCloseArea())
+		EndIf
+	EndIf
+
+	//Cria o arquivo destino
+	If lBack
+		//Apenas campos filtrados
+		If len(aCampos) > 0
+			aAdd(aCampos,'CX_RECNO') //Mantem o campo do recno
+			For nX := len(aStruTgt) to 1 step -1
+				If aScan(aCampos,{|x| x == aStruTgt[nX][nST_CAMPO] }) == 0
+					U_CXaDel(aStruTgt,nX)
+				EndIf
+			Next
+
+			If len(aStruTgt) == 1
+				U_CXMsgErro("ERRO - NENHUM CAMPO VÁLIDO PARA FAZER O BACKUP DA TABELA.",;
+							"VERIFIQUE OS CAMPOS PASSADOS NO FILTRO.",lMsg,/*oArea*/)
+				lBack := .F.
+			EndIf
+		EndIf
+	EndIf
+
+	If lBack
+		If lTgtDBF
+			// Cria o objeto para gravação do arquivo 
+			oDBFTgt := zDBFFile():New(cFileTarget)
+			If 	.Not. oDBFTgt:Create(aStruTgt) .Or. ;
+				.Not. oDBFTgt:Open(.T.,.T.)
+
+				U_CXMsgErro(oDBFTgt:GetErrorStr(),/*cSolucao*/,lMsg,/*oArea*/)
+				lBack	:= .F.
+			Endif
+		ElseIf .Not. MsCreate(cFileTarget,aStruTgt,cDrvTgt)	//Cria Arquivo de Destino
+			U_CXMsgErro("ERRO ao criar tabela de destino "+cFileTarget+" usando o driver "+cDrvTgt+CRLF+;
+						U_CXDescErro()+".",/*cSolucao*/,lMsg,/*oArea*/)
+			lBack 	:= .F.
+		EndIf
+	EndIf
+
+	If lBack
+		If .Not. lTgtDBF
+			dbUseArea(.T., cDrvTgt, cTarget, 'TARGET', .F. , .F. )
+			If Select('TARGET') == 0
+				U_CXMsgErro("ERRO ao abrir tabela de destino "+cFileTarget+" usando o driver "+cDrvTgt+".",;
+							/*cSolucao*/,lMsg,/*oArea*/)
+				lBack	:= .F.
+			EndIf
+		EndIf
+	EndIf
+
+	//Otimizacao
+	If lBack
+		//Cria um indice de campos entre o Source e o Target
+		aPosSrc		:= {}
+		If lTgtDBF
+			aStruTgt	:= oDBFTgt:dbStruct()
+		Else
+			aStruTgt 	:= TARGET->(dbStruct()) //Recarrego os campos para garantir, pois, campos memo sao reordenados pelo ctree
+		EndIf
+		nTamTgt		:= len(aStruTgt)
+		aPosSrc		:= Array(nTamTgt)
+		nPosRec		:= aScan(aStruTgt,{|x| RTrim(x[nST_CAMPO]) == 'CX_RECNO' })	//Feito assim por causa dos memos!
+		For nX := 1 to nTamTgt
+			nPos	:= aScan(aStruSrc,{|x| RTrim(x[nST_CAMPO]) == RTrim(aStruTgt[nX][nST_CAMPO]) })
+			If nPos <= 0 .And. ;
+				nX <> nPosRec
+
+				U_CXMsgErro("Problema na estrutura da tabela "+cSource+".",/*cSolucao*/,lMsg,/*oArea*/)
+				lBack	:= .F.
+				Exit
+			EndIf
+			aPosSrc[nX]	:= nPos
+		Next
+	EndIf
+
+	//Copia os dados entre os arquivos
+	If lBack
+		lDelBak	:= Set(_SET_DELETED, .F.) //Considera os registros deletados!
+
+		//Se a tabela esta no Top faz uma query simples para contagem
+		If (cDrvSrc == 'TOPCONN')
+			//Query
+			cQuery	:= ""
+			cQuery 	+= "SELECT COUNT(1) TOTAL "+CRLF
+			cQuery 	+= "FROM "+cSource+CRLF
+
+			U_CXExecQuery(@cQry,cQuery,/*lGravaQuery*/,.F.,/*cNomeFun*/) //Executa a query
+
+			nTotal	:= (cQry)->TOTAL
+
+			(cQry)->(dbCloseArea()) //Fecha a query
+		Else
+//   		dbSelectArea('SOURCE')
+//	   		Count To nTotal
+			nTotal	:= SOURCE->(LastRec()) //Nao e' exata a conta
+		EndIf
+
+		U_CXSetRegua(nTpRegua,nTotal)
+		
+		If 	lCanUseBulk .And. ;
+			cDrvTgt == 'TOPCONN'
+
+			oBulk		:= FwBulk():New('TARGET')
+			lCanUseBulk	:= .T.
+		Else
+			lCanUseBulk	:= .F.
+		EndIf
+
+		If lCanUseBulk
+			oBulk:SetFields(aStruTgt)
+		EndIf
+		
+		SOURCE->(dbGoTop())
+		While SOURCE->(!EOF())
+
+			U_CXIncRegua(nTpRegua,,'Copiando '+cNmSrc)
+
+			//Filtra registros
+			If 	lFiltro .And. ;
+				.Not. SOURCE->(&(cFiltro))
+
+				SOURCE->(dbSkip())
+				Loop
+			EndIf
+			
+			nBuffer++
+			If lCanUseBulk
+				aDados	:= {}
+			ElseIf lTgtDbf
+				oDBFTgt:Insert()	//Equivalente ao reclock()
+			Else
+				RecLock('TARGET',.T.)
+			EndIf
+			
+			For nX := 1 to nTamTgt
+				
+				If 	nX == nPosRec .And. ;
+					lTgtTop //Nao trata o recno quando a tabela e' top!
+
+					Loop
+				EndIf
+
+				If nX == nPosRec
+					uConteudo	:= 	SOURCE->(Recno())
+				Else
+					uConteudo	:= 	SOURCE->(FieldGet(aPosSrc[nX]))
+				EndIf
+
+				If lCanUseBulk
+					aAdd(aDados,uConteudo)
+				ElseIf lTgtDbf
+					oDBFTgt:FieldPut(nX,uConteudo)
+				Else
+//					TARGET->(&(aStruTgt[nX][nST_CAMPO]))	:= SOURCE->(FieldGet(aPosSrc[nX]))
+//					TARGET->(FieldPut(nX,SOURCE->(FieldGet(aPosSrc[nX])))) //Melhor otimizacao!
+					TARGET->(FieldPut(nX,uConteudo)) //Melhor otimizacao!
+				EndIf
+
+			Next
+			
+			If lCanUseBulk
+				oBulk:AddData(aDados)
+			ElseIf lTgtDbf
+				oDBFTgt:Update()	//Equivalente ao UnLock()
+			Else
+//	   			TARGET->(MsUnLock())
+				
+				//Otimização
+				If nBuffer >= 1000
+					nBuffer	:= 0
+					dbUnlockAll()
+				EndIf
+			EndIf
+
+			If SOURCE->(Deleted()) //se o registro atual esta deletado
+				If lCanUseBulk
+					aAdd(aRecnoDel,nBuffer)
+				ElseIf lTgtDbf
+					oDBFTgt:dbDelete()	//Apaga o registro
+				Else
+					TARGET->(dbDelete()) //Apaga o registro corrente
+				EndIf
+			EndIf
+
+			SOURCE->(dbSkip())
+		EndDo
+
+		Set(_SET_DELETED,lDelBak) //Restaura o filtro antes do processamento
+	EndIf
+	
+	If lCanUseBulk
+		oBulk:Flush()
+		
+		//Faz um processamento nos registros deletados
+		For nX := 1 to Len(aRecnoDel)
+			TARGET->(dbGoTo(aRecnoDel[nX]))
+			RecLock('TARGET',.F.)
+				TARGET->(dbDelete()) //Apaga o registro corrente
+// 			TARGET->(MsUnLock())
+			//Otimização
+			If nX%1000 == 0
+				dbUnlockAll()
+			EndIf
+		Next		
+	ElseIf .Not. lTgtDbf
+		dbUnlockAll()
+	EndIf
+
+	If ValType(oBulk) == 'O'
+		oBulk:Close()
+		oBulk:Destroy()
+			
+		FreeObj(oBulk)
+	EndIf
+
+	If ValType(oDBFTgt) == 'O'
+		oDBFTgt:Close()
+		oDBFTgt:Destroy()
+			
+		FreeObj(oDBFTgt)
+	EndIf
+
+	//Fecha tabelas abertas
+	If Select('SOURCE') > 0
+		SOURCE->(dbCloseArea())
+	EndIf
+
+	If Select('TARGET') > 0
+		TARGET->(dbCloseArea())
+	EndIf
+
+	//U_CXRestArea(aArea)
+	oArea:RestArea()
+
+Return( lBack )

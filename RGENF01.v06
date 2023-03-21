@@ -1,0 +1,131 @@
+#Include "Protheus.ch"
+#include "RWMake.ch"
+#Include "ParmType.ch"
+#Include "CXInclude.ch"
+
+//Static lRetAnt	:= Nil
+
+//#############################################################################
+//##+==========+==========+=======+=====================+======+============+##
+//##|Programa  | RGENF01  | Autor | Cirilo Rocha        | Data | 26/01/2012 |##
+//##+==========+==========+=======+=====================+======+============+##
+//##|Descricao | Funcao generica para ser utilizada como validacao se o usu-|##
+//##|          | ario pode efetuar algum procedimento.                      |##
+//##|          | Valida se esta no parametro passado, se e' da diretoria ou |##
+//##|          | da equipe de TI                                            |##
+//##|          | Pode ser utilizado no When de campos ou em alguma validacao|##
+//##|          |                                                            |##
+//##|          |                                                            |##
+//##|          |                                                            |##
+//##+==========+===============+============================================+##
+//##|   DATA   | Programador   | Manutencao Efetuada                        |##
+//##+==========+===============+============================================+##
+//##| 05/09/13 | Cirilo Rocha  | Adicionado valor padrao para os codigos de |##
+//##|          |               | usuario                                    |##
+//##| 28/07/15 | Cirilo Rocha  | Otimizacao do fonte                        |##
+//##| 22/08/18 | Cirilo Rocha  | Pequena revisao no fonte                   |##
+//##| 07/10/20 | Cirilo Rocha  | Pequena revisao no fonte                   |##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+==========+===============+============================================+##
+//#############################################################################
+Static cUsrDir	:= GetMV('MS_USRDIR',.F.,'000201,000032,000082,000081,000012,000013')
+Static cGrpDir	:= GetMV('MS_GRPDIR',.F.,'000002')
+Static cUsrTi 	:= GetMV('MS_USRTI' ,.F.,'000198,000202,000264,000177')
+Static cGrpTi	:= GetMV('MS_GRPTI' ,.F.,'') //O grupo 000000 ja e' padrao
+Static aGrpPerm	:= FWSFUsrGrps(__cUserId)
+//-------------------------------------------------------------------------------------------------
+User Function RGENF01(	cParUSR		,;	//01
+						lDiretoria	,;	//02
+						lTi			,;	//03
+						cUsrDefault	 )	//04
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local lRet			AS Logical
+	Local cUsrPar		AS Character
+	Local nX			AS Numeric
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	lRet		:= .F.
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cParUSR		  	  	AS Character			Optional Default ''
+	ParamType 1		VAR lDiretoria  	  	AS Logical		  		Optional Default .T.
+	ParamType 2		VAR lTi  	  			AS Logical				Optional Default .T.
+	ParamType 3		VAR cUsrDefault 		AS Character           	Optional Default ''
+
+	//---------------------------------------------------------------------------------------------
+	//Obtem os usuarios passados pelo parametro
+	If 	.Not. Empty(cParUSR)
+		cUsrPar	:= SuperGetMV(cParUSR,.F.,cUsrDefault)
+
+		//Verifica se esta no parametro passado
+		If	.Not. Empty(cUsrPar)
+			lRet	:= (__cUserID $ cUsrPar)
+		EndIf
+
+	EndIf
+
+	//+----------------------------------------+
+	//| Verifica se deve autorizar a diretoria |
+	//+----------------------------------------+
+
+	//Verifica primeiro nos grupos
+	If 	.Not. lRet
+		For nX := 1 to len(aGrpPerm)
+			If aGrpPerm[nX] $ cGrpDir
+				lRet	:= .T.
+				exit
+			EndIf
+		Next
+	EndIf
+
+	//Depois pelo parametro
+	If 	.Not. lRet .And. ;
+		lDiretoria
+
+		lRet	:= ( __cUserID $ cUsrDir )
+	EndIf
+
+	//+--------------------------------------------------+
+	//| Verifica se pode dar acesso aos usuarios da T.I. |
+	//+--------------------------------------------------+
+
+	//Busca pelo grupo
+	If 	.Not. lRet .And.;
+		lTi
+
+		If FWIsAdmin(__cUserID)
+			lRet	:= .T.
+		Else
+			For nX := 1 to len(aGrpPerm)
+				If aGrpPerm[nX] $ cGrpTi + '/' + '000000'
+					lRet	:= .T.
+					exit
+				EndIf
+			Next
+		EndIf
+	EndIf
+
+	//Busca pelo parametro
+	If 	.Not. lRet .And. ;
+		lTi
+
+		lRet	:= (__cUserID $ cUsrTi)
+	EndIf
+
+	//Se usuario administrador
+	If 	.Not. lRet .And. ;
+		lTi
+
+		lRet	:= (__cUserID == '000000')
+	EndIf
+
+	//+------------------------------------------------------+
+	//| Salva retorno para otimizar os resultados da funcao, |
+	//| pois ela pode ser chamada muitas vezes repetidas     |
+	//| em um campo When por exemplo                         |
+	//+------------------------------------------------------+
+	//lRetAnt	:= lRet
+
+Return lRet

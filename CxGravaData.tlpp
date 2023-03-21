@@ -1,0 +1,77 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+
+//#############################################################################
+//##+----------+-------------+-------+-----------------+------+-------------+##
+//##|Programa  | CXGravaData | Autor | Cirilo Rocha    | Data | 13/08/2013  |##
+//##+----------+-------------+-------+-----------------+------+-------------+##
+//##|Desc.     | Função para substituir a função padrão gravadata, pois, a  |##
+//##|          | padrão tem um bug, se for passado para vir com um separador|##
+//##|          | ela retorna um campo data e não string como era o esperado |##
+//##+----------+------------------------------------------------------------+##
+//##|Parametros| ExpD1 := Data a ser convertida (default dDataBase)         |##
+//##|          | ExpC1 := Caractere separador da data                       |##
+//##|          | ExpN1 := Formato                                           |##
+//##|          |  Formato 1 := ddmmaa (default)                             |##
+//##|          |          2 := mmddaa                                       |##
+//##|          |          3 := aaddmm                                       |##
+//##|          |          4 := aammdd                                       |##
+//##|          |          5 := ddmmaaaa                                     |##
+//##|          |          6 := mmddaaaa                                     |##
+//##|          |          7 := aaaaddmm                                     |##
+//##|          |          8 := aaaammdd                                     |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 15/07/19 | Cirilo R. | Modernização do fonte                          |##
+//##| 17/11/21 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CxGravaData(	dData	,;	//01
+							cSepar	,;	//02
+							nFormato);	//03
+								AS Character
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cRet          AS Character
+	Local cDia			AS Character
+	Local cMes			AS Character
+	Local cAno			AS Character
+	Local cAno02		AS Character
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR dData			AS Date						Optional Default dDataBase
+	ParamType 1		VAR cSepar			AS Character				Optional Default ""
+	ParamType 2		VAR nFormato		AS Numeric					Optional Default 1
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	cRet	:= ""
+	cDia	:= StrZero(  Day(dData),2)
+	cMes	:= StrZero(Month(dData),2)
+	cAno	:= StrZero( Year(dData),4)
+	cAno02	:= Right(cAno,2)
+	
+	Do Case
+		Case nFormato == 1
+			cRet := cDia+cSepar+cMes+cSepar+cAno02
+		Case nFormato == 2
+			cRet := cMes+cSepar+cDia+cSepar+cAno02
+		Case nFormato == 3
+			cRet := cAno02+cSepar+cDia+cSepar+cMes
+		Case nFormato == 4
+			cRet := cAno02+cSepar+cMes+cSepar+cDia
+		Case nFormato == 5
+			cRet := cDia+cSepar+cMes+cSepar+cAno
+		Case nFormato == 6
+			cRet := cMes+cSepar+cDia+cSepar+cAno
+		Case nFormato == 7
+			cRet := cAno+cSepar+cDia+cSepar+cMes
+		OtherWise
+			cRet := cAno+cSepar+cMes+cSepar+cDia
+	EndCase
+
+Return cRet

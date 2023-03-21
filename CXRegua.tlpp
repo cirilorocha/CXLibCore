@@ -1,0 +1,212 @@
+#INCLUDE "rwmake.ch"
+#INCLUDE "Protheus.ch"
+#Include "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+#INCLUDE "CXRegua.ch"
+
+//#############################################################################
+//##+==========+============+=======+==================+======+=============+##
+//##|Programa  | CXRegua    | Autor | Cirilo Rocha     | Data | 05/12/2013  |##
+//##+==========+============+=======+==================+======+=============+##
+//##|Descrição | Lib de funções para régua de processamento                 |##
+//##|          |                                                            |##
+//##|          | Paramentro: nTpRegua                                       |##
+//##|          |                                                            |##
+//##|          | Default nTpRegua	:=  nRG_SEMREGUA                        |##
+//##|          |                                                            |##
+//##|          | U_CXSetRegua(nTpRegua,nTotal)                              |##
+//##|          |                                                            |##
+//##|          | U_CXIncRegua(,cMsg)                                		|##
+//##|          |                                                            |##
+//##+==========+===========+================================================+##
+//##|   DATA   |Programador| Manutencao Efetuada                            |##
+//##+==========+===========+================================================+##
+//##| 03/09/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 30/09/21 | Cirilo R. | Grande revisão no fonte                        |##
+//##|          |           | Grande melhoria na velocidade                  |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+==========+===========+================================================+##
+//#############################################################################
+Static nPasso	:= 1 					AS Numeric //Para nao dar erro
+Static nCont	:= 0					AS Numeric
+Static nTotReg	:= 0					AS Numeric
+Static nQtdPss	:= 20					AS Numeric	//Se usar um número alto como 200, os fontes rápidos ficam muito demorados
+Static nTamTot	:= 0					AS Numeric
+Static cMasc	:= '@E 99,999,999,999'	AS Character
+Static nUltSeg	:= Seconds()			AS Numeric
+Static nRegua	:= 0					AS Numeric
+Static bIncRegua						AS CodeBlock
+//#############################################################################
+//##+==========+============+=======+==================+======+=============+##
+//##|Programa  | CXSetRegua | Autor | Cirilo Rocha     | Data | 05/12/2013  |##
+//##+==========+============+=======+==================+======+=============+##
+//##|Descrição | Função para setar a régua de progressão                    |##
+//##+==========+===========+================================================+##
+//##|   DATA   |Programador| Manutencao Efetuada                            |##
+//##+==========+===========+================================================+##
+//##| 04/05/17 | Cirilo R. | Otimização na contagem de registros            |##
+//##| 31/08/17 | Cirilo R. | Ajustes quando não tem régua para não sobrepor |##
+//##|          |           | réguas                                         |##
+//##| 31/10/19 | Cirilo R. | Ajuste para forçar atualização quando seta a   |##
+//##|          |           | régua                                          |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+==========+===========+================================================+##
+//#############################################################################
+User Function CXSetRegua(	nTpRegua,;	//01
+							nTotal	) 	//02
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR nTpRegua			AS Numeric			Optional Default U_CXGetRegua()
+	ParamType 1		VAR nTotal				AS Numeric			Optional Default 0
+	
+	nRegua	:= nTpRegua
+	
+	If nRegua <> nRG_SEMREGUA //So processa se for uma regua
+		nTotReg	:= nTotal
+		nCont	:= 0 //Inicializa o contador
+
+		If nTotal >= nQtdPss*5 //Otimizacao
+			nPasso	:= Round(nTotal/nQtdPss,0)
+		Else
+			nPasso	:= 1
+		EndIf
+		nTotal	:= NoRound(nTotal/nPasso,0)					//Precisa ser truncado mesmo aqui, para não ficar com o último pendente
+		nTamTot	:= Len(AllTrim(Transform(nTotReg,cMasc)))
+		
+		//Acrescento um por causa do primeiro incremento usado apenas para atualizar a tela!
+		If nTotal > 0
+			nTotal++
+		EndIf
+		
+		If nRegua == nRG_RPTSTATUS
+			SetRegua(nTotal)
+			bIncRegua	:= {|| IncRegua() }
+			//IncRegua()		//Forca atualizacao da tela
+		ElseIf nRegua == nRG_PROCESSA
+			ProcRegua(nTotal)
+			bIncRegua	:= {|cMsg| IncProc(cMsg) }
+			//IncProc()	//Forca atualizacao da tela
+		EndIf
+		
+		Eval(bIncRegua)	//Forca atualizacao da tela
+	EndIf
+
+//	SysRefresh()
+	ProcessMessages() //Forca atualizacao da tela do smartclient
+
+Return
+
+//#############################################################################
+//##+==========+============+=======+==================+======+=============+##
+//##|Programa  | CXIncRegua | Autor | Cirilo Rocha     | Data | 05/12/2013  |##
+//##+==========+============+=======+==================+======+=============+##
+//##|Descricao | Função para fazer o incremento da régua                    |##
+//##+==========+===========+================================================+##
+//##|   DATA   |Programador| Manutencao Efetuada                            |##
+//##+==========+===========+================================================+##
+//##| 04/05/17 | Cirilo R. | Melhoria na mensagem quando não é passada      |##
+//##|          |           | Otimização na contagem de registros            |##
+//##| 31/08/17 | Cirilo R. | Ajustes quando nao tem régua para não sobrepor |##
+//##|          |           | reguas                                         |##
+//##| 24/01/18 | Cirilo R. | Melhoria nos controles da função               |##
+//##|          |           | Otimização na execução                         |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+==========+===========+================================================+##
+//#############################################################################
+User Function CXIncRegua(	nTpRegua,;	//01
+							cMsg	,;	//02
+							cTitulo	,;	//03
+							lForcaUpd)	//04
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local nPerc			AS Numeric
+//	Local bIncRegua		AS CodeBlock
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	//ParamType 0		VAR nTpRegua		AS Numeric					Optional Default U_CXGetRegua()	//Ficou desnecessário!
+	ParamType 1		VAR cMsg			AS Character				Optional Default NIL
+	ParamType 3		VAR cTitulo			AS Character				Optional Default NIL
+	ParamType 4		VAR lForcaUpd		AS Logical					Optional Default .F.
+
+	If 	nTpRegua <> nRG_SEMREGUA 			//So processa se for uma regua
+
+		//If nTpRegua == nRG_RPTSTATUS
+		//	bIncRegua	:= {|| IncRegua() }
+		//ElseIf nTpRegua == nRG_PROCESSA
+		//	bIncRegua	:= {|cMsg| IncProc(cMsg) }
+		//EndIf
+
+		If nTotReg > 0				//So processa se a contagem for maior que zero
+			nCont++
+			If (nCont%nPasso) == 0 	.Or. ;	//Execucoes recorrentes (a cada n Passos)
+				nCont == 1			.Or. ;	//Forca a execucao no primeiro passo
+				nCont == nTotReg			//Último registro também forço!
+
+				If 	nTpRegua == nRG_PROCESSA
+					If ( ValType(cMsg) <> 'C' .Or. Empty(cMsg) )
+						cMsg	:= cTitulo
+						If ( ValType(cMsg) <> 'C' .Or. Empty(cMsg) )
+							cMsg	:= 'Processando'
+						EndIf
+					EndIf
+
+					If nTotReg > 0
+						nPerc	:= NoRound( (nCont/nTotReg)*100, 0 )		//Trunco para ficar mais claro e não chegar a 100% antes do final
+						cMsg	+= ' ('+LTrim(Transform(nPerc,'@E 999'))+' %) - '+;
+									PadL(LTrim(Transform(nCont,cMasc)),nTamTot)+'/'+;
+									LTrim(Transform(nTotReg,cMasc))
+					EndIf
+				EndIf
+
+				Eval(bIncRegua,cMsg)
+
+				lForcaUpd := .T.
+			EndIf
+		Else			
+			lForcaUpd	:= .T.
+		EndIf
+		
+		If lForcaUpd
+			If (Seconds() - nUltSeg) > 0.50 //Diminui um pouco a sobrecarga
+
+				nUltSeg	:= Seconds()
+//				SysRefresh()
+				ProcessMessages() //Forca atualizacao da tela do smartclient
+			EndIf
+		EndIf
+
+	EndIf
+
+Return
+
+//#############################################################################
+//##+==========+============+=======+==================+======+=============+##
+//##|Programa  | CXGetRegua | Autor | Cirilo Rocha     | Data | 09/09/2019  |##
+//##+==========+============+=======+==================+======+=============+##
+//##|Descricao | Funcao para determinar qual regua esta aberta              |##
+//##+==========+===========+================================================+##
+//##|   DATA   |Programador| Manutencao Efetuada                            |##
+//##+==========+===========+================================================+##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+==========+===========+================================================+##
+//#############################################################################
+User Function CXGetRegua();
+					AS Numeric
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local nTpRegua		AS Numeric
+	
+	//---------------------------------------------------------------------------------------------
+	If FWIsInCallStack('PROCESSA')
+		nTpRegua := nRG_PROCESSA
+	ElseIf FWIsInCallStack('RPTSTATUS')
+		nTpRegua := nRG_RPTSTATUS	
+	Else
+		nTpRegua := nRG_SEMREGUA
+	EndIf
+
+Return nTpRegua

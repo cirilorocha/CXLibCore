@@ -1,0 +1,306 @@
+#INCLUDE "RWMake.ch"
+#INCLUDE "Totvs.ch"
+#INCLUDE "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXHelp   | Autor | Cirilo Rocha       | Data | 19/10/2018  |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descricao | Rotina semelhante a rotina padrao Help(), customizada por  |##
+//##|          | causa dos tratamentos das rotinas MCV e ExecAuto           |##
+//##|          |                                                            |##
+//##|          | Feito assim porque o MVC so mostra a mensagem de Help se a |##
+//##|          | validacao retornar falso, e em algumas telas nos temos uma |##
+//##|          | pergunta se permite prosseguir mesmo com alertas/erros.    |##
+//##|          |                                                            |##
+//##|          | Agora quando eh ExecAuto ele vai usar a funcao Help, se for|##
+//##|          | Job vai exibir o erro no console, e se nao for mostra a te-|##
+//##|          | la para o usuario.                                         |##
+//##+----------+----------+-------------------------------------------------+##
+//##| DATA     | ANALISTA | MANUTENCAO EFETUADA                             |##
+//##+----------+----------+-------------------------------------------------+##
+//##| 16/01/19 | Cirilo R.| Melhoria na mensagem da solução                 |##
+//##| 23/08/19 | Cirilo R.| Melhoria no título da mensagem                  |##
+//##| 26/08/19 | Cirilo R.| Varias pequenas melhorias na mensagem           |##
+//##| 15/10/19 | Cirilo R.| Ajuste no Help porque não estava mostrando no   |##
+//##|          |          |  MVC                                            |##
+//##| 19/11/21 | Cirilo R.| Pequena revisão no fonte                        |##
+//##| 26/11/21 | Cirilo R.| Ajuste na mensagem de help quando existia que-  |##
+//##|          |          |  bra de linhas                                  |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+----------+----------+-------------------------------------------------+##
+//#############################################################################
+Static nAlert	:= 1	AS Integer
+Static nHelp	:= 2	AS Integer
+Static nCons	:= 3	AS Integer
+//-------------------------------------------------------------------------------------------------
+User Function CXHelp(	cCampo	,;	//01 Codigo do Help no sigahlp, caso nao for informado, deve-se informar o cMsg
+						cNome	,;	//02 Caso informado, substitui o cCampo (Usado para o cMsg)
+						cMsg	,;	//03 Mensagem apresentada pelo help quando o codigo nao eh informado
+						lGrvLog	,;	//04 Indica se deve gravar log da mensagem de Help (def .f.)
+						xSoluc	,;	//05 Array/String simples com mensagem de solucao para o Help
+						lAviso	,;	//06 Se a mensagem eh apenas um aviso, porque se usar Help no execauto o sistema entende que eh erro (def .f.)
+						lHelp	)	//07 Forca a execução do help (def .f.)
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local lExecAuto		AS Logical
+	Local lInJob		AS Logical
+	Local cFunName		AS Character
+	Local cLinha		AS Character
+	Local nTmp			AS Integer
+	Local nTpMsg		AS Integer
+	Local nX			AS Integer
+	Local nPos			AS Integer
+	Local aHelp			AS Array
+	Local cMsgGrv		AS Character
+	Local cMsgAux		AS Character
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType  0	VAR cCampo		  		AS Character				Optional Default NIL
+	ParamType  1	VAR cNome		  	  	AS Character				Optional Default NIL
+	ParamType  2	VAR cMsg		  		AS Character				Optional Default NIL
+	ParamType  3	VAR lGrvLog		  	  	AS Logical					Optional Default .F.
+	ParamType  4	VAR xSoluc			  	AS Array,Character			Optional Default NIL
+	ParamType  5	VAR lAviso				AS Logical					Optional Default .F.
+	ParamType  6	VAR lHelp				AS Logical					Optional Default .F.
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+
+	//Rotina automatica? //PRECISA SER DESTA FORMA MESMO NAO USAR CXRotAuto()
+	lExecAuto	:= 	FWIsInCallStack('MSExecAuto') .Or. ;//Verifica se a funcao passada esta dentro da pilha de execucao (s/ U_)
+					FWIsInCallStack('FWMVCRotAuto')
+
+	//Execucao via Job/Console
+	If Type('lJob') == 'L'
+		lInJob	:= lJob
+	Else
+		lInJob	:= U_CXRotAuto(.T.) //IsBlind()	//Funcao executada sem interface (JOB/Server)
+	EndIf
+	
+	If ValType(xSoluc) == 'C'
+		If Empty(xSoluc)
+			xSoluc	:= NIL
+		Else
+			xSoluc	:= {xSoluc}
+		EndIf		
+	EndIf
+
+	//Tipo de interface utilizada
+	If 	lExecAuto .Or. ;
+		lHelp .Or. ;
+		FWIsInCallStack('ValidField') .Or. ; 	//Se validacao de campo chama a funcao help tambem
+		FWIsInCallStack('VldData') .Or. ;		//Validacao de campo MVC (precisa chamar o Help senao nao mostra)
+		FWIsInCallStack('VldLineData') .Or. ;	//MVC
+		FWIsInCallStack('VldLineOk')			//MVC
+		
+		If 	lAviso .And. ;	//Forca exibição como aviso apenas
+			.Not. lInJob
+			nTpMsg	:= nAlert
+		Else
+			nTpMsg	:= nHelp
+		EndIf
+	ElseIf lInJob
+		nTpMsg	:= nCons
+	Else
+		nTpMsg	:= nAlert
+	EndIf
+		
+	//---------------------------------------------------------------------------------------------
+	//Remove o traco final se existir
+	If 	ValType(cCampo) == 'C' .And. ;
+		Right(cCampo,4) == ') - '
+		
+		cCampo	:= Left(cCampo,Len(cCampo)-3)
+	EndIf
+
+	//---------------------------------------------------------------------------------------------
+
+	cMsgAux	:= U_CXTxtMsg(/*oObjeto*/,2,.T.)
+	
+	//Remove mensagem de help
+	If ValType(cMsg) == 'C'
+		cMsg	:= StrTran(cMsg,cMsgAux+' - ')
+		cMsg	:= StrTran(cMsg,cMsgAux)
+		nPos	:= At('(',cMsg)
+		If 	nPos > 0 .And. ;
+			Left(cMsg,nPos-1) == Left(cMsgAux,nPos-1)
+			
+			nPos := At(') - ',cMsg)
+			If nPos > 0
+				cMsgAux	:= Left(cMsg,nPos)
+				cMsg	:= SubStr(cMsg,nPos+4)
+			EndIf
+		EndIf
+		
+		If 	ValType(cCampo) == 'C' .And. ;
+			Left(cMsg,Len(cCampo)) == cCampo
+			
+			cMsg	:= SubStr(cMsg,Len(cCampo)+1)
+		EndIf
+		
+		If 	Left(cMsg,2) == ': ' .Or. ;
+			Left(cMsg,2) == '- '
+			
+			cMsg	:= SubStr(cMsg,3)
+		EndIf
+		cMsg	:= LTrim(cMsg)
+		
+	EndIf
+
+	//Monta mensagem ------------------------------------------------------------------------------
+	If 	nTpMsg <> nHelp .And. ;
+		ValType(cCampo) == 'C' .And. ;
+		.Not. Empty(cCampo) .And. ;
+		ValType(cMsg) <> 'C'
+
+		aHelp	:= GetHlpSoluc(cCampo)
+
+		cMsg	:= ""
+		cMsgGrv	:= cCampo+CRLF
+		If 	len(aHelp) >= 1 .And. ;
+			.Not. Empty(aHelp[1])
+
+			U_CXConcTxt(@cMsg,'<b>PROBLEMA:</b> '+aHelp[1],CRLF)
+			U_CXConcTxt(@cMsgGrv,'PROBLEMA: '+aHelp[1],CRLF)
+		EndIf
+		If 	len(aHelp) >= 2 .And. ;
+			.Not. Empty(aHelp[2])
+
+			U_CXConcTxt(@cMsg,'<b>SOLUÇÃO:</b> '+aHelp[2],CRLF)
+			U_CXConcTxt(@cMsgGrv,'SOLUÇÃO: '+aHelp[2],CRLF)
+		EndIf
+		If 	ValType(xSoluc) == 'A'
+			For nX := 1 to Len(xSoluc)
+				U_CXConcTxt(@cMsg,xSoluc[nX],CRLF)
+				U_CXConcTxt(@cMsgGrv,xSoluc[nX],CRLF)
+			Next
+		EndIf
+	Else
+		If ValType(cCampo) <> 'C'
+			cCampo	:= cMsgAux
+		EndIf
+		cMsgGrv		:= 	cCampo+CRLF+;
+						'PROBLEMA: '+cMsg
+		If nTpMsg <> nHelp
+			cMsg	:= '<b>PROBLEMA:</b> '+cMsg
+		EndIf
+		
+		If 	ValType(xSoluc) == 'A' .And. ;
+			len(xSoluc) > 0
+			
+			If nTpMsg <> nHelp		
+				U_CXConcTxt(@cMsg,'<b>SOLUÇÃO:</b> '+xSoluc[1],CRLF+CRLF)
+			EndIf
+			
+			U_CXConcTxt(@cMsgGrv,'SOLUÇÃO: '+xSoluc[1],CRLF)
+			
+			For nX := 2 to len(xSoluc)
+				U_CXConcTxt(@cMsg,xSoluc[nX],CRLF)
+				U_CXConcTxt(@cMsgGrv,xSoluc[nX],CRLF)
+			Next
+		EndIf
+
+	EndIf
+
+	If ValType(cCampo) <> 'C'
+		cCampo	:= cMsgAux
+	EndIf
+
+	//Grava log------------------------------------------------------------------------------------
+	If 	lGrvLog
+
+		//Controle de erros
+		If Type('cFilAnt') <> 'C'
+			cFilAnt	:= 'XX'
+		EndIf
+		
+		If Type('cEmpAnt') <> 'C'
+			cEmpAnt	:= 'XX'
+		EndIf
+		
+		If Type('__cUserID') <> 'C'
+			__cUserID	:= 'XXXXXX'
+		EndIf
+		
+		If Type('cUserName') <> 'C'
+			cUserName	:= 'ERRO USR'
+		EndIf
+
+		cFunName	:= U_CXTxtMsg(/*oObjeto*/,2)
+		cLinha		:= '0'
+		nTmp		:= At('(',cFunName)
+		If nTmp > 0
+			cLinha		:= SubStr(cFunName,nTmp)
+			cFunName	:= Left(cFunName,nTmp-1)
+		EndIf
+		cLinha	:= StrTran(cLinha,')')
+		cLinha	:= StrTran(cLinha,'(')
+		U_CXLogProc('CXHelp',cFunName,'***',Val(cLinha),'',cMsgGrv,.F.)
+	EndIf
+
+	//Mostra mensagem------------------------------------------------------------------------------
+	If nTpMsg	== nCons
+		U_CXConOut(cMsgGrv)
+	ElseIf nTpMsg	== nHelp
+		If .Not. lAviso
+
+			If Empty(xSoluc)
+				xSoluc	:= {'CORRIJA O ERRO ANTES DE PROSSEGUIR.'}
+			EndIf
+
+			//Preciso fazer esse tratamento aqui para corrigir um problema que esta duplicando as quebras
+			// de linha no final do texto na função padrão help(), desta forma aqui resolveu!
+			cMsg	:= StrTran(cMsg,CRLF,'<br>')
+			For nX := 1 to Len(xSoluc)
+				xSoluc[nX] := StrTran(xSoluc[nX],CRLF,'<br>')
+			Next
+
+			HeLP(''						,;	//01 Mantido por compatibilidade, não utilizar
+				1						,;  //02 Mantido por compatibilidade, não utilizar
+				cCampo					,;  //03 Codigo do Help no sigahlp, caso nao for informado, deve-se informar o cMsg
+				cNome					,;  //04 Caso informado, substitui o cCampo (Usado para o cMsg)
+				cMsg					,;  //05 Mensagem apresentada pelo help quando o codigo nao eh informado
+				1						,;  //06 Linha inicial para apresentar a mensagem
+				/*nColuna*/				,;  //07 Coluna inicial para apresentar a mensagem
+				/*lPop*/				,;  //08 Mantido por compatibilidade, não utilizar
+				/*hWnd*/				,;  //09 Mantido por compatibilidade, não utilizar
+				/*nHeight*/				,;  //10 Mantido por compatibilidade, não utilizar
+				/*nWidth*/				,;  //11 Mantido por compatibilidade, não utilizar
+				,;//lExecAuto .Or. !lGrvLog	,;  //12 Indica se deve gravar log da mensagem de Help (ja gravei antes)
+				xSoluc					)   //13 Array simples com mensagem de solução para o Help
+		EndIf
+	ElseIf nTpMsg	== nAlert
+		If Empty(cCampo)
+			cCampo	:= 'CXHelp'
+		EndIf
+		ApMsgStop(cMsg,cCampo)
+	EndIf
+
+Return
+
+//-------------------------------------------------------------------------------------------------
+//Ajuste para sobrepor a funcao padrao, funciona em conjunto com o include
+//-------------------------------------------------------------------------------------------------
+User Function HeLP(	cRotina	,;	//01
+					nLinha	,;	//02
+					cCampo	,;	//03
+					cNome	,;	//04
+					cMsg	,;	//05
+					nLinha1	,;	//06
+					nColuna	,;	//07
+					lPop	,;	//08
+					hWnd	,;	//09
+					nHeight	,;	//10
+					nWidth	,;	//11
+					lGrvLog	,;	//12
+					aSoluc	) 	//13
+
+Return U_CXHelp(cCampo	,;	//01
+				cNome	,;	//02
+				cMsg	,;	//03
+				lGrvLog	,;	//04
+				aSoluc	,;	//05
+				.F.		) 	//06

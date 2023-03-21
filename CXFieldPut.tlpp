@@ -1,157 +1,181 @@
 #INCLUDE "Protheus.ch"
 #INCLUDE "RWMake.ch"
-#INCLUDE "CXInclude.ch"
-#INCLUDE "CXSTRUCT.CH"
+#Include "ParmType.ch"
+#Include "CXInclude.ch"
+#INCLUDE "CXStruct.ch"
 
-//ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ
-//±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±
-//±±ÚÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄ¿±±
-//±±³Programa  ³ CXFieldPut ³ Autor ³ Cirilo Rocha        ³ Data ³02/08/2011³±±
-//±±ÃÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄ´±±
-//±±³Descricao ³ Funcao customizada para simplificar o uso da fucao padrao  ³±±
-//±±³          ³ FieldPut.                                                  ³±±
-//±±³          ³                                                            ³±±
-//±±³          ³ Ao invez de utilizar FieldPut(FieldPos(cCampo)) pode-se    ³±±
-//±±³          ³ usar apenas U_CXFieldPut(cCampo)                           ³±±
-//±±³          ³                                                            ³±±
-//±±ÃÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´±±
-//±±³   DATA   ³ Programador   ³ Manutencao efetuada                        ³±±
-//±±ÃÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´±±
-//±±³ 16/02/12 ³ Cirilo Rocha  ³ Ajuste para obter a tabela por parametro ou³±±
-//±±³          ³               ³ com base no proprio campo visando simplifi-³±±
-//±±³          ³               ³ car o uso desta funcao.                    ³±±
-//±±³ 22/02/12 ³ Cirilo Rocha  ³ Acrescentado tratamento de erro para os ca-³±±
-//±±³          ³               ³ sos do campo nao existir no dicionario.    ³±±
-//±±³ 23/02/12 ³ Cirilo Rocha  ³ Feito tratamento para campos Memo virtuais ³±±
-//±±³          ³               ³ (antigos)                                  ³±±
-//±±³ 28/09/12 ³ Cirilo Rocha  ³ Otimizacao para gravar apenas quando o con-³±±
-//±±³          ³               ³ teudo for diferente.                       ³±±
-//±±³ 01/10/12 ³ Cirilo Rocha  ³ Tratamento para campos tipo Data em que o  ³±±
-//±±³          ³               ³ novo conteudo foi passado na forma string  ³±±
-//±±³ 08/10/12 ³ Cirilo Rocha  ³ Ajuste para gravacao de campos memo.       ³±±
-//±±³ 08/10/13 ³ Cirilo Rocha  ³ Ajustado o retorno para considerar apenas  ³±±
-//±±³          ³               ³ .T. ou .F. se alterou o conteudo do campo  ³±±
-//±±³ 07/11/13 ³ Cirilo Rocha  ³ Correcao no tratamento dos campos Memo.    ³±±
-//±±³          ³               ³ Alterado o padrao para obter o alias do a  ³±±
-//±±³          ³               ³ partir do campo e nao da area atual        ³±±
-//±±³ 22/10/15 ³ Cirilo Rocha  ³ Pequena otimizacao no fonte                ³±±
-//±±³          ³               ³                                            ³±±
-//±±³          ³               ³                                            ³±±
-//±±ÀÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ±±
-//±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±
-//ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß
-Static aPosCpos	:= {}
+//#############################################################################
+//##+----------+------------+-------+---------------------+------+----------+##
+//##|Programa  | CXFieldPut | Autor | Cirilo Rocha        | Data |02/08/2011|##
+//##+----------+------------+-------+---------------------+------+----------+##
+//##|Descr.    | Função customizada para simplificar o uso da função padrão |##
+//##|          | FieldPut.                                                  |##
+//##|          |                                                            |##
+//##|          | Ao invez de utilizar FieldPut(FieldPos(cCampo)) pode-se    |##
+//##|          | usar apenas U_CXFieldPut(cCampo)                           |##
+//##|          |                                                            |##
+//##|          | Tem compatibilidade com campos memos antigos (SYP)         |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 16/02/12 | Cirilo R. | Ajuste para obter a tabela por parâmetro ou com|##
+//##|          |           |  base no próprio campo visando simplificar o   |##
+//##|          |           |  uso desta função                              |##
+//##| 22/02/12 | Cirilo R. | Acrescentado tratamento de erro para os casos  |##
+//##|          |           |  do campo não existir no dicionário            |##
+//##| 23/02/12 | Cirilo R. | Feito tratamento para campos Memo virtuais     |##
+//##|          |           | (antigos)                                      |##
+//##| 28/09/12 | Cirilo R. | Otimização para gravar apenas quando o conteu- |##
+//##|          |           |  do for diferente.                             |##
+//##| 01/10/12 | Cirilo R. | Tratamento para campos tipo Data em que o novo |##
+//##|          |           |  novo conteudo foi passado na forma string     |##
+//##| 08/10/12 | Cirilo R. | Ajuste para gravação de campos memo            |##
+//##| 08/10/13 | Cirilo R. | Ajustado o retorno para considerar apenas .T.  |##
+//##|          |           |  ou .F. se alterou o conteudo do campo         |##
+//##| 07/11/13 | Cirilo R. | Correção no tratamento dos campos Memo         |##
+//##|          |           | Alterado o padrão para obter o alias do a par- |##
+//##|          |           |  tir do campo e não da área atual              |##
+//##| 22/10/15 | Cirilo R. | Pequena otimização no fonte                    |##
+//##| 05/01/18 | Cirilo R. | Otimização geral do fonte                      |##
+//##| 03/09/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 12/10/21 | Cirilo R. | Pequena revisão (release 33)                   |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXFieldPut(	cCampo		,;	//01 cCampo
+							uConteudo	,;	//02 uConteudo
+							cAlias		,;	//03 cAlias
+							lAliasCpo	,;	//04 lAliasCpo
+							lInclui		);	//05 lInclui
+								AS Logical
 
-//-----------------------------------------------------------------------------
-User Function CXFieldPut(cCampo,xConteudo,cAlias,lAliasCpo,lInclui)
-
-	Local lAlterou	:= .F.
-	Local lMemo		:= .F.
-	Local aArea
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local uAtual		AS Variant
 	
-	Local nPosCpo
-	Local nPosIni
-	Local nPosFim
-	Local nPosArr
-	Local nPosArr2
-	Local cIni
-	Local cCpoMemo
-	Local xAtual
-	Local nTamCpo
-	Local cTipo
-	Local lGrava
-	
-	Default lAliasCpo	:= .T.
-	Default lInclui	:= .F.
+	Local lAlterou		AS Logical
+	Local lMemo			AS Logical
+	Local oArea			AS Object
 
-	cCampo	:= U_CXRTrim(Upper(cCampo))
+	Local nPosCpo		AS Numeric
+	Local nPosIni		AS Numeric
+	Local nPosFim		AS Numeric
+	Local cIni			AS Character
+	Local cCpoMemo	    AS Character
+	Local nTamCpo		AS Numeric
+	Local cTipo			AS Character
+	Local lGrava		AS Logical
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cCampo			AS Character
+	ParamType 1		VAR uConteudo		AS Character,Numeric,Date,Logical
+	ParamType 2		VAR cAlias			AS Character					Optional Default NIL
+	ParamType 3		VAR lAliasCpo		AS Logical						Optional Default .T.
+	ParamType 4		VAR lInclui			AS Logical						Optional Default .F.
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	lAlterou	:= .F.
+	lMemo		:= .F.
+	lGrava		:= .T.
+
+	cCampo		:= U_CXRTrim(Upper(cCampo))
+
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
 
 	If cAlias == NIL
 		If lAliasCpo
-			cAlias	:= U_CXTabela(cCampo)
+			cAlias	:= FwTabPref(cCampo)
 		Else
 			cAlias	:= Alias()
 		EndIf
 	EndIf
-	
+
 	nPosCpo 	:= (cAlias)->(FieldPos(cCampo))
 
-	//O campo nao existe na tabela fisica, busca se e' um memo
+	//O campo nao existe na tabela fisica, busca se é um memo legado
 	If nPosCpo == 0
-		aArea		:= U_CXGetArea({'SX3'},.F.)
-		SX3->(U_CXSetOrd(2)) // X3_CAMPO
-	
+		oArea	:= tCtrlAlias():GetArea({'SX3'},.F.)
+		SX3->(dbSetOrder(2)) // X3_CAMPO
+
 		//Verifica se e' um Memo antigo (virtual)
 		If SX3->(MsSeek(cCampo))
-			If SX3->X3_CONTEXT == 'V' .And. ;
-				SX3->X3_TIPO == 'M'
-				
-				cIni		:= RTrim(SX3->X3_RELACAO)
+			If 	U_CXFieldGet('X3_CONTEXT','SX3') == 'V' .And. ;
+				U_CXFieldGet('X3_TIPO','SX3') == 'M'
+
+				cIni	:= RTrim(U_CXFieldGet('X3_RELACAO','SX3'))
 				nPosIni	:= At('->',cIni)+1
 				nPosFim	:= At(',',Right(cIni,len(cIni)-nPosIni))
 				If nPosIni > 0 .And. nPosFim > 4
 					cCpoMemo	:= SubStr(cIni,nPosIni+1,nPosFim-1)
 					dbSelectArea(cAlias)
-					
-					MSMM(U_CXFieldGet(cCpoMemo,cAlias),,,xConteudo,1,,,cAlias,cCpoMemo) //Grava observacao
+
+					MSMM((cAlias)->(FieldGet(FieldPos(cCpoMemo))),,,uConteudo,1,,,cAlias,cCpoMemo) //Grava observacao
 					lAlterou	:= .T.
 					lMemo		:= .T.
 				Else
-					ApMsgAlert('CXFieldPut-001: O campo '+cCampo+' não pode ser escrito. Informe ao setor de T.I.')
+					U_CXMsgErro('O campo '+cCampo+' não pode ser escrito.',;
+								'INFORME O SETOR DE T.I.',/*lMsg*/,/*oArea*/)
 				EndIf
 			EndIf
 		Else
-			ApMsgAlert('CXFieldPut-002: O campo '+cCampo+' não foi localizado no SX3. Informe ao setor de T.I.')
+			U_CXMsgErro('O campo '+cCampo+' não foi localizado no SX3.',;
+						'INFORME O SETOR DE T.I.',/*lMsg*/,/*oArea*/)
 		EndIf
 
-		U_CXRestArea(aArea)
+		oArea:RestArea()		//Restaura area
 
 		If !lMemo
-			ApMsgAlert('CXFieldPut-003: O campo '+cCampo+' não foi localizado na tabela '+cAlias+'. Informe ao setor de T.I.')
+			U_CXMsgErro('O campo '+cCampo+' não foi localizado na tabela '+cAlias+'',;
+						'INFORME O SETOR DE T.I.',/*lMsg*/,/*oArea*/)
 		EndIf
 	EndIf
 
 	If !lMemo
-		
+
 		If lInclui
-			lGrava	:= !Empty(xConteudo)
+			lGrava	:= !Empty(uConteudo)
 		EndIf
-		
-		//Compatibiliza os tipos e tamanhos de campos
-		If !lInclui .Or. lGrava
-			//ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
-			//³ Tratamento para campos tipo Data em que o novo conteudo foi passado na forma de string ³
-			//ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
-			xAtual	:= (cAlias)->( FieldGet(nPosCpo) )
-			If ValType(xAtual) == 'D' .And. ;
-				ValType(xConteudo) == 'C'
-				
-	//			xAtual		:= DtoS(xAtual)
-				xConteudo	:= StoD(xConteudo)
+
+		//+----------------------------------------------------------------------------------------+
+		//| Tratamento para campos tipo Data em que o novo conteudo foi passado na forma de string |
+		//+----------------------------------------------------------------------------------------+
+		If lGrava
+			uAtual	:= (cAlias)->( FieldGet(nPosCpo) )
+			If 	ValType(uAtual) == 'D' .And. ;
+				ValType(uConteudo) == 'C'
+
+				uConteudo	:= StoD(uConteudo)
 			EndIf
-				
+		EndIf
+
+		//Compatibiliza os tamanhos de campos string
+		If !lInclui
 			//Compatibiliza com o tamanho da string e campos memo customizados
-			If ValType(xConteudo) == 'C'
-				nTamCpo		:= (cAlias)->( DBFieldInfo(nST_TAMANHO,nPosCpo) )
-				cTipo			:= (cAlias)->( DBFieldInfo(nST_TIPO   ,nPosCpo) )
-				If cTipo == 'C' //Tb pode ser um memo e neste caso nao mexe no tamanho
-					xConteudo	:= PadR(xConteudo,nTamCpo)       
+			If ValType(uConteudo) == 'C'
+
+				cTipo	:= (cAlias)->( DBFieldInfo(nST_TIPO   ,nPosCpo) )
+
+				If cTipo == 'C' //Tb pode ser um memo e neste caso não mexe no tamanho
+					nTamCpo		:= (cAlias)->( DBFieldInfo(nST_TAMANHO,nPosCpo) )
+					uConteudo	:= PadR(uConteudo,nTamCpo)
 				EndIf
 			EndIf
+
+			//Se não é inclusão verifica se o conteúdo novo é diferente do gravado
+			lGrava	:= .Not. ( uConteudo == uAtual )
 		EndIf
-		
-		//Se nao e' inclusao verifica se o conteudo novo e' diferente do gravado
-		If !lInclui
-			lGrava	:= .Not. ( xConteudo == xAtual )
-		EndIf			
-		
+
 		//Grava apenas se o conteudo for diferente
 		If lGrava
-//			(cAlias)->( FieldPut(nPosCpo,xConteudo) )
-			&(cAlias+'->'+cCampo)	:= xConteudo //Otimizacao, apos testes foi visto que assim e' muito mais rapido
+			(cAlias)->( FieldPut(nPosCpo,uConteudo) ) //Assim ficou um pouco mais rapido
+//			&(cAlias+'->'+cCampo)	:= uConteudo
 			lAlterou	:= .T.
 		EndIf
 
 	EndIf
-	
+
 Return lAlterou

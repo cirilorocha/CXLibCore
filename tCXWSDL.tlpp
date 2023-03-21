@@ -1,0 +1,1159 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#INCLUDE 'MSObject.ch'
+#INCLUDE "ParmType.ch"
+#Include "CXInclude.ch"
+#INCLUDE 'TWsdlManager.ch'
+
+//#############################################################################
+//##+==========+===============+=======+===============+======+=============+##
+//##|Programa  | tCXWSDL       | Autor | Cirilo Rocha  | Data | 15/06/2022  |##
+//##+==========+===============+=======+===============+======+=============+##
+//##|Descr.    | Classe que extende a TWsdlManager, simplificando o seu uso |##
+//##+==========+============================================================+##
+//##|Observação| INFELIZMENTE NÃO FOI POSSÍVEL CRIAR A CLASSE HERDANDO A PA-|##
+//##|          |  PADRÃO TXMLMANAGER, O SISTEMA NÃO COMPILA.                |##
+//##|          | https://devforum.totvs.com.br/2814-classe-herdando-        |##
+//##|          |  txmlmanager-nao-compila                                   |##
+//##+==========+===========+================================================+##
+//##|   DATA   |Programador| Manutenção Efetuada                            |##
+//##+==========+===========+================================================+##
+//##| 23/11/22 | Cirilo    | Correção quando a classe WSDL acusava erro, ela|##
+//##|          |           |  não volta ao status normal, precisei recriar  |##
+//##|          |           |  o objeto para isso normalizar                 |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+==========+===========+================================================+##
+//#############################################################################
+Class tCXWSDL //From TWsdlManager
+
+	//Declaração de Variáveis----------------------------------------------------------------------
+    PUBLIC DATA cClassName			AS Character
+
+	PUBLIC DATA _cCodErr			AS Character
+	PUBLIC DATA _cMsgErr			AS Character
+	PUBLIC DATA _cSoluc				AS Character
+	PUBLIC DATA _cError				AS Character
+	PUBLIC DATA _cXMLSend			AS Character
+
+	PUBLIC DATA _lMsg				AS Logical	//Mostrar mensagens ao usuário (def .T.)
+
+	//Vou deixar o objeto visível para uso caso necessario
+	PUBLIC DATA _oWSDL				AS Object
+
+	HIDE DATA _aOps					AS Array
+
+	HIDE DATA _uParam1				AS Variant
+	HIDE DATA _uParam2				AS Variant
+	HIDE DATA _uParam3				AS Variant
+	HIDE DATA _uParam4				AS Variant
+	HIDE DATA _uParam5				AS Variant
+	HIDE DATA _cArqWSDL				AS Character
+	HIDE DATA _cWSURL				AS Character
+
+//	//Propriedades da classe padrão (REPLICA)//NÃO FUNCIONOU
+//	PUBLIC DATA bNoCheckPeerCert	AS CodeBlock
+//	PUBLIC DATA cChiperList			AS Character
+//	PUBLIC DATA cCurrentOperation	AS Character
+//	PUBLIC DATA cEncoding			AS Character
+//	PUBLIC DATA cError				AS Character
+//	PUBLIC DATA cFaultActor			AS Character
+//	PUBLIC DATA cFaultCode			AS Character
+//	PUBLIC DATA cFaultString		AS Character
+//	PUBLIC DATA cFaultSubCode		AS Character
+//	PUBLIC DATA cLocation			AS Character
+//	PUBLIC DATA cSSLCACertFile		AS Character
+//	PUBLIC DATA cSSLCertFile		AS Character
+//	PUBLIC DATA cSSLKeyFile			AS Character
+//	PUBLIC DATA cSSLKeyPwd			AS Character
+//	PUBLIC DATA lAlwaysSendSA		AS Logical
+//	PUBLIC DATA lCheckInput			AS Logical
+//	PUBLIC DATA lCompressed			AS Logical
+//	PUBLIC DATA lEnableOptAttr		AS Logical
+//	PUBLIC DATA lProcResp			AS Logical
+//	PUBLIC DATA lRemEmptyTags		AS Logical
+//	PUBLIC DATA lSSLInsecure		AS Logical
+//	PUBLIC DATA lStatus				AS Logical
+//	PUBLIC DATA lUseNSPrefix		AS Logical
+//	PUBLIC DATA lVerbose			AS Logical
+//	PUBLIC DATA nConnectionTimeout	AS Numeric
+//	PUBLIC DATA nSOAPVersion		AS Numeric
+//	PUBLIC DATA nSSLVersion			AS Numeric
+//	PUBLIC DATA nTimeout			AS Numeric
+
+    //---------------------------------------------------------------------------------------------
+    PUBLIC METHOD New() Constructor
+
+	//Métodos Próprios
+	PUBLIC METHOD ClassName()				AS Character
+	PUBLIC METHOD Destroy()					//Destrutor
+	PUBLIC METHOD Reset()					AS Logical		//Limpa as variáveis
+	PUBLIC METHOD CXSendSimpleMsg()			AS Character
+
+	//Métodos padrão sobrepostos
+	PUBLIC METHOD ParseFile()				AS Logical
+	PUBLIC METHOD ParseURL()				AS Logical
+
+	//Métodos da classe padrão (REPLICA)
+	PUBLIC METHOD AddHttpHeader()			AS Logical
+	PUBLIC METHOD ComplexFault()			AS Array
+	PUBLIC METHOD ComplexInput()			AS Array
+	PUBLIC METHOD ComplexOutput()			AS Array
+	PUBLIC METHOD GetAuthentication()		AS Logical
+	PUBLIC METHOD GetCredentials()			AS Logical
+	PUBLIC METHOD GetParsedResponse()		AS Character
+	PUBLIC METHOD GetPorts()				AS Array
+	PUBLIC METHOD GetProxy()				AS Logical
+	PUBLIC METHOD GetServices()				AS Array
+	PUBLIC METHOD GetSoapMsg()				AS Character
+	PUBLIC METHOD GetSoapResponse()			AS Character
+	PUBLIC METHOD GetWsdlDoc()				AS Character
+	PUBLIC METHOD ListOperations()			AS Array
+	PUBLIC METHOD NextComplex()				AS Array
+	PUBLIC METHOD SendSoapMsg()				AS Logical
+	PUBLIC METHOD SetAuthentication()
+	PUBLIC METHOD SetComplexOccurs()		AS Logical
+	PUBLIC METHOD SetCredentials()
+	PUBLIC METHOD SetFirst()				AS Logical
+	PUBLIC METHOD SetFirstArray()			AS Logical
+	PUBLIC METHOD SetOperation()			AS Logical
+	PUBLIC METHOD SetPort()					AS Logical
+	PUBLIC METHOD SetProxy()
+	PUBLIC METHOD SetValPar()				AS Logical
+	PUBLIC METHOD SetValParArray()			AS Logical
+	PUBLIC METHOD SetValue()				AS Logical
+	PUBLIC METHOD SetValues()				AS Logical
+	PUBLIC METHOD SetWssHeader()
+	PUBLIC METHOD SimpleFault()				AS Array
+	PUBLIC METHOD SimpleInput()				AS Array
+	PUBLIC METHOD SimpleOutput()			AS Array
+
+EndClass
+
+//#############################################################################
+//##+----------+------------+-------+---------------------+------+----------+##
+//##|Programa  | New        | Autor | Cirilo Rocha        | Data |15/06/2022|##
+//##+----------+------------+-------+---------------------+------+----------+##
+//##|Descr.    | Metodo construtor                                          |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method New( uParam1    ,;
+            uParam2    ,;
+            uParam3    ,;
+            uParam4    ,;
+            uParam5    ) Class tCXWSDL
+
+    //Inicializa variaveis-------------------------------------------------------------------------
+	::cClassName		:= 'tCXWSDL'
+	::_lMsg				:= .T.
+
+	::Reset()	//Limpa variáveis
+
+	::_uParam1	:= uParam1
+	::_uParam2	:= uParam2
+	::_uParam3	:= uParam3
+	::_uParam4	:= uParam4
+	::_uParam5	:= uParam5
+
+	::_oWSDL	:= tWsdlManager():New(	::_uParam1	,;
+										::_uParam2	,;
+										::_uParam3	,;
+										::_uParam4	,;
+										::_uParam5	)
+
+	//Atributos da classe original//NÃO FUNCIOU ASSIM
+//	::bNoCheckPeerCert			:= @::_oWSDL:bNoCheckPeerCert
+//	::cChiperList				:= @::_oWSDL:cChiperList
+//	::cCurrentOperation			:= @::_oWSDL:cCurrentOperation
+//	::cEncoding					:= @::_oWSDL:cEncoding
+//	::cError					:= @::_oWSDL:cError
+//	::cFaultActor				:= @::_oWSDL:cFaultActor
+//	::cFaultCode				:= @::_oWSDL:cFaultCode
+//	::cFaultString				:= @::_oWSDL:cFaultString
+//	::cFaultSubCode				:= @::_oWSDL:cFaultSubCode
+//	::cLocation					:= @::_oWSDL:cLocation
+//	::cSSLCACertFile			:= @::_oWSDL:cSSLCACertFile
+//	::cSSLCertFile				:= @::_oWSDL:cSSLCertFile
+//	::cSSLKeyFile				:= @::_oWSDL:cSSLKeyFile
+//	::cSSLKeyPwd				:= @::_oWSDL:cSSLKeyPwd
+//	::lAlwaysSendSA				:= @::_oWSDL:lAlwaysSendSA
+//	::lCheckInput				:= @::_oWSDL:lCheckInput
+//	::lCompressed				:= @::_oWSDL:lCompressed
+//	::lEnableOptAttr			:= @::_oWSDL:lEnableOptAttr
+//	::lProcResp					:= @::_oWSDL:lProcResp
+//	::lRemEmptyTags				:= @::_oWSDL:lRemEmptyTags
+//	::lSSLInsecure				:= @::_oWSDL:lSSLInsecure
+//	::lStatus					:= @::_oWSDL:lStatus
+//	::lUseNSPrefix				:= @::_oWSDL:lUseNSPrefix
+//	::lVerbose					:= @::_oWSDL:lVerbose
+//	::nConnectionTimeout		:= @::_oWSDL:nConnectionTimeout
+//	::nSOAPVersion				:= @::_oWSDL:nSOAPVersion
+//	::nSSLVersion				:= @::_oWSDL:nSSLVersion
+//	::nTimeout					:= @::_oWSDL:nTimeout
+
+Return Self
+
+//#############################################################################
+//##+==========+=============+=======+=================+======+=============+##
+//##|Programa  | ClassName   | Autor | Cirilo Rocha    | Data | 08/06/2022  |##
+//##+==========+=============+=======+=================+======+=============+##
+//##|Descr.    | Metodo para retornar o nome da classe atual                |##
+//##+==========+===============+============================================+##
+//##|   DATA   | Programador   | Manutenção Efetuada                        |##
+//##+==========+===============+============================================+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+==========+===============+============================================+##
+//#############################################################################
+Method ClassName()	Class tCXWSDL
+
+Return ::cClassName
+
+//#############################################################################
+//##+----------+--------------+-------+-------------------+------+----------+##
+//##|Programa  | Reset        | Autor | Cirilo Rocha      | Data |22/06/2022|##
+//##+----------+--------------+-------+-------------------+------+----------+##
+//##|Descr.    | Método para limpar as variáveis usadas                     |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method Reset() Class tCXWSDL
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local lRet		:= .T.			AS Logical
+
+	Local bNoCheckPeerCert			AS Logical
+	Local cChiperList				AS Character
+	
+	Local cEncoding					AS Character
+	Local cLocation					AS Character
+
+	Local cSSLCACertFile			AS Character
+	Local cSSLCertFile				AS Character
+	Local cSSLKeyFile				AS Character
+	Local cSSLKeyPwd				AS Character
+
+	Local lAlwaysSendSA				AS Logical
+	Local lCheckInput				AS Logical
+	Local lCompressed				AS Logical
+	Local lEnableOptAttr			AS Logical
+
+	Local lProcResp					AS Logical
+	Local lRemEmptyTags				AS Logical
+	Local lSSLInsecure				AS Logical
+
+	Local lUseNSPrefix				AS Logical
+	Local lVerbose					AS Logical
+	Local nConnectionTimeout		AS Numeric
+	Local nSOAPVersion				AS Numeric
+	Local nSSLVersion				AS Numeric
+	Local nTimeout					AS Numeric
+
+	//---------------------------------------------------------------------------------------------
+	::_cError			:= ''
+	::_cCodErr			:= ''
+	::_cMsgErr			:= ''
+	::_cSoluc			:= ''
+
+	::_cXMLSend			:= ''
+
+	//Em casos de erro nesta classe ela fica como se fosse travada na situação de erro
+	// então para poder continuar a processar forço a sua recriação
+	If 	ValType(::_oWSDL) == 'O' .And. ;
+		.Not. Empty(::_oWSDL:cError)
+
+		//Salvo informações antes de recriar o objeto
+		bNoCheckPeerCert			:= ::_oWSDL:bNoCheckPeerCert
+		cChiperList					:= ::_oWSDL:cChiperList
+		cEncoding					:= ::_oWSDL:cEncoding
+		cLocation					:= ::_oWSDL:cLocation
+
+		cSSLCACertFile				:= ::_oWSDL:cSSLCACertFile
+		cSSLCertFile				:= ::_oWSDL:cSSLCertFile
+		cSSLKeyFile					:= ::_oWSDL:cSSLKeyFile
+		cSSLKeyPwd					:= ::_oWSDL:cSSLKeyPwd
+
+		lAlwaysSendSA				:= ::_oWSDL:lAlwaysSendSA
+		lCheckInput					:= ::_oWSDL:lCheckInput
+		lCompressed					:= ::_oWSDL:lCompressed
+		lEnableOptAttr				:= ::_oWSDL:lEnableOptAttr
+
+		lProcResp					:= ::_oWSDL:lProcResp
+		lRemEmptyTags				:= ::_oWSDL:lRemEmptyTags
+		lSSLInsecure				:= ::_oWSDL:lSSLInsecure
+
+		lUseNSPrefix				:= ::_oWSDL:lUseNSPrefix
+		lVerbose					:= ::_oWSDL:lVerbose
+		nConnectionTimeout			:= ::_oWSDL:nConnectionTimeout
+		nSOAPVersion				:= ::_oWSDL:nSOAPVersion
+		nSSLVersion					:= ::_oWSDL:nSSLVersion
+		nTimeout					:= ::_oWSDL:nTimeout
+		
+		FreeObj(::_oWSDL)
+		::_oWSDL	:= tWsdlManager():New(	::_uParam1	,;
+											::_uParam2	,;
+											::_uParam3	,;
+											::_uParam4	,;
+											::_uParam5	)
+		
+		//Restauro os atributos
+		::_oWSDL:bNoCheckPeerCert		:= bNoCheckPeerCert
+		::_oWSDL:cChiperList            := cChiperList
+		::_oWSDL:cEncoding              := cEncoding
+		::_oWSDL:cLocation              := cLocation
+
+		::_oWSDL:cSSLCACertFile         := cSSLCACertFile
+		::_oWSDL:cSSLCertFile           := cSSLCertFile
+		::_oWSDL:cSSLKeyFile            := cSSLKeyFile
+		::_oWSDL:cSSLKeyPwd             := cSSLKeyPwd
+
+		::_oWSDL:lAlwaysSendSA          := lAlwaysSendSA
+		::_oWSDL:lCheckInput            := lCheckInput
+		::_oWSDL:lCompressed            := lCompressed
+		::_oWSDL:lEnableOptAttr         := lEnableOptAttr
+
+		::_oWSDL:lProcResp              := lProcResp
+		::_oWSDL:lRemEmptyTags          := lRemEmptyTags
+		::_oWSDL:lSSLInsecure           := lSSLInsecure
+
+		::_oWSDL:lUseNSPrefix           := lUseNSPrefix
+		::_oWSDL:lVerbose               := lVerbose
+		::_oWSDL:nConnectionTimeout     := nConnectionTimeout
+		::_oWSDL:nSOAPVersion           := nSOAPVersion
+		::_oWSDL:nSSLVersion            := nSSLVersion
+		::_oWSDL:nTimeout               := nTimeout
+
+		If .Not. Empty(::_cArqWSDL)
+			lRet	:= ::ParseFile(::_cArqWSDL)
+		Else
+			lRet	:= ::ParseURL(::_cWSURL)
+		EndIf
+	EndIf
+	//FWFreeVar(::_aOps)
+
+Return lRet
+
+//#############################################################################
+//##+----------+--------------+-------+-------------------+------+----------+##
+//##|Programa  | Destroy      | Autor | Cirilo Rocha      | Data |10/06/2022|##
+//##+----------+--------------+-------+-------------------+------+----------+##
+//##|Descr.    | Método destrutor da classse para limpar os objetos internos|##
+//##|          |  utilizados (como o tWsdlManager)                          |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method Destroy() Class tCXWSDL
+
+	FWFreeVar(::_oWSDL)	//Destroi o tWsdlManager
+	FWFreeVar(::_aOps)
+
+Return
+
+//#############################################################################
+//##+----------+-----------------+-------+----------------+------+----------+##
+//##|Programa  | CXSendSimpleMsg | Autor | Cirilo Rocha   | Data |15/06/2022|##
+//##+----------+-----------------+-------+----------------+------+----------+##
+//##|Descr.    | Método que faz todo o processamento da mensagem a ser en-  |##
+//##|          |  viada, desde alimentar os dados do XML até o processo de  |##
+//##|          |  envio e retorno                                           |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+METHOD CXSendSimpleMsg(	cOperation	,;
+						aValores	;
+							)  Class tCXWSDL
+
+	//Declaração de Variáveis----------------------------------------------------------------------
+	Local aSimple	AS Array
+	Local cRet		AS Character
+	Local nParID	AS Numeric
+	Local nPos		AS Numeric
+	Local nX		AS Numeric
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cOperation		AS Character
+	ParamType 1		VAR aValores		AS Array
+
+	//Inicialização de Variáveis-------------------------------------------------------------------
+	cRet	:= ''
+	lRet	:= .T.
+
+	//---------------------------------------------------------------------------------------------
+	If 	lRet .And. ;
+		ValType(::_aOps) <> 'A'	//Ainda não inicializado
+
+		::_aOps := ::_oWSDL:ListOperations()
+		If 	ValType(::_aOps) <> 'A' .Or. ;
+			Len( ::_aOps ) == 0
+
+			::_cCodErr	:= U_CXTxtMsg(Self,,.T.)+'-'+U_CXTxtMsg(,2,.T.)
+			::_cMsgErr	:= "Erro ListOperations: " + ::_oWSDL:cError
+			::_cSoluc	:= 'INFORME O SETOR DE T.I.'
+			::_cError	:= ::_cCodErr+': '+::_cMsgErr+IIf(!Empty(::_cSoluc),CRLF+'SOLUÇÃO: '+::_cSoluc,'')
+			U_CXConOut('#### ERRO #### '+::_cError)	//Apresenta a mensagem de erro no console
+
+			lRet	:= .F.
+		Endif
+	EndIf
+
+ 	//Busca do Método
+	If lRet
+		nPos	:= aScan(::_aOps,{|x| Lower(x[1]) == Lower(cOperation) })
+		If nPos == 0
+			::_cCodErr	:= U_CXTxtMsg(Self,,.T.)+'-'+U_CXTxtMsg(,2,.T.)
+			::_cMsgErr	:= 'ERRO AO LOCALIZAR OPERAÇÃO '+cOperation+'.'
+			::_cSoluc	:= 'INFORME O SETOR DE T.I.'
+			::_cError	:= ::_cCodErr+': '+::_cMsgErr+IIf(!Empty(::_cSoluc),CRLF+'SOLUÇÃO: '+::_cSoluc,'')
+
+			U_CXConOut('#### ERRO #### '+::_cError)	//Apresenta a mensagem de erro no console
+			U_CXConOut('LISTA DE OPERAÇÕES DO WSDL')
+			VarInfo( "", ::_aOps )	//Mostra lista de operações no console p/ Debug
+
+			lRet	:= .F.
+		EndIf
+	EndIf
+
+	// Define a operação
+	If lRet
+		lRet := ::_oWSDL:SetOperation( ::_aOps[nPos][1] )
+		If .Not. lRet
+
+			::_cCodErr	:= U_CXTxtMsg(Self,,.T.)+'-'+U_CXTxtMsg(,2,.T.)
+			::_cMsgErr	:= 	"Erro SetOperation: " + ::_oWSDL:cError
+			::_cSoluc	:= 'INFORME O SETOR DE T.I.'
+			::_cError	:= ::_cCodErr+': '+::_cMsgErr+IIf(!Empty(::_cSoluc),CRLF+'SOLUÇÃO: '+::_cSoluc,'')
+
+			U_CXConOut('#### ERRO #### '+::_cError)	//Apresenta a mensagem de erro no console
+			U_CXConOut('LISTA DE OPERAÇÕES DO WSDL')
+			VarInfo( "", ::_aOps )	//Mostra lista de operações no console p/ Debug
+
+			lRet	:= .F.
+		EndIf
+	EndIf
+
+	If lRet
+		aSimple := ::_oWSDL:SimpleInput()
+		If 	ValType(aSimple) <> 'A'
+
+			::_cCodErr	:= U_CXTxtMsg(Self,,.T.)+'-'+U_CXTxtMsg(,2,.T.)
+			::_cMsgErr	:= "Erro SimpleInput: " + ::_oWSDL:cError
+			::_cSoluc	:= 'INFORME O SETOR DE T.I.'
+			::_cError	:= ::_cCodErr+': '+::_cMsgErr+IIf(!Empty(::_cSoluc),CRLF+'SOLUÇÃO: '+::_cSoluc,'')
+
+			U_CXConOut('#### ERRO #### '+::_cError)	//Apresenta a mensagem de erro no console
+
+			lRet	:= .F.
+		EndIf
+	EndIf
+
+	//Seta valores passados------------------------------------------------------------------------
+	For nX := 1 to Len(aValores)
+
+		//Parâmetros do Método Selecionado
+		nPos	:= aScan(aSimple,{|x| Lower(x[ncSI_NmPar]) == Lower(aValores[nX][1]) })
+		If nPos > 0
+			nParID		:= aSimple[nPos][nnSI_ID]
+		Else
+			::_cCodErr	:= U_CXTxtMsg(Self,,.T.)+'-'+U_CXTxtMsg(,2,.T.)
+			::_cMsgErr	:= 'ERRO AO LOCALIZAR PARÂMETRO USUARIO '+aValores[nX][1]+'.'
+			::_cSoluc	:= 'INFORME O SETOR DE T.I.'
+			::_cError	:= ::_cCodErr+': '+::_cMsgErr+IIf(!Empty(::_cSoluc),CRLF+'SOLUÇÃO: '+::_cSoluc,'')
+
+			U_CXConOut('#### ERRO #### '+::_cError)	//Apresenta a mensagem de erro no console
+			U_CXConOut('LISTA DE INPUTS DO WSDL')
+			VarInfo( "", aSimple )	//Mostra lista de operações no console p/ Debug
+
+			lRet	:= .F.
+			Exit
+		EndIf
+
+		// Define o valor de cada parâmeto necessário (conforme legenda acima) e faz as devidas conversões
+		lRet := ::_oWSDL:SetValue( 	nParID,;
+									WSSoapValue("",,aValores[nX][2],aSimple[nPos][ncSI_TpPar],.T.,.F.,0,NIL,.F.,.F.) )
+		If .Not. lRet
+
+			::_cCodErr	:= U_CXTxtMsg(Self,,.T.)+'-'+U_CXTxtMsg(,2,.T.)
+			::_cMsgErr	:= "Erro: " + ::_oWSDL:cError
+			::_cSoluc	:= 'INFORME O SETOR DE T.I.'
+			::_cError	:= ::_cCodErr+': '+::_cMsgErr+IIf(!Empty(::_cSoluc),CRLF+'SOLUÇÃO: '+::_cSoluc,'')
+
+			U_CXConOut('#### ERRO #### '+::_cError)	//Apresenta a mensagem de erro no console
+
+			lRet	:= .F.
+			Exit
+		EndIf
+	Next
+
+	If lRet
+		//Exibe a mensagem que será enviada------------------------------------------------------------
+		::_cXMLSend	:= ::_oWSDL:GetSoapMsg()
+
+		U_CXConOut('#### MENSAGEM SOAP PARA ENVIO ####',,.T.)
+		U_CXConOut(U_CXFormatXML(U_CXCifrar(::_cXMLSend)))
+		// ApMsgInfo( ::_oWSDL:GetSoapMsg() ) //Para Debugar caso necessário
+
+		// Envia a mensagem SOAP ao servidor
+		lRet := ::_oWSDL:SendSoapMsg()
+		If .Not. lRet
+
+			::_cCodErr	:= U_CXTxtMsg(Self,,.T.)+'-'+U_CXTxtMsg(,2,.T.)
+			::_cMsgErr	:= 	"Erro: " + ::_oWSDL:cError+CRLF+;
+							"Resposta do SOAP: "+U_CXFormatXML(::_oWSDL:GetSoapResponse())
+			::_cSoluc	:= 'INFORME O SETOR DE T.I.'
+			::_cError	:= ::_cCodErr+': '+::_cMsgErr+IIf(!Empty(::_cSoluc),CRLF+'SOLUÇÃO: '+::_cSoluc,'')
+
+			U_CXConOut('#### ERRO #### '+::_cError)	//Apresenta a mensagem de erro no console
+
+			lRet	:= .F.
+		Else	//-------------------------------------------------------------------------------------
+			cRet	:= ::_oWSDL:GetSoapResponse()
+			U_CXConOut('#### XML DA RESPOSTA DO SOAP ####',,.T.)
+			U_CXConOut(U_CXFormatXML(cRet))
+		EndIf
+	EndIf
+
+	If .Not. lRet
+		//Alimento as variáveis compartilhadas
+		cCodErr	:= ::_cCodErr
+		cMsgErr	:= ::_cMsgErr
+		cSoluc	:= ::_cSoluc
+		cMsg	:= ::_cError
+
+		If ::_lMsg
+			U_CXHelp(::_cCodErr,,::_cMsgErr,,::_cSoluc)
+		EndIf
+	EndIf
+
+Return cRet
+
+//#################################################################################################
+//#################################################################################################
+// MÉTODOS EXTENDIDOS
+//#################################################################################################
+//#################################################################################################
+
+//#############################################################################
+//##+----------+------------+-------+---------------------+------+----------+##
+//##|Programa  | ParseFile  | Autor | Cirilo Rocha        | Data |15/06/2022|##
+//##+----------+------------+-------+---------------------+------+----------+##
+//##|Descr.    | Método para parsear o XML, sobrescrito para exibir as men- |##
+//##|          |  sagens de erro                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method ParseFile( 	cFile 	,;
+					uParam1	,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXWSDL
+
+	//Declaração de Variáveis----------------------------------------------------------------------
+	Local lRet		:= .T.		AS Logical
+
+	//---------------------------------------------------------------------------------------------
+
+	::Reset()	//Limpa variáveis
+
+	If .Not. ::_oWSDL:ParseFile(cFile 	,;
+								uParam1	,;
+								uParam2	,;
+								uParam3	,;
+								uParam4	,;
+								uParam5	)
+		::_cCodErr	:= U_CXTxtMsg(Self,,.T.)+'-'+U_CXTxtMsg(,2,.T.)
+		::_cMsgErr	:= "Erro ParseFile "+cFile+" " + ::_oWSDL:cError
+		::_cSoluc	:= 'INFORME O SETOR DE T.I.'
+		::_cError	:= ::_cCodErr+': '+::_cMsgErr+IIf(!Empty(::_cSoluc),CRLF+'SOLUÇÃO: '+::_cSoluc,'')
+
+		U_CXConOut('#### ERRO #### '+::_cError)	//Apresenta a mensagem de erro no console
+
+		//Alimento as variáveis compartilhadas
+		cCodErr	:= ::_cCodErr
+		cMsgErr	:= ::_cMsgErr
+		cSoluc	:= ::_cSoluc
+		cMsg	:= ::_cError
+
+		If ::_lMsg
+			U_CXHelp(::_cCodErr,,::_cMsgErr,,::_cSoluc)
+		EndIf
+
+		lRet	:= .F.
+	Else
+		::_cArqWSDL	:= cFile
+	EndIf
+
+Return lRet
+
+//#############################################################################
+//##+----------+------------+-------+---------------------+------+----------+##
+//##|Programa  | ParseURL   | Autor | Cirilo Rocha        | Data |15/06/2022|##
+//##+----------+------------+-------+---------------------+------+----------+##
+//##|Descr.    | Método para parsear o XML, sobrescrito para exibir as men- |##
+//##|          |  sagens de erro                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method ParseURL(cURL 	,;
+				uParam1	,;
+				uParam2	,;
+				uParam3	,;
+				uParam4	,;
+				uParam5	;
+					) Class tCXWSDL
+
+	//Declaração de Variáveis----------------------------------------------------------------------
+	Local lRet		:= .T.		AS Logical
+
+	//---------------------------------------------------------------------------------------------
+
+	::Reset()	//Limpa variáveis
+
+	If .Not. ::_oWSDL:ParseURL(	cURL 	,;
+								uParam1	,;
+								uParam2	,;
+								uParam3	,;
+								uParam4	,;
+								uParam5	)
+
+		::_cCodErr	:= U_CXTxtMsg(Self,,.T.)+'-'+U_CXTxtMsg(,2,.T.)
+		::_cMsgErr	:= "Erro ParseURL "+cURL+" " + ::_oWSDL:cError
+		::_cSoluc	:= 'INFORME O SETOR DE T.I.'
+		::_cError	:= ::_cCodErr+': '+::_cMsgErr+IIf(!Empty(::_cSoluc),CRLF+'SOLUÇÃO: '+::_cSoluc,'')
+
+		U_CXConOut('#### ERRO #### '+::_cError)	//Apresenta a mensagem de erro no console
+
+		//Alimento as variáveis compartilhadas
+		cCodErr	:= ::_cCodErr
+		cMsgErr	:= ::_cMsgErr
+		cSoluc	:= ::_cSoluc
+		cMsg	:= ::_cError
+
+		If ::_lMsg
+			U_CXHelp(::_cCodErr,,::_cMsgErr,,::_cSoluc)
+		EndIf
+
+		lRet	:= .F.
+	Else
+		::_cWSURL	:= cURL
+	EndIf
+
+Return lRet
+
+//#################################################################################################
+//#################################################################################################
+// MÉTODOS PADRÕES
+//#################################################################################################
+//#################################################################################################
+
+//-------------------------------------------------------------------------------------------------
+Method AddHttpHeader(cName	,;
+					cValue	,;
+					uParam1	,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXWSDL
+
+Return ::_oWSDL:AddHttpHeader(cName	,;
+							cValue	,;
+							uParam1	,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+
+//-------------------------------------------------------------------------------------------------
+Method ComplexFault(uParam1	,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXWSDL
+
+Return ::_oWSDL:ComplexFault(uParam1	,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method ComplexInput(uParam1	,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXWSDL
+
+Return ::_oWSDL:ComplexInput(uParam1	,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method ComplexOutput(uParam1,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXWSDL
+
+Return ::_oWSDL:ComplexOutput(uParam1,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method GetAuthentication(cUser	,;
+						cPass	,;
+						uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	;
+							) Class tCXWSDL
+
+Return ::_oWSDL:GetAuthentication(@cUser	,;
+								@cPass	,;
+								uParam1	,;
+								uParam2	,;
+								uParam3	,;
+								uParam4	,;
+								uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method GetCredentials(	cUser	,;
+						cPass	,;
+						uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	;
+							) Class tCXWSDL
+
+Return ::_oWSDL:GetCredentials(	@cUser	,;
+								@cPass	,;
+								uParam1	,;
+								uParam2	,;
+								uParam3	,;
+								uParam4	,;
+								uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method GetParsedResponse(uParam1,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	;
+							) Class tCXWSDL
+
+Return ::_oWSDL:GetParsedResponse(uParam1,;
+								uParam2	,;
+								uParam3	,;
+								uParam4	,;
+								uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method GetPorts(uParam1	,;
+				uParam2	,;
+				uParam3	,;
+				uParam4	,;
+				uParam5	;
+					) Class tCXWSDL
+
+Return ::_oWSDL:GetPorts(uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method GetProxy(cHost	,;
+				nPort	,;
+				uParam1	,;
+				uParam2	,;
+				uParam3	,;
+				uParam4	,;
+				uParam5	;
+					) Class tCXWSDL
+
+Return ::_oWSDL:GetProxy(@cHost	,;
+						@nPort	,;
+						uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method GetServices( uParam1	,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXWSDL
+
+Return ::_oWSDL:GetServices(	uParam1	,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method GetSoapMsg( 	uParam1	,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXWSDL
+
+Return ::_oWSDL:GetSoapMsg(	uParam1	,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method GetSoapResponse( uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	;
+							) Class tCXWSDL
+
+Return ::_oWSDL:GetSoapResponse(	uParam1	,;
+								uParam2	,;
+								uParam3	,;
+								uParam4	,;
+								uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method GetWsdlDoc( 	uParam1	,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXWSDL
+
+Return ::_oWSDL:GetWsdlDoc(	uParam1	,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method ListOperations( 	uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	;
+							) Class tCXWSDL
+
+Return ::_oWSDL:ListOperations(	uParam1	,;
+								uParam2	,;
+								uParam3	,;
+								uParam4	,;
+								uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method NextComplex( uParam1	,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXWSDL
+
+Return ::_oWSDL:NextComplex(	uParam1	,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method SendSoapMsg( cMsg 	,;
+					uParam1	,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXWSDL
+
+Return ::_oWSDL:SendSoapMsg(	cMsg 	,;
+							uParam1	,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method SetAuthentication(cUser	,;
+						cPass	,;
+						uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	;
+							) Class tCXWSDL
+
+Return ::_oWSDL:SetAuthentication(cUser	,;
+								cPass	,;
+								uParam1	,;
+								uParam2	,;
+								uParam3	,;
+								uParam4	,;
+								uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method SetComplexOccurs(nId		,;
+						nValue	,;
+						uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	;
+							) Class tCXWSDL
+
+Return ::_oWSDL:SetComplexOccurs(nId		,;
+								nValue	,;
+								uParam1	,;
+								uParam2	,;
+								uParam3	,;
+								uParam4	,;
+								uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method SetCredentials(	cUser	,;
+						cPass	,;
+						uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	;
+							) Class tCXWSDL
+
+Return ::_oWSDL:SetCredentials(	cUser	,;
+								cPass	,;
+								uParam1	,;
+								uParam2	,;
+								uParam3	,;
+								uParam4	,;
+								uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method SetFirst(cName	,;
+				cValue	,;
+				uParam1	,;
+				uParam2	,;
+				uParam3	,;
+				uParam4	,;
+				uParam5	;
+					) Class tCXWSDL
+
+Return ::_oWSDL:SetFirst(cName	,;
+						cValue	,;
+						uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method SetFirstArray(cName	,;
+					aValues	,;
+					uParam1	,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXWSDL
+
+Return ::_oWSDL:SetFirstArray(cName	,;
+							aValues	,;
+							uParam1	,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method SetOperation(cOperation	,;
+					uParam1		,;
+					uParam2		,;
+					uParam3		,;
+					uParam4		,;
+					uParam5		;
+						) Class tCXWSDL
+
+Return ::_oWSDL:SetOperation(cOperation	,;
+							uParam1		,;
+							uParam2		,;
+							uParam3		,;
+							uParam4		,;
+							uParam5		)
+//-------------------------------------------------------------------------------------------------
+Method SetPort( cPort	,;
+				uParam1	,;
+				uParam2	,;
+				uParam3	,;
+				uParam4	,;
+				uParam5	;
+					) Class tCXWSDL
+
+Return ::_oWSDL:SetPort( cPort	,;
+						uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method SetProxy(cHost	,;
+				nPort	,;
+				uParam1	,;
+				uParam2	,;
+				uParam3	,;
+				uParam4	,;
+				uParam5	;
+					) Class tCXWSDL
+
+Return ::_oWSDL:SetProxy(cHost	,;
+						nPort	,;
+						uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method SetValPar(cName	,;
+				aParents,;
+				cValue	,;
+				uParam1	,;
+				uParam2	,;
+				uParam3	,;
+				uParam4	,;
+				uParam5	;
+					) Class tCXWSDL
+
+Return ::_oWSDL:SetValPar(cName	,;
+						aParents,;
+						uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method SetValParArray(	cName	,;
+						aParents,;
+						aValues	,;
+						uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	;
+							) Class tCXWSDL
+
+Return ::_oWSDL:SetValParArray(	cName	,;
+								aParents,;
+								aValues	,;
+								uParam1	,;
+								uParam2	,;
+								uParam3	,;
+								uParam4	,;
+								uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method SetValue(nId		,;
+				cValue	,;
+				uParam1	,;
+				uParam2	,;
+				uParam3	,;
+				uParam4	,;
+				uParam5	;
+					) Class tCXWSDL
+
+Return ::_oWSDL:SetValue(nId		,;
+						cValue	,;
+						uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method SetValues(nId	,;
+				aValues	,;
+				uParam1	,;
+				uParam2	,;
+				uParam3	,;
+				uParam4	,;
+				uParam5	;
+					) Class tCXWSDL
+
+Return ::_oWSDL:SetValues(nId	,;
+						aValues	,;
+						uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method SetWssHeader(cHeader	,;
+					uParam1	,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXWSDL
+
+Return ::_oWSDL:SetWssHeader(cHeader	,;
+							uParam1	,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method SimpleFault(	uParam1	,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXWSDL
+
+Return ::_oWSDL:SimpleFault(	uParam1	,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method SimpleInput( uParam1	,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXWSDL
+
+Return ::_oWSDL:SimpleInput(	uParam1	,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method SimpleOutput(uParam1	,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXWSDL
+
+Return ::_oWSDL:SimpleOutput(uParam1	,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)

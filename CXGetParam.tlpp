@@ -1,0 +1,38 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "rwmake.ch"
+#Include "ParmType.ch"
+#Include "CXInclude.ch"
+
+#DEFINE MAX_PARAM 	60
+
+//#############################################################################
+//##+----------+------------+-------+---------------------+------+----------+##
+//##|Programa  | CXGetParam | Autor | Cirilo Rocha        | Data |21/08/2011|##
+//##+----------+------------+-------+---------------------+------+----------+##
+//##|Descr.    | Salva os parâmetros MV_PAR##                               |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 03/09/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 23/02/23 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXGetParam(nQtdPar);	//01 nQtdPar
+							AS Array
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local nX		AS Integer
+	Local aPar		AS Array
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR nQtdPar			AS Numeric				Optional Default MAX_PARAM
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	aPar	:= {}
+	For nX := 1 to nQtdPar
+		aAdd (aPar,&('MV_PAR'+StrZero(nX,2)))
+	Next
+
+Return aPar

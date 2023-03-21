@@ -1,0 +1,283 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+
+//Static cDirLog		:= '\LogProc\'
+
+//#############################################################################
+//##+----------+--------------+-------+-------------------+------+----------+##
+//##|Programa  | CXApMsgMemo  | Autor | Cirilo Rocha      | Data |01/12/2010|##
+//##+----------+--------------+-------+-------------------+------+----------+##
+//##|Descrição | Função para exibir uma string em um campo no formato memo  |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção Efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 28/10/13 | Cirilo R. | Adicionado botão para salvar o texto           |##
+//##| 07/11/13 | Cirilo R. | Adicionada mensagem de salvo com sucesso       |##
+//##| 17/11/14 | Cirilo R. | Adicionado botão OK                            |##
+//##| 26/06/15 | Cirilo R. | Adicionada função para gravar o log de proces- |##
+//##|          |           | samento.                                       |##
+//##| 08/06/17 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 11/04/18 | Cirilo R. | Ajuste na posição dos botões                   |##
+//##| 14/05/18 | Cirilo R. | Ajustes para tamanho dinâmico da janela        |##
+//##| 19/05/18 | Cirilo R. | Migrada gravação de log para tCXLog            |##
+//##|          |           | Ajustes nas dimensões dinâmicas                |##
+//##| 29/07/19 | Cirilo R. | Revisão no fonte                               |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXApMsgMemo(	cTexto		,;	//01 Texto a ser exibido no memo
+							cTitulo		,;	//02 Titulo da Janela
+							lBtSalva	,;	//03 Mostra botao Salvar (default .T.)
+							lBtOK		,;	//04 Mostra botao OK (default .F.)
+							lReadOnly	,;	//05 Modo somente leitura (default .T.)
+							lGrvLog		,;	//06 Grava texto em um log (default .T.)
+							lMax		,;	//07 Abre janeja maximizada (default .T.)
+							bValOK		);	//08 Validacao do botao OK
+								AS Logical
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local lOK			AS Logical
+
+	Local nMrg			AS Numeric
+	Local nLrg          AS Numeric
+	Local nAltBt		AS Numeric
+	Local nLarBt		AS Numeric
+	Local nClBt1        AS Numeric
+	Local nClBt2        AS Numeric
+	Local nClBt3        AS Numeric
+	Local nLnBt         AS Numeric
+
+//	Local cNomArq		AS Character
+//	Local cMsg	        AS Character
+	Local cFunName	    AS Character
+	Local cLinha	    AS Character
+	Local nTmp			AS Numeric
+
+	Local oDlg			AS Object
+	Local cBakTxt		AS Character
+	Local oMemo			AS Object
+	Local aTamJan		AS Array
+//	Local aCordW        AS Array
+//	Local nTamLin 		AS Numeric
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cTexto				AS Character				Optional Default ''
+	ParamType 1		VAR cTitulo				AS Character				Optional Default "CXApMsgMemo: Mensagem"
+	ParamType 2		VAR lBtSalva			AS Logical					Optional Default .T.
+	ParamType 3		VAR lBtOK				AS Logical					Optional Default .F.
+	ParamType 4		VAR lReadOnly			AS Logical					Optional Default .T.
+	ParamType 5		VAR lGrvLog				AS Logical					Optional Default .T.
+	ParamType 6		VAR lMax				AS Logical					Optional Default .T.
+	ParamType 7		VAR bValOK				AS Block					Optional Default {|| .T.}
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	lOK			:= .T.
+	
+	nMrg		:= 005
+	nAltBt		:= 015
+	nLarBt		:= 4*nAltBt
+	aTamJan		:= MsAdvSize() 		//tamanhos da janela
+
+	//Grava log
+	If lGrvLog
+		//Cria diretorio para log se nao existir
+//		If !ExistDir(cDirLog)
+//			If MakeDir(cDirLog) <> 0
+//				cMsg	:= 	U_CXTxtMsg()+'Erro ao criar pasta de logs de processamento<br>'+;
+//							cDirLog
+//
+//				ApMsgAlert(cMsg)
+//			EndIf
+//		EndIf
+//
+//		If ExistDir(cDirLog)
+			//Controle de erros
+			If Type('cFilAnt') <> 'C'
+				cFilAnt	:= 'XX'
+			EndIf
+			If Type('cEmpAnt') <> 'C'
+				cEmpAnt	:= 'XX'
+			EndIf
+			If Type('__cUserID') <> 'C'
+				__cUserID	:= 'XXXXXX'
+			EndIf
+			If Type('cUserName') <> 'C'
+				cUserName	:= 'ERRO USR'
+			EndIf
+
+//			cNomArq		:= 	Transform(DtoS(Date()),"@R 9999-99-99")+'_'+StrTran(Time(),':',';')+;
+//							' Func '+Alltrim(FunName())+' - '+cEmpAnt+'-'+cFilAnt+' - USR '+;
+//							__cUserID + ' - ' + cUserName + '.TXT'
+//			MemoWrite(cDirLog+cNomArq,cTexto)
+			cFunName	:= U_CXTxtMsg(/*oObjeto*/,2)
+			cLinha		:= '0'
+			nTmp		:= At('(',cFunName)
+			If nTmp > 0
+				cLinha		:= SubStr(cFunName,nTmp)
+				cFunName	:= Left(cFunName,nTmp-1)
+			EndIf
+			cLinha	:= StrTran(cLinha,')')
+			cLinha	:= StrTran(cLinha,'(')
+			U_CXLogProc('CXAPMSGMEMO',cFunName,'***',Val(cLinha),'',cTexto,.T.)
+//		EndIf
+
+	EndIf
+
+	lOK		:= !lBtOK
+	cBakTxt	:= cTexto	//Faco backup do texto antes da edicao
+
+	If Type('_aCordW') == 'U'
+		Private _aCordW	:= NIL
+	EndIf
+
+	If Type('_nMinLar') == 'U'
+		Private _nMinLar	:= 800
+	EndIf
+
+	If Type('_nMinAlt') == 'U'
+		Private _nMinAlt	:= 500
+	EndIf
+
+	If Type('_nMaxLar') == 'U'
+		Private _nMaxLar	:= 99999
+	EndIf
+
+	If Type('_nMaxAlt') == 'U'
+		Private _nMaxAlt	:= 99999
+	EndIf
+
+	If Type('_lVScroll') == 'U'
+		Private _lVScroll	:= .T.
+	EndIf
+
+	If Type('_lHScroll') == 'U'
+		Private _lHScroll	:= .F.
+	EndIf
+
+	If Type('_bSetGet') == 'U'
+		Private _bSetGet	:= {|u| if(PCount()>0,cTexto:=u,cTexto) }
+	EndIf
+
+	If lMax
+		_aCordW	:= {000,000,aTamJan[6],aTamJan[5]}
+
+		//Ajusta altura minima
+		If _aCordW[3] < _nMinAlt
+			_aCordW[3]	:= _nMinAlt
+		EndIf
+
+		//Ajusta largura minima
+		If _aCordW[4] < _nMinLar
+			_aCordW[4]	:= _nMinLar
+		EndIf
+
+		//Ajusta altura maxima
+		If _aCordW[3] > _nMaxAlt
+			_aCordW[3]	:= _nMaxAlt
+		EndIf
+
+		//Ajusta largura maxima
+		If _aCordW[4] > _nMaxLar
+			_aCordW[4]	:= _nMaxLar
+		EndIf
+
+	Else
+		If _aCordW == NIL //Se a variavel nao foi passada como private entao inicializa
+			_aCordW	:= {000,000,500,800}
+		EndIf
+	EndIf
+
+	nLrg		:= ((_aCordW[4]-_aCordW[2])/2)
+	nLnBt		:= ((_aCordW[3]-_aCordW[1])/2)-nMrg-nAltBt
+	nClBt1		:= nMrg
+	nClBt2		:= (nLrg/2)-020		//Centro
+	nClBt3		:= nLrg-nLarBt-nMrg	//Lado direito
+
+	oDlg	:= MSDialog():New(	_aCordW[1],_aCordW[2],_aCordW[3],_aCordW[4],cTitulo,/*cPar6*/,/*nPar7*/,;
+								/*lPar8*/,/*nPar9*/,/*anClrText*/,/*anClrBack*/,/*oPar12*/,oMainWnd,.T.)
+
+		//oDlg:lMaximized	:= lMax
+
+		oMemo := tMultiget():New(nMrg,nMrg,_bSetGet,oDlg,nLrg-nMrg*2,nLnBt-nMrg*2,;
+								,.T.,,,,.T.,,,,,,lReadOnly,,,,,.T.)
+
+		oMemo:oFont := TFont():New ("Courier New",,18,,.T.)
+		oMemo:EnableVScroll(_lVScroll)
+		oMemo:EnableHScroll(_lHScroll)
+
+		//Botao OK sempre no canto direito
+		If lBtOK
+			tButton():New(nLnBt,nClBt3,'OK'				,oDlg,{|| IIf(lOK := Eval(bValOK),oDlg:End(),) },nLarBt,nAltBt,,,,.T.)
+			//@ 210,nClBt3 BUTTON oBtn PROMPT "OK"			SIZE nLarBt,nAltBt OF oDlg PIXEL ACTION {|| lOK := .T.,oDlg:End() }
+		EndIf
+
+		//Habilita botao salvar?
+		If lBtSalva
+			If lBtOK	//Sempre que tem o Botao OK o Salvar fica no centro
+				nPosBt	:= nClBt2
+			Else
+				nPosBt	:= nClBt1
+			EndIf
+			tButton():New(nLnBt,nPosBt,'Salvar'			,oDlg,{|| lOK := SalvaMemo(cTexto) },nLarBt,nAltBt,,,,.T.)
+			//@ 210,nPosBt BUTTON oBtn PROMPT "Salvar"		SIZE nLarBt,nAltBt OF oDlg PIXEL ACTION {|| lOK := SalvaMemo(cMemo) }
+		EndIf
+
+		If lBtOK	//Sempre que tem ok o botao Fechar fica do lado esquerdo
+			nPosBt	:= nClBt1
+		ElseIf lBtSalva	//Se nao tem OK e tem Salva, o fechar fica do lado direito
+			nPosBt	:= nClBt3
+		Else	//Se nao tem OK nem Salva, o botao fica no centro
+			nPosBt	:= nClBt2
+		EndIf
+		tButton():New(nLnBt,nPosBt,'Fechar'			,oDlg,{|| oDlg:End() },nLarBt,nAltBt,,,,.T.)
+		//@ 210,nPosBt BUTTON oBtn PROMPT "Fechar Tela" 		SIZE nLarBt,nAltBt OF oDlg PIXEL ACTION {|| oDlg:End() }
+
+	ACTIVATE MsDialog oDlg CENTERED
+
+	//Se nao confirmou volta o texto antes da alteracao
+	If !lReadOnly
+		//Precisa ser feito assim para funcionar em todos os fontes
+		If 	lOK
+			cTexto	:= Eval(_bSetGet)
+		Else
+			cTexto	:= cBakTxt
+		EndIf
+	EndIf
+
+Return lOK
+
+//-------------------------------------------------------------------------------------------------
+Static Function SalvaMemo(cMemo);	//01
+							AS Logical
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local lOK		AS Logical
+	Local cArquivo	AS Character
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cMemo			AS Character
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	lOK			:= .T.
+	cArquivo	:= U_cGetFile(	'Arquivo Texto | *.txt'								,;	//01
+								U_CXTxtMsg()+'Selecione o local e nome do arquivo:'	,;	//02
+								/*nMascpadrao*/										,;	//03
+								/*cDirinicial*/										,;	//04
+								.T.													,;	//05
+								GETF_LOCALHARD+GETF_NETWORKDRIVE					,;	//06
+								.F.													) 	//07
+
+	If .Not. Empty(cArquivo)
+		If U_CXWriteFile(cArquivo,cMemo,.T.)
+			ApMsgAlert('Arquivo salvo com sucesso.',U_CXTxtMsg(,,.T.))
+			lOK	:= .T.
+		Else
+//			ApMsgAlert('Erro ao gravar arquivo: '+U_CXDescErro(),U_CXTxtMsg(,,.T.))
+			lOK	:= .F.
+		EndIf
+	EndIf
+
+Return lOK

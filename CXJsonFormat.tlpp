@@ -1,0 +1,99 @@
+#INCLUDE "RWMake.ch"
+#INCLUDE "Protheus.ch"
+#INCLUDE "Totvs.ch"
+#Include "ParmType.ch"
+#Include "CXInclude.ch"
+
+//#############################################################################
+//##+==========+==============+=======+================+======+=============+##
+//##|Programa  | CXJsonFormat | Autor | Cirilo Rocha   | Data | 24/07/2019  |##
+//##+==========+==============+=======+================+======+=============+##
+//##|Descr.    | Função para formatar uma string Json para ficar legível    |##
+//##+==========+==========+=================================================+##
+//##| DATA     | ANALISTA | MANUTENÇÃO EFETUADA                             |##
+//##+==========+==========+=================================================+##
+//##| 17/11/21 | Cirilo R.| Pequena revisão no fonte                        |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+==========+==========+=================================================+##
+//#############################################################################
+User Function CXJsonFormat(	cJson	,;	//01
+							lSubStr	);	//02
+								AS Character
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cRet		AS Character
+	Local cChar		AS Character
+	Local nX		AS Integer
+	Local lStDupl	AS Logical
+	Local lStSimp	AS Logical
+	Local nQtdEsp	AS Integer
+	Local nTab		AS Integer
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cJson			AS Character
+	ParamType 1		VAR lSubStr			AS Logical			Optional Default .T.	//Processa dados dentro da string ""
+	
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	cRet	:= ''
+
+	//cJson	:= MemoRead('C:\TEMP\JSON.TXT') //para debug e testes
+	
+	cJson	:= StrTran(cJson,Chr(10),'')
+	cJson	:= StrTran(cJson,Chr(13),'')
+	cJson	:= StrTran(cJson,Chr(15),'') //Tab
+
+	lStDupl	:= .F.
+	lStSimp	:= .F.
+
+	nQtdEsp	:= 0
+	nTab	:= 3
+	
+//	{ Pula linha + aumenta espaco
+//	} pula antes + diminui espaco
+//	[ Pula linha + aumenta espaco
+//	] pula antes + diminui espaco
+//	, pula linha
+	
+	For nX := 1 to len(cJson)
+		//Caractere Atual
+		cChar	:= SubStr(cJson,nX,1)
+		
+		If 	cChar $ '{}[],'
+			If .Not. lStSimp	//Pula caso exista string simples aberta
+				If 	.Not. lStDupl .Or. ;	//Nao ha string aberta
+					lSubStr					//Forca processendo dentro da string
+	
+					If 	cChar $ '{['
+						cRet	+= cChar
+						cRet	+= CRLF		//Pula linha depois
+						nQtdEsp	+= nTab
+						cRet	+= Space(nQtdEsp)
+						Loop
+					ElseIf cChar $ '}]'
+						cRet	+= CRLF		//Pula linha antes
+						nQtdEsp	-= nTab
+						cRet	+= Space(nQtdEsp)
+						cRet	+= cChar
+						Loop
+					ElseIf cChar == ','
+						cRet	+= cChar	//Pula linha depois
+						cRet	+= CRLF
+						cRet	+= Space(nQtdEsp)
+						Loop
+					EndIf
+				EndIf
+			EndIf
+		ElseIf cChar == '"'
+			lStDupl	:= .Not. lStDupl	//String aspa duplas
+		ElseIf 	cChar == "'" .And. ;
+				lSubStr					//So faco esse tratamento caso preciso verificar as substrings (Fluig)
+			
+			lStSimp	:= .Not. lStSimp	//String aspa simples
+		EndIf
+		
+		cRet	+= cChar
+	Next
+	
+Return cRet

@@ -1,0 +1,43 @@
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+#INCLUDE 'CXInclude.ch'
+
+//#############################################################################
+//##+----------+-----------+-------+----------------------+------+----------+##
+//##|Programa  | CXFJ      | Autor | Cirilo Rocha         | Data |02/09/2011|##
+//##+----------+-----------+-------+----------------------+------+----------+##
+//##|Descr.    | Retorna a picture para CPF ou CNPJ conforme o tamanho do   |##
+//##|          | campo passado. Se maior que 11 entao retorna como CNPJ     |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 24/11/11 | Cirilo R. | Adicionado tratamento para que o campo possa   |##
+//##|          |           |  ser modificado para CNPJ                      |##
+//##| 20/05/22 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+Static cPicPJ	:= AllTrim(PicPes('J'))	AS Character
+Static cPicPF	:= AllTrim(PicPes('F'))	AS Character
+//-------------------------------------------------------------------------------------------------
+User Function CXFJ(cCPFCNPJ);
+						AS Character
+	
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	Local cRet		AS Character
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cCPFCNPJ		AS Character			Optional Default &(ReadVar())
+
+	If 	Len(AllTrim(cCPFCNPJ)) <= 11 .And. ;
+		.Not. Empty(cCPFCNPJ)
+
+		cRet	:= StrTran(cPicPF,'%C','')+'999'+'%C'
+	Else
+		cRet	:= cPicPJ
+	EndIf
+
+Return cRet

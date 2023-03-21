@@ -7,19 +7,20 @@
 //##+==========+============+=======+===================+======+============+##
 //##| Programa | CXDescErro | Autor | Cirilo Rocha      | Data | 03/05/2013 |##
 //##+==========+============+=======+===================+======+============+##
-//##| Desc.    | Funcao que retorna a mensagem de erro referente ao codigo  |##
-//##|          | retornado da funcao fError()                               |##
-//##|          |                                                            |##
+//##| Desc.    | Função que retorna a mensagem de erro referente ao código  |##
+//##|          | retornado da função fError()                               |##
 //##+==========+===========+================================================+##
-//##| DATA     |Programador| Manutencao Efetuada                            |##
+//##| DATA     |Programador| Manutenção Efetuada                            |##
 //##+==========+===========+================================================+##
-//##| 13/11/20 | Cirilo R. | Pequena revisao no fonte                       |##
+//##| 13/11/20 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 11/11/21 | Cirilo R. | Pequena revisão no fonte                       |##
 //##|          |           |                                                |##
 //##|          |           |                                                |##
 //##|          |           |                                                |##
 //##+==========+===========+================================================+##
 //#############################################################################
-User Function CXDescErro(nErro)	//01
+User Function CXDescErro(nErro);	//01
+							AS Character
 	
 	//Declaracao de variaveis----------------------------------------------------------------------
 	Local aDescErro		AS Array

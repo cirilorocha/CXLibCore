@@ -1,0 +1,188 @@
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+#INCLUDE 'CXInclude.ch'
+
+//#############################################################################
+//##+==========+=============+=======+=================+======+=============+##
+//##|Programa  | CXProcQBind | Autor | Cirilo Rocha    | Data | 22/02/2022  |##
+//##+==========+=============+=======+=================+======+=============+##
+//##|Desc.     | Função para fazer a substituição dos parâmetros bind em    |##
+//##|          |  uma query, para facilitar o debug                         |##
+//##+==========+==========+=================================================+##
+//##| DATA     | ANALISTA | MANUTENÇÃO EFETUADA                             |##
+//##+==========+==========+=================================================+##
+//##| 24/02/22 | Cirilo R.| Pequena melhoria                                |##
+//##|          |          | Adaptações para processar o comando IN e conver-|##
+//##|          |          |  são automática de tipos D,N,L                  |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+==========+==========+=================================================+##
+//#############################################################################
+User Function CXProcQBind(	cQuery		,;	//01 Se por referência devolve query processada
+							aBindParam	);	//02 Se por referência devolve parametros processados
+								AS Character
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aBindQry		AS Array
+	Local nX,nY			AS Integer
+	Local nPos			AS Integer
+	Local nPosIni		AS Integer
+	Local nNivel		AS Integer
+	Local cRet			AS Character
+	Local cTemp			AS Character
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cQuery			AS Character
+	ParamType 1		VAR aBindParam		AS Array		Optional Default {}
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+	
+	nNivel		:= 2
+	If 	FWIsInCallStack('U_CXEXECQUERY') .Or. ;
+		FWIsInCallStack('U_CXQRYCOUNT')
+
+		nNivel++
+	EndIf
+
+	//Pré-processa Bind Param para tipos diferente de caracter, não faço um if len > 0 porque 
+	// o For faz isso implicitamente!
+	//Alimenta o array aBindQry com os parâmetros convertidos para caracter e ajusta a query
+	// para os parâmetros IN
+	nPosIni		:= 0
+	aBindQry	:= {}
+	For nX := 1 to Len(aBindParam)
+
+		nPos	:= At('?',cQuery,nPosIni+1)		// buscar texto da esquerda para a direita
+		If nPos == 0
+			cCodErr	:= U_CXTxtMsg(,nNivel,.T.)
+			cMsgErr	:= 'ERRO: Mais parâmetros passados (aBindParam) que interrogações (?) na query.'
+			cSoluc	:= 'INFORME O SETOR DE T.I.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+
+			U_CXConOut( cMsg )
+			U_CXConOut( U_CXMostraTipo(aBindParam,,,,,,,'aBindParam') )
+			U_CXConOut( 'QUERY: '+cQuery )
+
+			If .Not. U_CXRotAuto()
+				U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+			EndIf
+			Exit
+		Else
+			//Processa cQuery e Parametros para o IN-----------------------------------------------
+			If ValType(aBindParam[nX]) == 'A'
+				//Processa a query acrescentando as ? conforme a quantidade de parâmetros do IN
+				If Len(aBindParam[nX]) == 0	//Tratamento de erros
+					aBindParam[nX]	:= {'!@#'}	//Adiciono um valor aleatório porque não pode ficar vazio, 
+					//se vazio for necessário colocar '' dentro do array e não o array vazio (len=0)
+				EndIf
+
+				cTemp		:= Left(cQuery,nPos-1)+U_CXSubStr(Replicate('?,',Len(aBindParam[nX])),,-1)
+				nPosIni		:= Len(cTemp)
+				cQuery		:= cTemp+SubStr(cQuery,nPos+1)
+
+				For nY := 1 to Len(aBindParam[nX])
+					If 	ValType(aBindParam[nX][nY]) == 'C' .And. ;
+						Len(aBindParam[nX][nY]) == 0
+						cTemp	:= ' '	//Para o bind funcionar se a string for comprimento zero ele perde o parâmetro precisa ter pelo menos 1 char
+					Else
+						cTemp	:= U_CXVal2SQL(aBindParam[nX][nY],.F.)
+					EndIf
+
+					aAdd(aBindQry,cTemp)
+				Next
+				
+			Else
+				If 	ValType(aBindParam[nX]) == 'C' .And. ;
+					Len(aBindParam[nX]) == 0
+					cTemp	:= ' '	//Para o bind funcionar se a string for comprimento zero ele perde o parâmetro precisa ter pelo menos 1 char
+				Else
+					cTemp	:= U_CXVal2SQL(aBindParam[nX],.F.)
+				EndIf
+				aAdd(aBindQry,cTemp)
+
+				nPosIni	:= nPos
+			EndIf
+		EndIf
+	Next
+
+	//Validação da quantidade----------------------------------------------------------------------
+	nPos	:= At('?',cQuery,nPosIni+1)
+	If nPos > 0
+		cCodErr	:= U_CXTxtMsg(,nNivel,.T.)
+		cMsgErr	:= 'ERRO: Mais interrogações (?) na query que parâmetros passados (aBindParam).'
+		cSoluc	:= 'INFORME O SETOR DE T.I.'
+		cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+
+		U_CXConOut( cMsg )
+		U_CXConOut( U_CXMostraTipo(aBindParam,,,,,,,'aBindParam') )
+		U_CXConOut( 'QUERY: '+cQuery )
+
+		If .Not. U_CXRotAuto()
+			U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+		EndIf
+	EndIf
+
+	//Processa a query de retorno com os parâmetros substituídos-----------------------------------
+	nPosIni		:= 1
+	cRet		:= cQuery
+	For nX := 1 to Len(aBindQry)
+		nPos	:= At('?',cRet,nPosIni+1)		// buscar texto da esquerda para a direita
+		If nPos == 0
+			cCodErr	:= U_CXTxtMsg(,nNivel,.T.)
+			cMsgErr	:= 	'ERRO: Mais parâmetros processados (aBindQry) que interrogações (?) na query.'+CRLF+;
+						'VERIFICAR PROCESSAMENTO DA ROTINA CXProcQBind().'
+			cSoluc	:= 'INFORME O SETOR DE T.I.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+
+			U_CXConOut( cMsg )
+			U_CXConOut( U_CXMostraTipo(aBindQry,,,,,,,'aBindQry') )
+			U_CXConOut( 'QUERY: '+cQuery )
+
+			If .Not. U_CXRotAuto()
+				U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+			EndIf
+			Exit
+		Else
+			//Faz a substituição da query de retorno / conferência---------------------------------
+			cTemp	:= Left(cRet,nPos-1)+"'"+aBindQry[nX]+"'"	//O sistema hoje trata tudo como string
+			nPosIni	:= Len(cTemp)
+			cRet	:= cTemp+SubStr(cRet,nPos+1)
+		EndIf
+	Next
+	
+	//Validação da quantidade----------------------------------------------------------------------
+	nPos	:= At('?',cRet,nPosIni+1)
+	If nPos > 0
+		cCodErr	:= U_CXTxtMsg(,nNivel,.T.)
+		cMsgErr	:= 	'ERRO: Mais interrogações (?) na query processada que parâmetros passados (aBindQry).'+CRLF+;
+					'VERIFICAR PROCESSAMENTO DA ROTINA CXProcQBind().'
+		cSoluc	:= 'INFORME O SETOR DE T.I.'
+		cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+
+		U_CXConOut( cMsg )
+		U_CXConOut( U_CXMostraTipo(aBindParam,,,,,,,'aBindQry') )
+		U_CXConOut( 'QUERY: '+cRet )
+
+		If .Not. U_CXRotAuto()
+			U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+		EndIf
+	EndIf
+
+	aBindParam	:= aBindQry		//Sobrescrevo a variável para conferência se necessário! se passada por referência
+
+Return cRet
+
+//-------------------------------------------------------------------------------------------------
+User Function CXQB(	cQuery		,;	//01
+					aBindParam	);	//02
+						AS Character
+
+Return U_CXProcQBind(	cQuery				,;	//01
+						aClone(aBindParam)	)

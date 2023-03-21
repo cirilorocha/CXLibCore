@@ -1,0 +1,554 @@
+#INCLUDE "RWMake.ch"
+#INCLUDE "Protheus.ch"
+#INCLUDE "Totvs.ch"
+#INCLUDE "CXnOpc.ch"
+#Include "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+#Include "FWGetSX5.ch"
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXLibLog | Autor | Cirilo Rocha       | Data | 28/11/2017  |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descr.    | Biblioteca de funções para leitura e gravação de logs      |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 17/11/21 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 14/12/21 | Cirilo R. | Pequena revisão (release 33)                   |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+
+
+//#############################################################################
+//##+----------+-----------+-------+-------------------+------+-------------+##
+//##|Programa  | CXLogProc | Autor | Cirilo Rocha      | Data | 05/12/2017  |##
+//##+----------+-----------+-------+-------------------+------+-------------+##
+//##|Descr.    | Função responsável por gravar um log do processamento      |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 28/04/22 | Cirilo R. | Otimização para gravação em apenas 1 passo     |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXLogProc(cNmProc	,;	//01 Nome do processo
+						cFuncao	,;	//02 Funcao responsavel (filtro) (def FunName())
+						cTabela	,;	//03 Tabela (filtro) (def '***')
+						nRecTab	,;	//04 Recno da tabela (filtro) (def '')
+						cChvTab	,;	//05 Chave da tabela (filtro) (def '')
+						cMsg	,;	//06 Mensagem (def '')
+						lSucesso,;	//07 Processado com sucesso (def .F.)
+						lContProc)	//08 Continua processamento? (def .F.)
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local oCXLog	AS Object
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cNmProc	  		AS Character
+	ParamType 1		VAR cFuncao	 	  	AS Character		Optional Default NIL
+	ParamType 2		VAR cTabela	  		AS Character		Optional Default NIL
+	ParamType 3		VAR nRecTab	 	  	AS Numeric			Optional Default NIL
+	ParamType 4		VAR cChvTab	  		AS Character		Optional Default NIL
+	ParamType 5		VAR cMsg	 	  	AS Character		Optional Default NIL
+	ParamType 6		VAR lSucesso  		AS Logical			Optional Default .F.
+	ParamType 7		VAR lContProc  		AS Logical			Optional Default NIL
+
+	//Inicia o arquivo de log----------------------------------------------------------------------
+	oCXLog	:= tCXLog():New(cNmProc		,;	//01 Nome do processo
+							cFuncao		,;	//02 Função responsavel (filtro) (def FunName())
+							cTabela		,;	//03 Tabela (filtro) (def '***')
+							nRecTab		,;	//04 Recno da tabela (filtro) (def -1)
+							cChvTab		,;	//05 Chave da tabela (filtro) (def '')
+							cMsg		,; 	//06 Mensagem inicial (def '')
+							lContProc	,; 	//07 Continua processamento? (def .F.)
+							lSucesso	)	//08 Rotina concluída com sucesso (def NIL)
+
+//	//Finaliza o arquivo de log
+//	oCXLog:FimLog(	lSucesso	,;	//01 Indica se a execução ja terminou com sucesso (def .F.)
+//					/*nRecTab*/	,;	//02 Recno da tabela (filtro) (def -1)
+//					/*cChave*/	,;	//03 Chave da tabela (filtro) (def '')
+//					/*cMsg*/	,;	//04 Mensagem a ser gravada (def '')
+//					/*lDtHr*/	 )	//05 Se adiciona o timbre de hora a mensagem (def .F.)
+
+	//Destroi objeto
+	FreeObj(oCXLog)
+	oCXLog := NIL
+
+Return
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXIniLog | Autor | Cirilo Rocha       | Data | 28/11/2017  |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descr.    | Função responsável por inicializar o regitro de log do sis-|##
+//##|          | tema                                                       |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXIniLog(	cNmProc		,;	//01 Nome do processo
+						cFuncao		,;	//02 Funcao responsavel (filtro)
+						cTabela		,;	//03 Tabela (filtro)
+						nRecTab		,;	//04 Recno da tabela (filtro)
+						cChvTab		,;	//05 Chave da tabela (filtro)
+						cMsg		,;	//06 Mensagem inicial
+						lContProc	);	//07 Continua processamento? (def .F.)
+								AS Object
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cNmProc	  		AS Character
+	ParamType 1		VAR cFuncao	 	  	AS Character		Optional Default NIL
+	ParamType 2		VAR cTabela	  		AS Character		Optional Default NIL
+	ParamType 3		VAR nRecTab	 	  	AS Numeric			Optional Default NIL
+	ParamType 4		VAR cChvTab	  		AS Character		Optional Default NIL
+	ParamType 5		VAR cMsg	 	  	AS Character		Optional Default ''
+	ParamType 6		VAR lContProc  		AS Logical			Optional Default .F.
+
+	//---------------------------------------------------------------------------------------------
+Return tCXLog():New(cNmProc		,;	//01
+					cFuncao		,;	//02
+					cTabela		,;	//03
+					nRecTab		,;	//04
+					cChvTab		,;	//05
+					cMsg		,;	//06
+					lContProc	) 	//07
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXFimLog | Autor | Cirilo Rocha       | Data | 28/11/2017  |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descr.    | Função responsável por inicializar o regitro de log do sis-|##
+//##|          | tema                                                       |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXFimLog(	oCXLog	,; //01 Recno salvo da tabela para geracao do log
+						lSucesso,; //02 Indica se a execucao ja terminou com sucesso
+						nRecTab	,; //03 Recno da tabela (filtro)
+						cChvTab	,; //04 Chave da tabela (filtro)
+						cMsg	,; //05 Mensagem a ser gravada
+						lDtHr	)  //06 Se adiciona o timbre de hora a mensagem
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR oCXLog	  		AS Object Class tCXLog
+	ParamType 1		VAR lSucesso 	  	AS Logical			Optional Default .F.
+	ParamType 2		VAR nRecTab	  		AS Numeric			Optional Default NIL
+	ParamType 3		VAR cChvTab	 	  	AS Character		Optional Default NIL
+	ParamType 4		VAR cMsg	  		AS Character		Optional Default ''
+	ParamType 6		VAR lDtHr  			AS Logical			Optional Default NIL
+
+	//---------------------------------------------------------------------------------------------
+	oCXLog:FimLog(	lSucesso,;	//01
+					nRecTab	,;	//02
+					cChvTab	,;	//03
+					cMsg	,;	//04
+					lDtHr	) 	//05
+
+Return
+
+//#############################################################################
+//##+----------+-----------+-------+-------------------+------+-------------+##
+//##|Programa  | CXConsLog | Autor | Cirilo Rocha      | Data | 28/11/2017  |##
+//##+----------+-----------+-------+-------------------+------+-------------+##
+//##|Descr.    | Função responsável por consultar os dados do log dos pro-  |##
+//##|          | cessamentos.                                               |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 22/02/18 | Cirilo R. | Melhoria nos filtros da tabela                 |##
+//##| 14/04/18 | Cirilo R. | Melhoria nos filtros para permitir mais de uma |##
+//##|          |           |  função, recno ou chave                        |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXConsLog(uFuncao	,;	//01 uFuncao
+						cTabela	,;  //02 cTabela
+						uChvTab	,;  //03 uChvTab
+						uRecTab	);  //04 uRecTab
+							AS Logical
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cChvTab		AS Character
+	Local cFuncao		AS Character
+	Local aFuncoes		AS Array
+	Local aChaves		AS Array
+	Local aRecnos		AS Array
+	Local nX			AS Integer
+
+	Private cFiltro		AS Character
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR uFuncao	  		AS Character,Array			Optional Default NIL
+	ParamType 1		VAR cTabela 	  	AS Character				Optional Default ''
+	ParamType 2		VAR uChvTab	  		AS Character,Array			Optional Default NIL
+	ParamType 3		VAR uRecTab  	  	AS Numeric,Array			Optional Default NIL
+	
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	aFuncoes	:= {}
+	aChaves		:= {}
+	aRecnos		:= {}
+	cFiltro		:= ''
+
+	If !TCCanOpen(FWSX2Util():GetFile('ZSC')) //Verifica se a tabela de log existe
+		U_CXMsgErro('TABELA ZSC DE LOG NÃO EXISTE.',;
+					'INFORME AO SETOR DE T.I.',/*lMsg*/,/*oArea*/)
+		Return .F.
+	EndIf
+
+	If ValType(uFuncao) == 'C'
+		aFuncoes	:= {uFuncao}
+	ElseIf ValType(uFuncao) == 'A'
+		aFuncoes	:= uFuncao
+	ElseIf ValType(uFuncao) == 'U' //Todas as funcoes de um registro
+		aFuncoes	:= {}
+	Else
+		U_CXMsgErro('Erro tipo da parâmetro uFuncao errado.',;
+					'INFORME O SETOR DE T.I.',/*lMsg*/,/*oArea*/)
+		Return .F.
+	EndIf
+
+	If ValType(uChvTab) == 'C'
+		aChaves	:= {uChvTab}
+	ElseIf ValType(uChvTab) == 'A'
+		aChaves	:= uChvTab
+	ElseIf ValType(uChvTab) <> 'U' //Tratamento mais abaixo
+		U_CXMsgErro('Erro tipo da parâmetro uChvTab errado.',;
+					'INFORME O SETOR DE T.I.',/*lMsg*/,/*oArea*/)
+		Return .F.
+	EndIf
+
+	If ValType(uRecTab) == 'N'
+		aRecnos	:= {uRecTab}
+	ElseIf ValType(uRecTab) == 'A'
+		aRecnos	:= uRecTab
+	ElseIf ValType(uRecTab) <> 'U' //Tratamento mais abaixo
+		U_CXMsgErro('Erro tipo da parâmetro uRecTab errado.',;
+					'INFORME O SETOR DE T.I.',/*lMsg*/,/*oArea*/)
+		Return .F.
+	EndIf
+
+	If 	ValType(uChvTab) == 'U' .And. ;
+		ValType(uRecTab) == 'U'
+		U_CXMsgErro('Erro tipo da parâmetro uRecTab e uChvTab errado.',;
+					'INFORME O SETOR DE T.I.',/*lMsg*/,/*oArea*/)
+		Return .F.
+	EndIf
+
+//	Private	_cFuncFlt	:= PadR(cFuncao,TamSX3('ZSC_FUNCAO')[1])
+//	Private _cTabFlt	:= cTabela
+//	Private _cChvTab	:= PadR(cChvTab,TamSX3('ZSC_CHAVE')[1])
+//	Private _nRecTab	:= nRecTab
+	
+	If .Not. Empty(cTabela)
+		cFiltro		+= "@#ZSC->ZSC_TABELA == '"+cTabela+"' "
+	EndIf
+
+	If Len(aFuncoes) > 0
+		//cFuncao	:= PadR(cFuncao,TamSX3('ZSC_FUNCAO')[1])
+		//cFiltro	+= " .And. ZSC->ZSC_FUNCAO $ '"+cFuncao+"' "
+
+		cFiltro	+= " .And. ( "
+		For nX := 1 to len(aFuncoes)
+			cFuncao	:= Upper(PadR(aFuncoes[nX],TamSX3('ZSC_FUNCAO')[1]))
+			cFiltro	+= " ZSC->ZSC_FUNCAO == '"+cFuncao+"'"
+			If nX <> len(aFuncoes)
+				cFiltro	+= " .OR. "
+			EndIf
+		Next
+		cFiltro	+= " ) "
+	EndIf
+
+	If Len(aRecnos) > 0
+		//ConPad1(,,,"ZSC1",,,.F.)
+		cFiltro	+= " .And. ( "
+		For nX := 1 to len(aRecnos)
+			cFiltro	+= " ZSC->ZSC_RECNO == "+RTrim(Str(aRecnos[nX]))
+			If nX <> len(aRecnos)
+				cFiltro	+= " .OR. "
+			EndIf
+		Next
+		cFiltro	+= " ) "
+	Else
+		//ConPad1(,,,"ZSC2",,,.F.)
+		//cChvTab	:= PadR(cChvTab,TamSX3('ZSC_CHAVE')[1])
+		//cFiltro	+= ".And. ZSC->ZSC_CHAVE == '"+cChvTab+"' "
+
+		cFiltro	+= " .And. ( "
+		For nX := 1 to len(aChaves)
+			cChvTab	:= PadR(aChaves[nX],TamSX3('ZSC_CHAVE')[1])
+			cFiltro	+= " ZSC->ZSC_CHAVE == '"+cChvTab+"'"
+			If nX <> len(aChaves)
+				cFiltro	+= " .OR. "
+			EndIf
+		Next
+		cFiltro	+= " ) "
+
+	EndIf
+
+	cFiltro	+= "@#" //Execucao otimizada SQL!
+
+	ConPad1(,,,"ZSC",,,.F.)
+
+Return .T.
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXLogFlt | Autor | Cirilo Rocha       | Data | 22/02/2018  |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descr.    | Função para retornar o filtro da consulta padrão, feito    |##
+//##|          | assim para otimizar a consulta no SQL                      |##
+//##|          | @#U_CXLogFlt()                                             |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXLogFlt();
+					AS Character
+
+Return cFiltro
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXLogChv | Autor | Cirilo Rocha       | Data | 05/03/2018  |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descr.    | Função para retornar a chave padrão para uma tabela        |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 01/04/19 | Cirilo R. | Melhoria para buscar a chave do MsDoc e        |##
+//##|          |           |  X2_UNICO também                               |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXLogChv(cTab);	//01 cTab
+						AS Character
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cChv		AS Character
+	Local cCampo	AS Character
+	Local aSX5		AS Array
+	Local nScan		AS Integer
+	Local aChaves	AS Array
+	Local nX		AS Integer
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cTab  	  		AS Character
+	
+	//---------------------------------------------------------------------------------------------
+	aChaves	:= MPRelation()
+	nScan 	:= aScan( aChaves, { |x| x[1] == cTab } )
+	
+	//Se nao achou a chave padrao do sistema
+	If nScan > 0
+		cChv	:= ''
+		For nX := 1 to len(aChaves[nScan][2])
+			cCampo	:= aChaves[nScan][2][nX]
+			If FwGetSx3Cache(cCampo,'X3_TIPO') == 'D'
+				cChv	+= 'DtoS('+cCampo+')'
+			ElseIf FwGetSx3Cache(cCampo,'X3_TIPO') == 'N'
+				cChv	+= 'Str('+cCampo+')'
+			ElseIf FwGetSx3Cache(cCampo,'X3_TIPO') == 'L'
+				cChv 	+= 'If('+cCampo+',".T.",".F.")'
+			Else
+				cChv 	+= cCampo
+			EndIf
+			If nX <> len(aChaves[nScan][2])
+				cChv	+= '+'
+			EndIf
+		Next
+	Else
+		//+----------------------------------+
+		//| Localiza a chave unica pelo SX2  |
+		//+----------------------------------+
+		cChv	:= FwX2Unico(cTab)
+		
+		If Empty(cChv)
+			aSX5		:= FWGetSX5('*L',cTab)
+			If Len(aSX5) > 0
+				cChv	:= aSX5[1][_X5_DESCRI]
+			Else
+				U_CXMsgErro('Erro ao localizar o cadastro da chave da tabela '+cTab+CRLF+;
+							'X2_UNICO OU TABELA SX5 CHAVE "*L"',;
+							'INFORME AO SETOR DE T.I.',/*lMsg*/,/*oArea*/)
+			EndIf
+		EndIf
+	EndIf	
+
+Return cChv
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXBrwLog | Autor | Cirilo Rocha       | Data | 28/11/2017  |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descr.    | Função para montar um browser com todos os registros de log|##
+//##|          | de processamento                                           |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXBrwLog()
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+    Private oMBrw	    AS Object
+	Private cString 	AS Character
+	Private cCadastro 	AS Character
+	Private aRotina 	AS Array
+	
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	cString 	:= "ZSC"
+	cCadastro 	:= "Cadastro de "+FwSX2Util():GetX2Name(cString)
+	aRotina 	:= MenuDef()
+
+	If !TCCanOpen(FWSX2Util():GetFile('ZSC')) //Verifica se a tabela de log existe
+		ApMsgAlert(	'TABELA ZSC DE LOG NÃO EXISTE.'+CRLF+;
+					'INFORME AO SETOR DE T.I.',U_CXTxtMsg(,,.T.))
+		Return
+	EndIf
+
+    oMBrw := FWMBrowse():New()
+    oMBrw:SetAlias( cString )
+	oMBrw:SetMenuDef( "CXLIBLOG" )
+//	oMBrw:SetOnlyFields( { 'ZQA_FILIAL', 'ZQA_NUM','ZQA_DTINI'} )
+//  oMBrw:DeleteFilter( aAddFil[nX][ADDFIL_ID] )
+//	oMBrw:ExecuteFilter()
+
+    //Adiciona a legenda
+	oMBrw:AddLegend( "ZSC_SUCESS == 'S' ", "BR_VERDE"	, "Executado com Sucesso"				)
+	oMBrw:AddLegend( "ZSC_SUCESS == '' " , "BR_AMARELO"	, "Executação não Concluída ou com Erro")
+	oMBrw:AddLegend( "ZSC_SUCESS == 'N' ", "BR_VERMELHO", "Erro na Execução"					)
+
+    oMBrw:SetDescription(cCadastro)	//"Atualização de Pedidos de Venda"
+    oMBrw:Activate()
+
+Return
+
+//-------------------------------------------------------------------------------------------------
+Static Function MenuDef();
+					AS Array
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aRotina	AS Array
+	
+	//---------------------------------------------------------------------------------------------
+	aRotina:= {}
+	aAdd(aRotina,{"Pesquisar" 	,"AxPesqui"		,0,nOPC_PESQUI})
+	//+-----------------------------------------
+	// quando a função FilBrowse for utilizada a função de pesquisa deverá	ser a PesqBrw ao invés da AxPesqui
+	//+-----------------------------------------
+//	aAdd(aRotina,{"Pesquisar" 	,"PesqBrw" 		,0,nOPC_PESQUI})
+	//+-----------------------------------------
+//	aAdd(aRotina,{"Visualizar" 	,"AxVisual"		,0,nOPC_VISUAL})
+	aAdd(aRotina,{"Visualizar" 	,"U_CXAxVisDel"	,0,nOPC_VISUAL})
+//	aAdd(aRotina,{"Incluir" 	,"AxInclui"		,0,nOPC_INCLUI})
+//	aAdd(aRotina,{"Alterar" 	,"AxAltera"		,0,nOPC_ALTERA})
+//	aAdd(aRotina,{"Excluir" 	,"AxExclui"		,0,nOPC_EXCLUI})
+	aAdd(aRotina,{"Legenda"		,"U_CXLegenda" 	,0,nOPC_VISUAL})
+
+Return aRotina
+
+//#############################################################################
+//##+==========+============+=======+===================+======+============+##
+//##|Programa  | CXGravaLog | Autor | Cirilo Rocha      | Data | 29/03/2012 |##
+//##+==========+============+=======+===================+======+============+##
+//##|Desc.     | Função genérica para gravar arquivos de log.               |##
+//##|          | Se o arquivo já exisitr apenda o texto no final do arquivo |##
+//##+==========+===========+================================================+##
+//##|   DATA   |Programador| Manutenção Efetuada                            |##
+//##+==========+===========+================================================+##
+//##| 24/11/16 | Cirilo R. | Pequena revisao no fonte                       |##
+//##| 23/08/19 | Cirilo R. | Pequena revisao no fonte                       |##
+//##| 04/10/19 | Cirilo R. | Tratamento para criar o diretorio de log       |##
+//##| 12/10/21 | Cirilo R. | Pequena revisão (release 33)                   |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+==========+===========+================================================+##
+//#############################################################################
+User Function CXGravaLog(	cArquivo,;	//01 cArquivo
+							cTexto	,;	//02 cTexto
+							lMsg	);	//03 lMsg
+								AS Logical
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local uBuffer	AS Variant //Character
+	Local cDirLog	AS Character
+	Local cDrive	AS Character
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cArquivo	AS Character
+	ParamType 1		VAR cTexto		AS Character		Optional Default ''
+	ParamType 2		VAR lMsg		AS Logical			Optional Default .Not. U_CXRotAuto()	
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	uBuffer		:= ''
+
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+
+	SplitPath( cArquivo, @cDrive, @cDirLog, /*@cFile*/, /*@cExten*/ )
+	
+	If Empty(cDrive+cDirLog)
+		cDirLog		:= '\LogProc\'
+		cArquivo	:= cDirLog+cArquivo 
+	EndIf
+	
+	If 	.Not. ExistDir(cDrive+cDirLog) .And. ;
+		MakeDir(cDrive+cDirLog) <> 0
+		
+		U_CXMsgErro('Falha ao criar o diretório de logs: '+CRLF+;
+					cDirLog+CRLF+;
+					u_CXDescErro(),'INFORME O SETOR DE T.I.',;
+					lMsg,/*oArea*/)
+		Return .F.
+	EndIf
+
+	//Verifica se o arquivo ja existe e carrega conteudo
+	If FiLe(cArquivo)	//Nao utilizar a CXFile para nao poluir as mensagens de erro desnecessariamente
+		uBuffer	:= U_CXReadFile(cArquivo)
+		If 	ValType(uBuffer) == 'C'
+			uBuffer	+= 	CRLF+CRLF+;
+						Replicate('#',70)+CRLF+CRLF
+		Else
+			uBuffer	:= ''
+		EndIf
+	EndIf
+	
+	//Concatena o conteudo anterior se houver
+	uBuffer	+= StrTran(cTexto,'<br>',CRLF)
+	
+	//Regrava o arquivo
+	If .Not. U_CXWriteFile(cArquivo,uBuffer,.F.)
+		cCodErr	:= U_CXTxtMsg(,,.T.)+cCodErr
+		If lMsg
+			U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+		EndIf
+
+		Return .F.
+	EndIf
+	
+Return .T.

@@ -1,0 +1,69 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#Include "CXInclude.ch"
+
+//#############################################################################
+//##+----------+-------------+-------+------------------+------+------------+##
+//##|Programa  | CXTrf       | Autor | Cirilo Rocha     | Data | 26/08/2013 |##
+//##+----------+-------------+-------+------------------+------+------------+##
+//##|Descr.    | Funcao semelhante a funcao padrao Transform, porem, esta   |##
+//##|          | busca automaticamente a mascara do campo e o conteudo      |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção Efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 03/03/17 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 29/08/18 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 28/03/22 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXTrf(cCampo		,;	//01 Campo do SX3 para impressao
+					cAlias		,;	//02 Alias para impressao (def Alias() ou Alias CPO)
+					xConteudo	,;	//03 Conteudo para impressao (def Campo/Memoria)
+					lAliasCpo	,;	//04 Se utiliza o alias do campo (def .T.)
+					lAllTrim	);	//05 Se faz um alltrim antes do retorno (def .F.)
+							AS Character
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cRet			AS Character
+	Local oArea			AS Object
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cCampo  	  		AS Character
+	ParamType 1		VAR cAlias		  	  	AS Character						Optional Default ''
+	ParamType 2		VAR xConteudo			AS Character,Numeric,Date,Logical	Optional Default NIL
+	ParamType 3		VAR lAliasCpo			AS Logical							Optional Default .T.
+	ParamType 4		VAR lAllTrim			AS Logical							Optional Default .F.
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	oArea	:= tCtrlAlias():GetArea({'SX3'})
+	cCampo	:= Alltrim(cCampo)
+
+	//---------------------------------------------------------------------------------------------
+	If ValType(xConteudo) == 'U'
+		If cAlias == 'M' //Memoria
+			xConteudo	:= &('M->'+cCampo)
+		Else
+			If Empty(cAlias)
+				If lAliasCpo
+					cAlias	:= FwTabPref(cCampo) //Alias do campo
+				Else
+					cAlias	:= Alias()	//Alias corrente
+				EndIf
+			EndIf
+			xConteudo	:= U_CXFieldGet(cCampo,cAlias,/*lAliasCpo*/,/*lVirtual*/)
+		EndIf
+	EndIf
+
+	//cRet	:= Transform(xConteudo,SX3->(X3Picture(cCampo)))
+	cRet	:= Transform(xConteudo,FwGetSx3Cache(cCampo,'X3_PICTURE'))
+
+	If lAllTrim
+		cRet	:= AllTrim(cRet)
+	EndIf
+
+	oArea:RestArea()		//Restaura area
+
+Return cRet

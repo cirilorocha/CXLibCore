@@ -3,67 +3,141 @@
 #Include "ParmType.ch"
 #Include "CXInclude.ch"
 
-//Static lRetAnt	:= Nil
-
 //#############################################################################
 //##+==========+==========+=======+=====================+======+============+##
 //##|Programa  | RGENF01  | Autor | Cirilo Rocha        | Data | 26/01/2012 |##
 //##+==========+==========+=======+=====================+======+============+##
-//##|Descricao | Funcao generica para ser utilizada como validacao se o usu-|##
-//##|          | ario pode efetuar algum procedimento.                      |##
-//##|          | Valida se esta no parametro passado, se e' da diretoria ou |##
-//##|          | da equipe de TI                                            |##
-//##|          | Pode ser utilizado no When de campos ou em alguma validacao|##
-//##|          |                                                            |##
-//##|          |                                                            |##
-//##|          |                                                            |##
-//##+==========+===============+============================================+##
-//##|   DATA   | Programador   | Manutencao Efetuada                        |##
-//##+==========+===============+============================================+##
-//##| 05/09/13 | Cirilo Rocha  | Adicionado valor padrao para os codigos de |##
-//##|          |               | usuario                                    |##
-//##| 28/07/15 | Cirilo Rocha  | Otimizacao do fonte                        |##
-//##| 22/08/18 | Cirilo Rocha  | Pequena revisao no fonte                   |##
-//##| 07/10/20 | Cirilo Rocha  | Pequena revisao no fonte                   |##
-//##|          |               |                                            |##
-//##|          |               |                                            |##
-//##+==========+===============+============================================+##
+//##|Descr.    | Função genérica para ser utilizada como validação se o usu-|##
+//##|          |  ário pode efetuar algum procedimento                      |##
+//##|          | Valida se está no parâmetro passado, se é da diretoria ou  |##
+//##|          |  da equipe de TI                                           |##
+//##|          | Pode ser utilizado no When de campos ou em alguma validação|##
+//##+==========+===========+================================================+##
+//##|   DATA   |Programador| Manutenção Efetuada                            |##
+//##+==========+===========+================================================+##
+//##| 05/09/13 | Cirilo R. | Adicionado valor padrão para os códigos de usu-|##
+//##|          |           |  ário                                          |##
+//##| 28/07/15 | Cirilo R. | Otimização do fonte                            |##
+//##| 22/08/18 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 07/10/20 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 20/01/22 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           | Otimização                                     |##
+//##| 20/04/22 | Cirilo R. | Melhoria para permitir fazer um debug em casos |##
+//##|          |           |  de problemas                                  |##
+//##|          |           | Tratamentos para uso com o REST                |##
+//##| 29/04/22 | Cirilo R. | Acrescentadas empresa e filial a Hash porque   |##
+//##|          |           |  no REST isso também pode ser compartilhado en-|##
+//##|          |           |  tre as threads de processamento               |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+==========+===========+================================================+##
 //#############################################################################
-Static cUsrDir	:= GetMV('MS_USRDIR',.F.,'000201,000032,000082,000081,000012,000013')
-Static cGrpDir	:= GetMV('MS_GRPDIR',.F.,'000002')
-Static cUsrTi 	:= GetMV('MS_USRTI' ,.F.,'000198,000202,000264,000177')
-Static cGrpTi	:= GetMV('MS_GRPTI' ,.F.,'') //O grupo 000000 ja e' padrao
-Static aGrpPerm	:= FWSFUsrGrps(__cUserId)
+Static cUsrDir		:= GetMV('MX_USRDIR',.F.,'')							AS Character
+Static cGrpDir		:= GetMV('MX_GRPDIR',.F.,'')							AS Character
+Static cUsrTi 		:= GetMV('MX_USRTI' ,.F.,'')							AS Character
+Static cGrpTi		:= GetMV('MX_GRPTI' ,.F.,'') 							AS Character	//O grupo 000000 ja é padrao
+Static aFuncDebug	:= StrTokArr2(GetMV('MX_GENF01D',.F.,''),',')			AS Array		//Funções para debugar! atentar se user function colocar U_
+Static aGrpPerm		/*:= FWSFUsrGrps(__cUserId) */							AS Array
+Static lUsrAdm		/*:= (__cUserID == '000000') .Or. FWIsAdmin(__cUserID)*/AS Logical
+Static cUsrAnt		:= '#######'											AS Character
+Static aCache		:= {}													AS Array
+Static nLenVar		:= Len(u_CXFieldGet('X6_VAR','SX6'))					AS Numeric
 //-------------------------------------------------------------------------------------------------
 User Function RGENF01(	cParUSR		,;	//01
 						lDiretoria	,;	//02
 						lTi			,;	//03
-						cUsrDefault	 )	//04
+						cUsrDefault	,;	//04
+						cUsrID		);	//05
+								AS Logical
 
 	//Declaracao de variaveis----------------------------------------------------------------------
 	Local lRet			AS Logical
+	Local lRetAnt		AS Variant //Logical	//A função varGetXD pode retornar NIL e dar algum erro!
 	Local cUsrPar		AS Character
-	Local nX			AS Numeric
-
-	//Inicializa Variaveis-------------------------------------------------------------------------
-	lRet		:= .F.
+	Local cHash			AS Character
+	Local nX			AS Integer
+	Local nPos			AS Integer
+	Local lDebug		AS Logical
 
 	//Parametros da rotina-------------------------------------------------------------------------
 	ParamType 0		VAR cParUSR		  	  	AS Character			Optional Default ''
 	ParamType 1		VAR lDiretoria  	  	AS Logical		  		Optional Default .T.
 	ParamType 2		VAR lTi  	  			AS Logical				Optional Default .T.
 	ParamType 3		VAR cUsrDefault 		AS Character           	Optional Default ''
+	ParamType 4		VAR cUsrID		 		AS Character           	Optional Default __cUserId
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	lRet		:= .F.
+	lDebug		:= .F.		//debug para tentar identificar problema com o REST!
+	aEval(aFuncDebug,{|x| IIF(FWIsInCallStack(x),lDebug	:= .T.,) })
+	
+	If Empty(cUsrID)
+		U_CXHelp(,,'ERRO ID USUÁRIO VAZIO.',,'INFORME O SETOR DE T.I.')
+		Return .F.
+	EndIf
+
+	//Otimização-----------------------------------------------------------------------------------
+	cHash		:= 	cEmpAnt+'#'+;
+					cFilAnt+'#'+;
+					cUsrID+'#'+;
+					PadR(cParUSR,nLenVar,'#')+'#'+;
+					IIf(lDiretoria,'T','F')+'#'+;
+					IIf(lTi,'T','F')+'#'+;
+					AllTrim(cUsrDefault)
+	nPos		:= aScan(aCache,{|x| x[1] == cHash })
+
+	If lDebug
+		U_CXConOut('##### RGENF01 #####',,.T.)
+		U_CXConOut(U_CXMostraTipo(aCache,,,,,,,'aCache'))
+		U_CXConOut('cHash......: '+cHash)
+		U_CXConOut('cUserId....: '+cUsrID)
+		U_CXConOut('nPos.......: '+Str(nPos))
+		
+		U_CXConOut('cParUSR....: '+cParUSR )
+		U_CXConOut('lDiretoria.: '+IIF(lDiretoria,'.T.','.F.') )
+		U_CXConOut('lTi........: '+IIF(lTi,'.T.','.F.') )
+		U_CXConOut('cUsrDefault: '+cUsrDefault )
+		
+		U_CXConOut('cUsrDir....: '+cUsrDir )
+		U_CXConOut('cGrpDir....: '+cGrpDir )
+		U_CXConOut('cUsrTi.....: '+cUsrTi  )
+		U_CXConOut('cGrpTi.....: '+cGrpTi  )
+		U_CXConOut('lUsrAdm....: '+IIF(lUsrAdm,'.T.','.F.'))
+		U_CXConOut(U_CXMostraTipo(aGrpPerm,,,,,,,'aGrpPerm'))
+	EndIf
+	
+	//Otimização-----------------------------------------------------------------------------------
+	If nPos > 0
+		lRetAnt	:= aCache[nPos][2]
+		If 	.Not. lRetAnt .And. ;
+			lTi
+			Return FWIsAdmin(cUsrID)		//Feito assim para conseguir dar permissões em tempo de execução
+		Else
+			Return lRetAnt
+		EndIf
+	EndIf
+
+	//Força a recarga dos dados, pois o REST ele não trabalha igual a aplicação normal, 
+	//troca de usuário sem fazer uma recarga do ambiente
+	If ! ( cUsrAnt == cUsrID )
+		aGrpPerm	:= FWSFUsrGrps(cUsrID)
+		lUsrAdm		:= (cUsrID == '000000') .Or. FWIsAdmin(cUsrID)
+		cUsrAnt		:= cUsrID
+	EndIf
 
 	//---------------------------------------------------------------------------------------------
 	//Obtem os usuarios passados pelo parametro
 	If 	.Not. Empty(cParUSR)
-		cUsrPar	:= SuperGetMV(cParUSR,.F.,cUsrDefault)
+		cUsrPar	:= FWSuperGetMV(cParUSR,.F.,cUsrDefault)
 
 		//Verifica se esta no parametro passado
 		If	.Not. Empty(cUsrPar)
-			lRet	:= (__cUserID $ cUsrPar)
+			lRet	:= (cUsrID $ cUsrPar)
 		EndIf
 
+		If lDebug
+			U_CXConOut(cParUSR+': '+cUsrPar)
+		EndIf
 	EndIf
 
 	//+----------------------------------------+
@@ -71,7 +145,9 @@ User Function RGENF01(	cParUSR		,;	//01
 	//+----------------------------------------+
 
 	//Verifica primeiro nos grupos
-	If 	.Not. lRet
+	If 	.Not. lRet .And. ;
+		lDiretoria
+
 		For nX := 1 to len(aGrpPerm)
 			If aGrpPerm[nX] $ cGrpDir
 				lRet	:= .T.
@@ -84,7 +160,7 @@ User Function RGENF01(	cParUSR		,;	//01
 	If 	.Not. lRet .And. ;
 		lDiretoria
 
-		lRet	:= ( __cUserID $ cUsrDir )
+		lRet	:= ( cUsrID $ cUsrDir )
 	EndIf
 
 	//+--------------------------------------------------+
@@ -95,11 +171,11 @@ User Function RGENF01(	cParUSR		,;	//01
 	If 	.Not. lRet .And.;
 		lTi
 
-		If FWIsAdmin(__cUserID)
+		If lUsrAdm
 			lRet	:= .T.
 		Else
 			For nX := 1 to len(aGrpPerm)
-				If aGrpPerm[nX] $ cGrpTi + '/' + '000000'
+				If aGrpPerm[nX] $ cGrpTi
 					lRet	:= .T.
 					exit
 				EndIf
@@ -107,18 +183,11 @@ User Function RGENF01(	cParUSR		,;	//01
 		EndIf
 	EndIf
 
-	//Busca pelo parametro
+	//Busca pelo parametro TI
 	If 	.Not. lRet .And. ;
 		lTi
 
-		lRet	:= (__cUserID $ cUsrTi)
-	EndIf
-
-	//Se usuario administrador
-	If 	.Not. lRet .And. ;
-		lTi
-
-		lRet	:= (__cUserID == '000000')
+		lRet	:= (cUsrID $ cUsrTi)
 	EndIf
 
 	//+------------------------------------------------------+
@@ -127,5 +196,6 @@ User Function RGENF01(	cParUSR		,;	//01
 	//| em um campo When por exemplo                         |
 	//+------------------------------------------------------+
 	//lRetAnt	:= lRet
+	aAdd(aCache,{cHash,lRet})
 
 Return lRet

@@ -1,0 +1,50 @@
+#INCLUDE "RWMake.ch"
+#INCLUDE "Totvs.ch"
+#INCLUDE "ParmType.ch"
+#INCLUDE "PrConst.ch"
+#INCLUDE "CXInclude.ch"
+
+//#############################################################################
+//##+----------+-----------+-------+-------------------+------+-------------+##
+//##|Programa  | CXRotAuto | Autor | Cirilo Rocha      | Data | 26/03/2019  |##
+//##+----------+-----------+-------+-------------------+------+-------------+##
+//##|Descr.    | Função para detectar se a rotina esta atualmente no modo   |##
+//##|          | execauto ou sem interface                                  |##
+//##+----------+----------+-------------------------------------------------+##
+//##| DATA     | ANALISTA | MANUTENCAO EFETUADA                             |##
+//##+----------+----------+-------------------------------------------------+##
+//##| 03/04/19 | Cirilo R.| Ajuste para considerar ou não rotinas automática|##
+//##| 26/06/19 | Cirilo R.| Adicionadas novas rotinas automáticas           |##
+//##| 17/11/21 | Cirilo R.| Pequena revisão no código                       |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+----------+----------+-------------------------------------------------+##
+//#############################################################################
+User Function CXRotAuto(lApenasJob);	//01 lApenasJob
+							AS Logical
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local lRet		AS Logical
+	Local lRotAuto	AS Logical
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR lApenasJob			AS Logical				Optional Default .F.
+
+	//---------------------------------------------------------------------------------------------
+	//Considera apenas os Jobs
+	If lApenasJob
+		lRotAuto	:= .F.
+	Else
+		lRotAuto	:= 	FWIsInCallStack('FWMVCRotAuto') .Or. ;	//Execauto MVC
+						FWIsInCallStack('MSExecAuto') 	.Or. ;	//Execauto padrao
+						FWIsInCallStack('EnchAuto') 	.Or. ;	//Execauto enchoice
+						FWIsInCallStack('mBrowseAuto')	.Or. ;	//Execauto browser
+						( Type('ulCXRotAuto') == 'L' .And. ulCXRotAuto )
+	EndIf
+	
+	lRet	:= 	lRotAuto .Or. ;
+				IsBlind() .Or. ;						//Sem Interface
+				GetRemoteType() == NO_REMOTE .Or. ;		//Se SmartClient (-1)
+				(Type('__cInterNet') == 'C' .And. __cInterNet == 'AUTOMATICO')	//Rotina automatica
+	
+Return lRet

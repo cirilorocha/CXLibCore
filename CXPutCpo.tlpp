@@ -1,0 +1,186 @@
+#INCLUDE "RWMake.ch"
+#INCLUDE "Protheus.ch"
+#INCLUDE "Totvs.ch"
+#Include "ParmType.ch"
+#Include "CXInclude.ch"
+
+//#############################################################################
+//##+==========+==========+=======+====================+======+=============+##
+//##|Programa  | CXPutCpo | Autor | Cirilo Rocha       | Data | 29/05/2018  |##
+//##+==========+==========+=======+====================+======+=============+##
+//##|Descricao | Funcao generica para preencher campos ou variaveis de memo-|##
+//##|          | ria de acordo com os parametros passados.                  |##
+//##|          |                                                            |##
+//##|          | USAR APENAS NOS CASOS EM QUE SE TEM CERTEZA QUE O VALOR    |##
+//##|          | PODE SER ATRIBUIDO SEM NENHUMA VALIDACAO/CONTROLE!!!!!!!   |##
+//##+==========+===============+============================================+##
+//##|   DATA   | Programador   | Manutencao efetuada                        |##
+//##+==========+===============+============================================+##
+//##| 03/09/19 | Cirilo Rocha  | Pequena revisao no fonte                   |##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+==========+===============+============================================+##
+//#############################################################################
+User Function CXPutCpo(	cCampo			,;	//01 Campo a ser preenchido
+						lMem			,;	//02 Preenche campo na memoria
+						cAlias			,;	//03 Alias da tabela ou M-> se memoria
+						lGrid			,;	//04 Se memoria em Grid (def busca o aCols/aHeader se memoria)
+						xValor			,;	//05 Valor a ser preenchido
+						nLine			,;	//06 Linha do aCols que esta sendo manipulada (def N)
+						aHeaderPastPar	,; 	//07 aHeader onde serao salvos os dados (def aHeader)
+						aColsPastPar 	,;	//08 aCols onde serao salvos os dados (def aCols)
+						cIdForm 		,;	//09 Id do formulario do MVC (def faz uma busca)
+						lGatilho		)	//10 Se a execucao veio de um gatilho (def .F.)
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local xRet
+	Local nX		AS Numeric
+	Local aTemp		AS Array
+	Local lTemGrid	AS Logical
+	Local oModel 	AS Object
+	Local lMVC		AS Logical
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cCampo					AS Character
+	ParamType 1		VAR lMem					AS Logical						Optional Default NIL
+	ParamType 2		VAR cAlias					AS Character					Optional Default FwTabPref(cCampo)
+	ParamType 3		VAR lGrid					AS Logical						Optional Default NIL
+	ParamType 4		VAR xValor					AS Character,Numeric,Date,Logical
+	ParamType 5		VAR nLine					AS Numeric						Optional Default NIL
+	ParamType 6		VAR aHeaderPastPar			AS Array						Optional Default NIL
+	ParamType 7		VAR aColsPastPar 			AS Array						Optional Default NIL
+	ParamType 8		VAR cIdForm 				AS Character					Optional Default NIL
+	ParamType 9		VAR lGatilho				AS Logical						Optional Default .F.
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	oModel 	:= fwModelActive()
+	lMVC	:= ( oModel <> NIL .And. oModel:IsActive() ) .Or. cIdForm <> NIL	//preciso tambem verificar se o oModel esta realmente ativo!!!
+
+	//Pre-Processamento
+	cCampo	:= AllTrim(cCampo)
+	cCampo	:= StrTran(cCampo,'M->')
+	cCampo	:= Left(cCampo,10)
+
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr	:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr	:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc	:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg	:= IIf(Type('cMsg')<>'C','',cMsg)
+
+	If 	nLine == NIL .And. ;
+		Type('n') == 'N'
+
+		nLine	:= n
+	EndIf
+
+	//Ajusta o tamanho do campo por compatibilidade com o MVC
+	If ValType(xValor) == 'C'
+		aTemp	:= FwTamSX3(cCampo)
+		
+		If 	aTemp == NIL .Or. ;
+			Len(aTemp) < 3
+			
+			cCodErr	:= U_CXTxtMsg(,,.T.)
+			cMsgErr	:= 'ERRO: Não foi possível localizar o campo '+cCampo+' no SX3'
+			cSoluc	:= 'INFORME O SETOR DE T.I.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+			
+		ElseIf aTemp[3] == 'C'	//Precisa ser assim para tratar os campos MEMO
+			xValor	:= PadR(xValor,aTemp[1])
+		EndIf
+	EndIf
+
+	If lMVC	//-------------------------------------------------------------------------------------
+
+		//Busca o campo nos formularios MVC (controle de erros)
+		If cIdForm == NIL
+			For nX := 1 to len(oModel:aModelStruct)
+				cIdForm	:= FwFindID(cCampo,oModel:aModelStruct[nX])
+				If !Empty(cIdForm)
+					Exit
+				EndIf
+			Next
+		EndIf
+
+		//Controle de erros
+		If 	cIdForm == NIL .Or. ;
+			Empty(cIdForm)
+
+			cCodErr	:= U_CXTxtMsg(,,.T.)
+			cMsgErr	:= 'ERRO: Não foi possível localizar o campo '+cCampo+' no objeto MVC ativo.'
+			cSoluc	:= 'INFORME O SETOR DE T.I.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+
+			Return NIL
+		EndIf
+
+		xRet	:= FWFldPut(cCampo	,;	//01
+							xValor	,;	//02
+							nLine	,;	//03
+							oModel	,;	//04
+							.F.		,;	//05
+							.T.		 )	//06 Forca o preenchimento campo (CUIDADO!!!)
+
+	ElseIf 	lMem .Or. ;	//-------------------------------------------------------------------------
+			cAlias == 'M->'
+
+		If 	aHeaderPastPar == NIL .And. ;
+			Type('aHeader') == 'A'
+
+			aHeaderPastPar	:= @aHeader
+		EndIf
+
+		If 	aColsPastPar == NIL .And. ;
+			Type('aCols') == 'A'
+
+			aColsPastPar	:= @aCols
+		EndIf
+
+		lTemGrid	:= 	ValType(aColsPastPar) == 'A' .And. ;
+						ValType(aHeaderPastPar) == 'A' .And. ;
+						GdFieldPos(cCampo,aHeaderPastPar) > 0
+
+		//Tratamento Default para lGrid
+		If lGrid == NIL		//Se nao informou se era grid, busca no aCols
+			lGrid	:= 	lTemGrid
+		ElseIf lGrid		//Se informou que era grid verifica se existe aCols
+			If !lTemGrid
+			
+				cCodErr	:= U_CXTxtMsg(,,.T.)
+				cMsgErr	:= 'ERRO: Não foi possível localizar o aCols e aHeader para com o campo '+cCampo
+				cSoluc	:= 'INFORME O SETOR DE T.I.'
+				cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+				U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+
+				Return NIL
+			EndIf
+		EndIf
+
+		If lGrid
+			xRet	:= GdFieldPut(	cCampo			,;	//01
+									xValor			,;	//02
+									nLine			,;	//03
+									aHeaderPastPar	,;	//04
+									aColsPastPar	 )	//05
+
+			If Type('M->'+cCampo) <> 'U'
+				&('M->'+cCampo)	:= xValor
+			EndIf
+		Else
+			&('M->'+cCampo)	:= xValor
+		EndIf
+
+	Else	//-------------------------------------------------------------------------------------
+		xRet	:= U_CxFieldPut(cCampo	,;	//01
+								cAlias	,;	//02
+								xValor	 )	//03
+	EndIf
+	
+	//Quando eh gatilho retorno o proprio conteudo
+	If lGatilho
+		xRet	:= xValor
+	EndIf
+
+Return xRet

@@ -1,0 +1,335 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#INCLUDE 'MSObject.ch'
+#INCLUDE "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+
+//#############################################################################
+//##+==========+=============+=======+=================+======+=============+##
+//##|Programa  | tCtrlAlias  | Autor | Cirilo Rocha    | Data |  19/07/2011 |##
+//##+==========+=============+=======+=================+======+=============+##
+//##|Descr.    | Biblioteca para controle de area.                          |##
+//##|          |                                                            |##
+//##|          | Existe uma incompatibilidade com bases de dados DBF quando |##
+//##|          | usados índices temporários                                 |##
+//##|          |                                                            |##
+//##|          | Classe criada para manter a compatibilidade com a classe   |##
+//##|          | tCtrlAlias antiga                                          |##
+//##+----------+------------------------------------------------------------+##
+//##|Uso       | Local oArea      := tCtrlAlias():GetAlias({'SL2'})         |##
+//##|          | oArea:RestAlias()                                          |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 27/07/11 | Cirilo R. | Melhorias diversas e performance no fonte      |##
+//##| 29/07/11 | Cirilo R. | Tratamento para salvar índices temporários     |##
+//##| 08/05/12 | Cirilo R. | Correcao no tratamento do alias corrente vazio |##
+//##| 09/07/12 | Cirilo R. | Feito tratamento para situações de:            |##
+//##|          |           | - Tabela não estava aberta                     |##
+//##|          |           | - Alias corrente vazio                         |##
+//##| 10/08/17 | Cirilo R. | Pequena revisão no código                      |##
+//##| 08/01/18 | Cirilo R. | Pequena otimização no fonte                    |##
+//##| 09/01/19 | Cirilo R. | Isolada variável aTabelas, estava havendo con- |##
+//##|          |           |  flitos                                        |##
+//##| 10/08/18 | Cirilo R. | Migrado do fonte CXCtrlArea                    |##
+//##| 13/08/18 | Cirilo R. | Ajuste para salvar o Set Deleted também        |##
+//##| 30/09/19 | Cirilo R. | Melhoria para salvar cEmpAnt+cFilAnt           |##
+//##| 07/12/21 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           | Tratamento para alias temporários fechados     |##
+//##| 14/12/21 | Cirilo R. | Pequena revisão (release 33)                   |##
+//##| 09/05/22 | Cirilo R. | Melhoria na abertura do SM0                    |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+
+//Posocioes do array aAreas
+Static cAR_ALIAS	:= 01	AS Integer
+Static nAR_ORDEM	:= 02	AS Integer
+Static cAR_FILTRO	:= 03	AS Integer
+Static nAR_RECNO	:= 04	AS Integer
+Static nAR_INDICE	:= 05	AS Integer
+
+Static nAR_TAMARR	:= 05	AS Integer
+
+Static cAliasTmp	:= GetNextAlias() //Cria um Alias temporario //CriaTrab(NIL, .F.)
+//----------------------------------------------------------------------------
+Class tCtrlAlias
+
+	PUBLIC DATA cClassName	AS Character
+
+	//Variaveis internas
+	HIDE DATA aAreas   		AS Array
+	HIDE DATA ucEmpAnt  	AS Variant	//Character	//Se tipar o tlpp vai inicializar com ''
+	HIDE DATA ucFilAnt  	AS Variant	//Character	//Se tipar o tlpp vai inicializar com ''
+	HIDE DATA ulDeleted		AS Variant	//Logical //Se tipar o tlpp vai inicializar com .F.
+
+	//---------------------------------------------------------------------------------------------
+	PUBLIC METHOD GetAlias() 	Constructor
+	PUBLIC METHOD GetArea() 	Constructor
+	PUBLIC METHOD RestAlias()
+	PUBLIC METHOD RestArea()
+	PUBLIC METHOD VerifTab()	AS Logical
+	PUBLIC METHOD ClassName()	AS Character
+
+EndClass
+
+//-------------------------------------------------------------------------------------------------
+//Salva a area
+//-------------------------------------------------------------------------------------------------
+METHOD GetAlias(uTabelas		,;	// 01 Quais tabelas devem ser salvas
+				lAtual			,;	// 02 Se salva a tabela atual (def .T.)
+				lLimpaFiltros	,;	// 03 Limpa filtros das tabelas (.F.)
+				lDeletados		;	// 04 Salva e restaura o _SET_DELETED (def .F.) grande impacto no desempenho
+							) CLASS tCtrlAlias
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cAliasAtual	AS Character
+	Local cIndiceTmp	AS Character
+	Local nX			AS Integer
+	Local aTabSv		AS Array //Variavel para isolar uTabelas
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR uTabelas  	  		AS Array,Character		Optional Default {}
+	ParamType 1		VAR lAtual  	  		AS Logical				Optional Default .T.
+	ParamType 2		VAR lLimpaFiltros  	  	AS Logical				Optional Default .F.
+	ParamType 3		VAR lDeletados  	  	AS Logical				Optional Default .F.
+
+	//Inicializa variaveis-------------------------------------------------------------------------
+	cAliasAtual		:= Alias()
+	If ValType(uTabelas) == 'A'
+		aTabSv		:= aClone(uTabelas)	//Isola variavel uTabelas
+	Else
+		aTabSv		:= {uTabelas}
+	EndIf
+	::cClassName	:= 'tCtrlAlias'
+	::aAreas		:= {}
+	
+	//Salva filial+empresa atual?
+	If aScan(aTabSv,'SM0') > 0
+		::ucEmpAnt 		:= cEmpAnt
+		::ucFilAnt 		:= cFilAnt
+	EndIf
+
+	If lDeletados
+		::ulDeleted	:= Set(_SET_DELETED,.F.)
+		Set(_SET_DELETED,::ulDeleted)
+	EndIf
+
+	//---------------------------------------------------------------------------------------------
+	//salva o alias correte, se nao fizer parte do aTabSv
+	If 	lAtual .And. ;
+		.Not. Empty(cAliasAtual) .And. ;
+		aScan(aTabSv,{|x| x == cAliasAtual }) <= 0
+
+		aAdd (aTabSv,cAliasAtual)
+	EndIf
+
+	For nX := 1 to len(aTabSv)
+		If .Not. Empty(aTabSv[nX])
+
+			//A tabela esta aberta entao salva
+			If Select(aTabSv[nX]) <> 0
+				cIndiceTmp	:= AllTrim((aTabSv[nX])->(IndexKey()))
+				If (aTabSv[nX])->(IndexOrd()) <> 0
+					cIndiceTmp	:= ''
+				EndIf
+				aAdd(::aAreas,Array(nAR_TAMARR))
+				aTail(::aAreas)[cAR_ALIAS]	:= aTabSv[nX]               	//01 alias
+				aTail(::aAreas)[nAR_ORDEM]	:= (aTabSv[nX])->(IndexOrd())	//02 ordem
+				aTail(::aAreas)[cAR_FILTRO]	:= (aTabSv[nX])->(dbFilter())	//03 expressao de filtro
+				aTail(::aAreas)[nAR_RECNO]	:= (aTabSv[nX])->(Recno())  	//04 recno da tabela
+				aTail(::aAreas)[nAR_INDICE]	:= cIndiceTmp				    //05 indice temporario
+
+				//Limpa filtros para nao influenciarem no processamento
+				If 	lLimpaFiltros .And. ;
+					.Not. Empty((aTabSv[nX])->(dbFilter()))
+
+					(aTabSv[nX])->(dbClearFilter())
+				EndIf
+			//Tabela nao esta aberta
+			Else
+				aAdd(::aAreas,Array(nAR_TAMARR))
+				aTail(::aAreas)[cAR_ALIAS]	:= aTabSv[nX] 	//01 alias
+				aTail(::aAreas)[nAR_ORDEM]	:= -1			//02 ordem
+				//aTail(::aAreas)[cAR_FILTRO]	:= NIL			//03 expressao de filtro
+				//aTail(::aAreas)[nAR_RECNO]	:= NIL			//04 recno da tabela
+				//aTail(::aAreas)[nAR_INDICE]	:= NIL			//05 indice temporario
+			EndIf
+		EndIf
+	Next
+
+	//salva o alias correte inclusive vazio
+	If lAtual// .And. .Not. Empty(cAliasAtual)
+		aAdd (::aAreas,cAliasAtual)
+	EndIf
+
+RETURN Self
+
+//-------------------------------------------------------------------------------------------------
+//Salva a area
+//-------------------------------------------------------------------------------------------------
+METHOD GetArea(	uTabelas		,;	//01 Quais tabelas devem ser salvas
+				lAtual			,;	//02 Se salva a tabela atual (def .T.)
+				lLimpaFiltros	;	//03 Limpa filtros das tabelas (.F.)
+					) CLASS tCtrlAlias
+
+	//Parametros da rotina-------------------------------------------------------------------------
+//	ParamType 0		VAR uTabelas  	  		AS Array,Character		Optional Default NIL
+//	ParamType 1		VAR lAtual  	  		AS Logical				Optional Default NIL
+//	ParamType 2		VAR lLimpaFiltros  	  	AS Logical				Optional Default NIL
+
+Return ::GetAlias(	uTabelas	,;	//01 Quais tabelas devem ser salvas
+					lAtual		,;	//02 Se salva a tabela atual (def .T.)
+					lLimpaFiltros)	//03 Limpa filtros das tabelas (.F.)
+
+//-------------------------------------------------------------------------------------------------
+//Restaura a area
+//-------------------------------------------------------------------------------------------------
+METHOD RestAlias() CLASS tCtrlAlias
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local bFiltro	AS CodeBlock
+	Local nX		AS Integer
+
+	//Restura a propriedade Set Deleted
+	If ValType(::ulDeleted) == 'L'
+		Set(_SET_DELETED,::ulDeleted)
+	EndIf
+	
+	//Restauro empresa
+	If 	ValType(::ucEmpAnt) == 'C'
+		cEmpAnt	:= ::ucEmpAnt
+	EndIf
+
+	//Restauro filial
+	If 	ValType(::ucFilAnt) == 'C'
+		cFilAnt	:= ::ucFilAnt
+	EndIf
+
+	For nX := 1 to len(::aAreas)
+		If ValType(::aAreas[nX]) == 'C' //Salvou o alias correte e precisa restaurar
+			If .Not. Empty(::aAreas[nX])
+				If ::VerifTab(::aAreas[nX])
+					dbSelectArea(::aAreas[nX])
+				EndIf
+			Else //Deixa a area NAO setada
+				//Executa a query (esta é uma forma de não deixar nenhuma área setada)
+				dbUseArea(.T.,'TOPCONN', TCGenQry(,,"SELECT 1"),cAliasTmp, .F., .T.)
+				(cAliasTmp)->(dbCloseArea())
+			EndIf
+		Else
+			If ::VerifTab(::aAreas[nX][cAR_ALIAS])
+				//Se a area estava fechada entao fecha antes de sair
+				If ::aAreas[nX][nAR_ORDEM] < 0
+
+					If Select(::aAreas[nX][cAR_ALIAS]) <> 0
+						(::aAreas[nX][cAR_ALIAS])->(DbCloseArea())
+					EndIf
+
+				//Alias estava aberto entao restaura
+				Else
+					If 	Select(::aAreas[nX][cAR_ALIAS]) == 0 .Or. ;							//Esta fechada precisa reabrir
+						::aAreas[nX][nAR_ORDEM] <> (::aAreas[nX][cAR_ALIAS])->(IndexOrd()) 	//Melhoria de performance
+						
+						If ::aAreas[nX][cAR_ALIAS] == 'SM0'
+							OpenSm0(ucEmpAnt)
+						EndIf
+
+						(::aAreas[nX][cAR_ALIAS])->(U_CXSetOrd(::aAreas[nX][nAR_ORDEM]))	//Seta a ordem ou abre a tabela
+					EndIf
+
+					//Remonta indice temporario
+					If 	::aAreas[nX][nAR_ORDEM] == 0    .And. ;		//Indice 0
+						.Not. Empty(::aAreas[nX][nAR_INDICE]) 		//Indice temporario
+
+						//Melhoria de performance
+						If 	::aAreas[nX][nAR_INDICE] <> AllTrim((::aAreas[nX][cAR_ALIAS])->(IndexKey())) .Or. ;
+							::aAreas[nX][cAR_FILTRO] <> AllTrim((::aAreas[nX][cAR_ALIAS])->(dbFilter()))
+
+							IndRegua(::aAreas[nX][cAR_ALIAS],,::aAreas[nX][nAR_INDICE],,::aAreas[nX][cAR_FILTRO])
+						EndIf
+
+					//Remonta filtro
+					Else
+						//Seta filtro se nao for vazio
+						If .Not. Empty(::aAreas[nX][cAR_FILTRO])
+							If ::aAreas[nX][cAR_FILTRO] <> AllTrim((::aAreas[nX][cAR_ALIAS])->(dbFilter()))	 //Melhoria de performance
+								bFiltro := &('{|| '+::aAreas[nX][cAR_FILTRO]+' }')
+								&(::aAreas[nX][cAR_ALIAS])->(dbSetFilter(bFiltro,::aAreas[nX][cAR_FILTRO]))
+							EndIf
+
+						//Limpa o filtro apenas se ele existir
+						Else
+							If .Not. Empty((::aAreas[nX][cAR_ALIAS])->(dbFilter()))
+								(::aAreas[nX][cAR_ALIAS])->(dbClearFilter())
+							EndIf
+						EndIf
+					EndIf
+
+					If ::aAreas[nX][nAR_RECNO] <> (::aAreas[nX][cAR_ALIAS])->(Recno()) //Melhoria de performance
+						(::aAreas[nX][cAR_ALIAS])->(dbGoTo(::aAreas[nX][nAR_RECNO]))
+					EndIf
+				EndIf
+			EndIf
+		EndIf
+	Next
+
+Return
+
+//-------------------------------------------------------------------------------------------------
+//Verifica se a tabela está ou pode ser aberta
+//-------------------------------------------------------------------------------------------------
+METHOD VerifTab(cAlias	;
+					) CLASS tCtrlAlias
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local lRet			AS Logical
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cAlias		AS Character
+
+	//---------------------------------------------------------------------------------------------
+	lRet	:= 	Select(cAlias) > 0 .Or. ;					//Area ainda aberta/disponível
+				(	Len(cAlias) == 3 .And. ;
+					Type('cEmpAnt') == 'C' .And. ; 	//Verifica se o ambiente possui os 
+					Type('cFilAnt') == 'C' .And. ;	//dados necessarios para abrir a tabela
+					Select("SX2") <> 0 .And. ;
+					.Not. Empty(RetSqlName(cAlias)) ;
+				) .Or. ;													//Tabelas de dicionário (SX2 aberto e existem?)
+				cAlias $ 'SM0,SIX' .Or. ;					//Tabela empresas
+				Left(cAlias,2) $ 'SX' .Or. ;				//Tabela de Sistema
+				Left(cAlias,1) $ 'X' .Or. ;					//Tabela de Sistema
+				Left(cAlias,3) $ 'MP_' .Or. ;				//Tabela de Sistema
+				Left(cAlias,4) $ 'THP_' .Or. ;				//Tabela de Sistema
+				Left(cAlias,6) $ 'MPUSR_,MPGRP_' .Or. ;		//Tabela de Sistema
+				Left(cAlias,7) $ 'MPMENU_' .Or. ;			//Tabela de Sistema
+				Left(cAlias,3) $ 'PROFALIAS'				//Tabela de Sistema
+
+Return lRet
+
+//-------------------------------------------------------------------------------------------------
+//Restaura a area
+//-------------------------------------------------------------------------------------------------
+METHOD RestArea();
+			CLASS tCtrlAlias
+
+Return ::RestAlias()
+
+//#############################################################################
+//##+==========+=============+=======+=================+======+=============+##
+//##|Programa  | ClassName   | Autor | Cirilo Rocha    | Data | 01/12/2015  |##
+//##+==========+=============+=======+=================+======+=============+##
+//##|Descr.    | Método para retornar o nome da classe atual                |##
+//##+==========+===============+============================================+##
+//##|   DATA   | Programador   | Manutenção Efetuada                        |##
+//##+==========+===============+============================================+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+==========+===============+============================================+##
+//#############################################################################
+METHOD ClassName();
+			CLASS tCtrlAlias
+
+Return ::cClassName

@@ -1,0 +1,39 @@
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+#INCLUDE 'CXInclude.ch'
+
+//#############################################################################
+//##+----------+------------+-------+------------------+------+-------------+##
+//##|Programa  | CXGetDrv   | Autor | Cirilo Rocha     | Data | 04/05/2017  |##
+//##+----------+------------+-------+------------------+------+-------------+##
+//##|Descr.    | Obter o driver baseado na extensao do arquivo              |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 23/02/23 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXGetDrv(cExt);	//01 cExt
+						AS Character
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cDrvTab
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cExt		AS Character
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	cExt	:= Upper(cExt)
+
+	If Empty(cExt) //TopConn
+		cDrvTab	:= __cRDD
+	ElseIf cExt == '.DBF'
+		cDrvTab	:= 'DBFCDXADS'
+	ElseIf cExt == '.DTC'
+		cDrvTab	:= 'CTREECDX'
+	EndIf
+
+Return cDrvTab

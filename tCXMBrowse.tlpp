@@ -1,0 +1,699 @@
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+#Include "tlpp-object.th"
+#INCLUDE 'CXInclude.ch'
+#INCLUDE 'CXStruct.ch'
+
+//#############################################################################
+//##+==========+=============+=======+=================+======+=============+##
+//##|Programa  | tCXMBrowse  | Autor | Cirilo Rocha    | Data | 06/03/2018  |##
+//##+==========+=============+=======+=================+======+=============+##
+//##|Descr.    | Extende a classe FWMBrowse para simplificar sua monagem com|##
+//##|          |  tabelas temporárias                                       |##
+//##+==========+===========+================================================+##
+//##|   DATA   |Programador| Manutencao Efetuada                            |##
+//##+==========+===========+================================================+##
+//##| 15/02/23 | Cirilo R. | Melhoria para usar aBindParam                  |##
+//##| 08/03/23 | Cirilo R. | Tratamento para controle de dados sensíveis    |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+==========+===========+================================================+##
+//#############################################################################
+Class tCXMBrowse From FWMBrowse
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	//PUBLIC DATA cClassName				AS Character	//NÃO RECOMENDÁVEL EM CLASSES HERDADAS
+	PUBLIC DATA _aRelation				AS Array
+	PUBLIC DATA _oDlg					AS Object
+	PUBLIC DATA _oTable					AS Object
+	
+	//Variaveis internas
+	PRIVATE DATA _aCampos				AS Array
+	PRIVATE DATA _aOfuscar				AS Array
+	PRIVATE DATA _aCpoSub				AS Array
+	PRIVATE DATA _aIndices				AS Array
+	PRIVATE DATA _aBindParam			AS Array
+	PRIVATE DATA _cQuery				AS Character
+	PRIVATE DATA _lOfuscar				AS Logical
+
+	//---------------------------------------------------------------------------------------------
+	PUBLIC METHOD New() Constructor
+	
+	PUBLIC METHOD Activate()
+	PUBLIC METHOD SetObfuscFields()
+
+	PUBLIC METHOD CXSetQuery()
+	PUBLIC METHOD CXBindParam()
+	PUBLIC METHOD CXSetFields()
+	PUBLIC METHOD CXSetQueryIndex()	
+
+	//Métodos internos
+	PRIVATE METHOD CXGetCol()		AS Array
+	PRIVATE METHOD CXSetFlt()
+	PRIVATE METHOD CXSetSeek()
+
+	PROTECTED METHOD CXTabTmp()		AS Logical
+	
+	PUBLIC METHOD Destroy()
+	//PUBLIC METHOD ClassName()		AS Character	//NÃO RECOMENDÁVEL EM CLASSES HERDADAS	//Não deu certo herdando
+
+EndClass
+
+//###################################################################################################
+//##+----------+----------------------------------+-------+---------------------+------+----------+##
+//##|Programa  | New                              | Autor | Cirilo Rocha        | Data |01/02/2023|##
+//##+----------+----------------------------------+-------+---------------------+------+----------+##
+//##|Descr.    | Contrutor da classe                                                              |##
+//##+----------+-----------+----------------------------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                                                  |##
+//##+----------+-----------+----------------------------------------------------------------------+##
+//##|          |           |                                                                      |##
+//##|          |           |                                                                      |##
+//##|          |           |                                                                      |##
+//##+----------+-----------+----------------------------------------------------------------------+##
+//###################################################################################################
+Method New(oDlg) Class tCXMBrowse
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR oDlg		AS Object		Optional
+		
+	//::cClassName	:= 'tCXMBrowse'
+	::_oDlg			:= oDlg
+	::_aRelation	:= {}
+	::_aBindParam	:= {}
+	::_aOfuscar		:= {}
+	::_lOfuscar		:= .Not. ( VerSenha(192) .And. VerSenha(193) )
+
+	_Super:New(::_oDlg)
+
+Return Self
+
+//##################################################################################################
+//##+========+=================================+=======+====================+======+=============+##
+//##|Programa| CXSetQuery                      | Autor | Cirilo Rocha       | Data | 01/02/2023  |##
+//##+========+=================================+=======+====================+======+=============+##
+//##|Desc.   | Método para guarda a query que será usada como base para a montagem do browse     |##
+//##+========+==========+========================================================================+##
+//##|  DATA  | ANALISTA | MANUTENÇÃO EFETUADA                                                    |##
+//##+========+==========+========================================================================+##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##+========+==========+========================================================================+##
+//##################################################################################################
+Method CXSetQuery(	cQuery	);	//01 cQuery
+						Class tCXMBrowse
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cQuery		AS Character
+	
+	::_cQuery	:= cQuery
+
+	::SetDataTable()
+	::SetTemporary(.T.)
+
+	//Colocado aqui para permitir manipulação nas colunas caso necessário!
+	::SetColumns( ::CXGetCol() )		//Alimenta as colunas
+
+Return
+
+//##################################################################################################
+//##+========+=================================+=======+====================+======+=============+##
+//##|Programa| CXBindParam                     | Autor | Cirilo Rocha       | Data | 15/02/2023  |##
+//##+========+=================================+=======+====================+======+=============+##
+//##|Desc.   | Método para guarda o parâmetros que serão usados na query                         |##
+//##+========+==========+========================================================================+##
+//##|  DATA  | ANALISTA | MANUTENÇÃO EFETUADA                                                    |##
+//##+========+==========+========================================================================+##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##+========+==========+========================================================================+##
+//##################################################################################################
+Method CXBindParam(	aBindParam	);	//01 aBindParam
+						Class tCXMBrowse
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR aBindParam		AS Array
+	
+	::_aBindParam	:= aBindParam
+
+Return
+
+//##################################################################################################
+//##+========+=================================+=======+====================+======+=============+##
+//##|Programa| CXSetFields                     | Autor | Cirilo Rocha       | Data | 01/02/2023  |##
+//##+========+=================================+=======+====================+======+=============+##
+//##|Desc.   | Método para guarda os campos para processamento                                   |##
+//##+========+==========+========================================================================+##
+//##|  DATA  | ANALISTA | MANUTENÇÃO EFETUADA                                                    |##
+//##+========+==========+========================================================================+##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##+========+==========+========================================================================+##
+//##################################################################################################
+Method CXSetFields(	aCampos	,;	//01 aCampos
+					aCpoSub );	//02 aCpoSub
+						Class tCXMBrowse
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cCampo		AS Character
+	Local nX			AS Integer
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR aCampos		AS Array
+	ParamType 1		VAR aCpoSub		AS Array				Optional Default {}
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	::_aCampos	:= aClone(aCampos)
+	::_aCpoSub	:= aClone(aCpoSub)
+
+	//Monta lista de campos p/ anonimização--------------------------------------------------------
+	If ::_lOfuscar
+		For nX := 1 to Len(::_aCampos)
+			If ValType(::_aCampos[nX]) == 'A'					//Array aStruct
+				cCampo	:= ::_aCampos[nX][nST_CAMPO]
+			Else
+				cCampo	:= ::_aCampos[nX]
+			EndIf
+
+			If 	aScan(::_aOfuscar,{|x| Alltrim(x) == cCampo }) == 0 .And. ;
+				FwProtectedDataUtil():IsFieldInList(cCampo)
+
+				aAdd(::_aOfuscar,cCampo)
+			EndIf
+		Next
+	EndIf
+
+Return
+
+//##################################################################################################
+//##+========+=================================+=======+====================+======+=============+##
+//##|Programa| CXSetFields                     | Autor | Cirilo Rocha       | Data | 01/02/2023  |##
+//##+========+=================================+=======+====================+======+=============+##
+//##|Desc.   | Método para guarda os campos para processamento                                   |##
+//##+========+==========+========================================================================+##
+//##|  DATA  | ANALISTA | MANUTENÇÃO EFETUADA                                                    |##
+//##+========+==========+========================================================================+##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##+========+==========+========================================================================+##
+//##################################################################################################
+Method SetObfuscFields(	aCampos	);	//01 aCampos
+							Class tCXMBrowse
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local nX 			AS Integer
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR aCampos		AS Array
+	
+	If ::_lOfuscar
+		For nX := 1 to Len(aCampos)
+			If 	aScan(::_aOfuscar,{|x| Alltrim(x) == aCampos[nX] }) == 0
+
+				aAdd(::_aOfuscar,aCampos[nX])
+			EndIf
+		Next
+	EndIf
+
+Return
+
+//##################################################################################################
+//##+========+=================================+=======+====================+======+=============+##
+//##|Programa| CXSetQueryIndex                 | Autor | Cirilo Rocha       | Data | 01/02/2023  |##
+//##+========+=================================+=======+====================+======+=============+##
+//##|Desc.   | Método para guarda os indices para processamento                                  |##
+//##+========+==========+========================================================================+##
+//##|  DATA  | ANALISTA | MANUTENÇÃO EFETUADA                                                    |##
+//##+========+==========+========================================================================+##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##+========+==========+========================================================================+##
+//##################################################################################################
+Method CXSetQueryIndex(	aIndices);	//01 aIndices
+							Class tCXMBrowse
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local nX			AS Integer
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR aIndices		AS Array
+
+	::_aIndices	:= aClone(aIndices)
+	::SetQueryIndex(::_aIndices)
+
+	//Faz um pré-processamento dos indices
+	For nX := 1 to Len(::_aIndices)
+		::_aIndices[nX]	:= StrTokArr2(::_aIndices[nX],'+',.F.)
+	Next
+
+Return
+
+//##################################################################################################
+//##+========+=================================+=======+====================+======+=============+##
+//##|Programa| Activate                        | Autor | Cirilo Rocha       | Data | 01/02/2023  |##
+//##+========+=================================+=======+====================+======+=============+##
+//##|Desc.   | Método para guarda os indices para processamento                                  |##
+//##+========+==========+========================================================================+##
+//##|  DATA  | ANALISTA | MANUTENÇÃO EFETUADA                                                    |##
+//##+========+==========+========================================================================+##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##+========+==========+========================================================================+##
+//##################################################################################################
+Method Activate(oDlg);	//01 oDlg
+					Class tCXMBrowse
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aCoors			AS Array
+	Local lRet				AS Logical
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR oDlg		AS Object		Optional
+
+	//---------------------------------------------------------------------------------------------
+	FWMsgRun(/*oSay*/,{|| lRet	:= ::CXTabTmp() },U_CXTxtMsg(Self)+'Filtrando Dados','Aguarde...')
+
+	If lRet
+		::SetAlias(::_oTable:getAlias())
+		If ::lFilter
+			::CXSetFlt()						//Faz a configuração dos filtros da tela
+		EndIf
+		If ::lSeek
+			::CXSetSeek()						//Faz a configuração dos indices de busca
+		EndIf
+
+		If 	ValType(oDlg) <> 'O'
+			::_oDlg	:= oDlg
+		EndIf
+		
+		If ValType(::_oDlg) <> 'O'
+
+			aCoors	:= FWGetDialogSize()
+
+			//Preciso montar uma janela para que o FWFormBrowse seja apresentado!--------------------------
+			//OBSERVAR O TAMANHO GRANDE PARA QUE O CAMPO DE ÍNDICE SEJA APRESENTADO!
+			::_oDlg	:= MSDialog():New(	aCoors[1], aCoors[2], aCoors[3], aCoors[4],'',;
+										/*cPar6*/,/*nPar7*/,.F.,nOr(WS_VISIBLE,WS_POPUP)/*DS_MODALFRAME*/,/*anClrText*/,;
+										/*anClrBack*/,/*oPar12*/,/*oWnd*/,.T.,,,.F.,/*lTransparent*/)
+				//::_oDlg:lMaximized	:= .T.	//Janela maximizada!!!
+		EndIf
+
+		_Super:Activate(::_oDlg)
+		::Refresh()	//Força a atualização da tela
+		
+		//Adiciona filtros relacionais customizados
+		aEval(::_aRelation,{|x| aAdd(::oFWFilter:aRelation,x) })
+
+		// ativa diálogo centralizado
+		::_oDlg:Activate(/*uPar1*/,/*uPar2*/,/*uPar3*/,.T./*lCenter*/,/*{|Self| Valid }*/,/*uPar6*/,/*{|Self| Init }*/ )
+	
+	//Limpa os dados em casos de erro no processamento
+	Else
+		::Destroy()
+	EndIf
+
+Return
+
+//#################################################################################################
+//##+==========+=================================+=======+=================+======+=============+##
+//##|Programa  | ClassName                       | Autor | Cirilo Rocha    | Data | 01/02/2023  |##
+//##+==========+=================================+=======+=================+======+=============+##
+//##|Descr.    | Metodo para retornar o nome da classe atual                                    |##
+//##+==========+===========+====================================================================+##
+//##|   DATA   |Programador| Manutenção Efetuada                                                |##
+//##+==========+===========+====================================================================+##
+//##|          |           |                                                                    |##
+//##|          |           |                                                                    |##
+//##|          |           |                                                                    |##
+//##+==========+===========+====================================================================+##
+//#################################################################################################
+//Method ClassName()		Class tCXMBrowse
+//
+//Return ::cClassName
+
+//#################################################################################################
+//##+----------+----------------------------------+-------+-------------------+------+----------+##
+//##|Programa  | Destroy                          | Autor | Cirilo Rocha      | Data |01/02/2023|##
+//##+----------+----------------------------------+-------+-------------------+------+----------+##
+//##|Descr.    | Método destrutor da classse para limpar os objetos internos utilizados e a ta- |##
+//##|          |  bela temporária                                                               |##
+//##+----------+---------------+----------------------------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                                            |##
+//##+----------+---------------+----------------------------------------------------------------+##
+//##|          |               |                                                                |##
+//##|          |               |                                                                |##
+//##+----------+---------------+----------------------------------------------------------------+##
+//#################################################################################################
+Method Destroy() Class tCXMBrowse
+
+	//Limpa tabela temporária
+	If ValType(::_oTable) == 'O'
+		::_oTable:delete()
+	EndIf
+	If ValType(::_oDlg) == 'O'
+		::_oDlg:Destroy()
+	EndIf
+
+	FWFreeArray(::_aCampos)
+	FWFreeArray(::_aCpoSub)
+	FreeObj(::_oDlg)
+	FreeObj(::_oTable)
+
+Return
+
+//##################################################################################################
+//##+========+=================================+=======+====================+======+=============+##
+//##|Programa| CXGetCol                        | Autor | Cirilo Rocha       | Data | 27/01/2023  |##
+//##+========+=================================+=======+====================+======+=============+##
+//##|Desc.   | Monta as colunas para exibição no browse, baseado nos campos da query             |##
+//##+========+==========+========================================================================+##
+//##|  DATA  | ANALISTA | MANUTENÇÃO EFETUADA                                                    |##
+//##+========+==========+========================================================================+##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##+========+==========+========================================================================+##
+//##################################################################################################
+Method CXGetCol() Class tCXMBrowse
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aColumns	:= {}		AS Array
+	Local aCombo				AS Array
+	Local aTamSX3				AS Array
+	Local cCpoDic				AS Character
+	Local cCampo				AS Character
+	Local cCbox					AS Character
+	Local cDescri				AS Character
+	Local nX,nY					AS Numeric
+	Local nPos					AS Numeric
+	Local nTamCpo				AS Numeric
+	Local oColumn				AS Object
+
+	//---------------------------------------------------------------------------------------------
+	For nX := 1 to Len(::_aCampos)
+		FWFreeArray(aTamSX3)
+
+		If ValType(::_aCampos[nX]) == 'A'					//Array aStruct
+			cCampo	:= ::_aCampos[nX][nST_CAMPO]
+			aTamSX3	:= {::_aCampos[nX][nST_TAMANHO],;
+						::_aCampos[nX][nST_DECIMAL],;
+						::_aCampos[nX][nST_TIPO]	}
+		Else
+			cCampo	:= ::_aCampos[nX]
+		EndIf
+
+		nPos	:= aScan(::_aCpoSub,{|x| x[1] == cCampo })	//Campos substitutos
+		If nPos > 0
+			cCpoDic	:= ::_aCpoSub[nPos][2]
+		Else
+			cCpoDic	:= cCampo
+		EndIf
+		If ValType(aTamSX3) <> 'A'
+			aTamSX3	:= FwTamSX3(cCpoDic)
+		EndIf
+
+		If Len(aTamSX3) == 0
+			U_CXMsgErro('ERRO ao localizar o campo '+cCpoDic,/*cSolucao*/,/*lMsg*/,/*oArea*/)
+		Else
+			oColumn	:= FWBrwColumn():New()
+			
+			//If aTamSX3[3] == "D"
+			//	nTamCpo	:= 10
+			//	oColumn:SetData( &("{|| STOD(" + cCampo + ")}" ) )
+			//Else
+				nTamCpo	:= aTamSX3[1]
+				cCbox	:= AllTrim(GetSx3Cache(cCpoDic,"X3_CBOX"))
+				oColumn:SetData( &("{||" + cCampo + "}") )
+				If .Not. Empty(cCbox)
+					//Ajusto o tamanho do campo ao combo 
+					aCombo	:= StrTokArr2(cCBox,';',.F.)
+					For nY := 1 to len(aCombo)
+						If len(RTrim(aCombo[nY]))-aTamSX3[1]-1 > nTamCpo
+							nTamCpo	:= len(RTrim(aCombo[nY]))-aTamSX3[1]-1
+						EndIf
+					Next
+					oColumn:SetOptions(aCombo)
+					FWFreeArray(aCombo)
+				EndIf
+			//EndIf
+			
+			cDescri	:= FWSX3Util():GetDescription(cCpoDic)
+			If nTamCpo >= Len(cDescri)
+				oColumn:SetTitle( cDescri )
+			Else
+				oColumn:SetTitle( AllTrim(FwX3Titulo(cCpoDic)) )
+			EndIf
+
+			oColumn:SetID( cCampo )
+			oColumn:SetSize( nTamCpo )
+			oColumn:SetType(aTamSX3[3])
+			oColumn:SetDecimal( aTamSX3[2] )
+			oColumn:SetPicture( GetSx3Cache(cCpoDic, "X3_PICTURE") )
+			oColumn:SetF3( GetSx3Cache(cCpoDic, "X3_F3") )
+			oColumn:SetAlign( If(aTamSX3[3] == "N",CONTROL_ALIGN_RIGHT,CONTROL_ALIGN_LEFT) )//Define alinhamento                
+
+			If aScan(::_aOfuscar,{|x| Alltrim(x) == cCampo } )
+				oColumn:SetObfuscateCol(.T.)
+			EndIf
+			
+			aAdd( aColumns, oColumn )
+
+			//Guardo esses dados para reutilizar depois
+			If ValType(::_aCampos[nX]) == 'C'
+				//					Campo			Tipo	Tamanho		Decimal
+				::_aCampos[nX]	:= {::_aCampos[nX],aTamSX3[3],aTamSX3[1],aTamSX3[2]}
+			EndIf
+		EndIf
+	Next
+
+Return aColumns
+
+//##################################################################################################
+//##+========+=================================+=======+====================+======+=============+##
+//##|Programa| CXSetFlt                        | Autor | Cirilo Rocha       | Data | 31/01/2023  |##
+//##+========+=================================+=======+====================+======+=============+##
+//##|Desc.   | Monta o filtro customizado quando o browse NÃO é baseado em tabelas do dicionário |##
+//##|        | Precisa estar após o método SetColumns() para funcionar                           |##
+//##+========+==========+========================================================================+##
+//##|  DATA  | ANALISTA | MANUTENÇÃO EFETUADA                                                    |##
+//##+========+==========+========================================================================+##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##+========+==========+========================================================================+##
+//##################################################################################################
+Method CXSetFlt()	Class tCXMBrowse
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aFiltro		AS Array
+	Local cTitulo		AS Character
+	Local nX			AS Integer
+
+	//---------------------------------------------------------------------------------------------
+ 	aFiltro	:= {}
+	For nX := 1 to Len(::aColumns)
+		If .Not. ( ::aColumns[nX]:cType == 'BT' )	//Legendas
+			aAdd(aFiltro,Array(10))
+			aTail(aFiltro)[1]	:= ::aColumns[nX]:GetID()		//01 Campo
+			cTitulo	:= FwTabPref(aTail(aFiltro)[1])
+			If .Not. Empty(cTitulo)
+				cTitulo	:= '('+cTitulo+') '
+			EndIf
+			cTitulo		+= ::aColumns[nX]:GetTitle()
+			aTail(aFiltro)[2]	:= cTitulo						//02 Título
+			aTail(aFiltro)[3]	:= ::aColumns[nX]:GetType()		//03 Tipo de dado
+			aTail(aFiltro)[4]	:= ::aColumns[nX]:GetSize()		//04 Tamanho
+			aTail(aFiltro)[5]	:= ::aColumns[nX]:GetDecimal()	//05 Decimal
+			aTail(aFiltro)[6]	:= ::aColumns[nX]:GetPicture()	//06 Picture
+			aTail(aFiltro)[7]	:= ::aColumns[nX]:GetOptions()	//07 aOptions
+			aTail(aFiltro)[8]	:= ::aColumns[nX]:GetF3()		//08 cLookUp
+			aTail(aFiltro)[9]	:= NIL							//09 bValid Indica o Code-Block de validação do campo
+			aTail(aFiltro)[10]	:= NIL							//10 xAnswer Resposta para a pergunta
+		EndIf
+	Next
+	::SetFieldFilter(aFiltro)
+
+Return
+
+//##################################################################################################
+//##+========+=================================+=======+====================+======+=============+##
+//##|Programa| CXSetSeek                       | Autor | Cirilo Rocha       | Data | 31/01/2023  |##
+//##+========+=================================+=======+====================+======+=============+##
+//##|Desc.   | Monta as estruturas dos índices para a busca no browse                            |##
+//##+========+==========+========================================================================+##
+//##|  DATA  | ANALISTA | MANUTENÇÃO EFETUADA                                                    |##
+//##+========+==========+========================================================================+##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##+========+==========+========================================================================+##
+//##################################################################################################
+Method CXSetSeek()	Class tCXMBrowse
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aSubCpo		AS Array
+	Local aSeek			AS Array
+	Local cDescri		AS Character
+	Local nPos			AS Integer
+	Local nX,nY			AS Integer
+
+	//---------------------------------------------------------------------------------------------
+	aSeek	:= {}
+	For nX := 1 to Len(::_aIndices)
+		aSubCpo			:= {}
+		cDescri			:= ''
+		For nY := 1 to Len(::_aIndices[nX])
+			nPos	:= aScan(::aColumns,{|x| x:GetID() == ::_aIndices[nX][nY] })
+			cDescri	+= ::aColumns[nPos]:GetTitle()+'+'
+			aAdd(aSubCpo,{	::aColumns[nPos]:GetF3()		,;
+							::aColumns[nPos]:GetType()		,;
+							::aColumns[nPos]:GetSize()		,;
+							::aColumns[nPos]:GetDecimal()	,;
+							::aColumns[nPos]:GetTitle()		,;
+							::aColumns[nPos]:GetPicture()	,;
+							::aColumns[nPos]:GetID()		})
+		Next
+		cDescri	:= U_CXSubStr(cDescri,1,-1)
+
+		aAdd(aSeek,{cDescri,aSubCpo,nX,.T.})
+	Next
+
+	If Len(aSeek) > 0
+		::SetSeek(.T.,aSeek)
+	EndIf
+
+	//:SetSeek(.T.,{	{"chave1", {{"","C",30,0,"titulo cpo",'@!','D1_DOC'}},1,.T. },;
+	//					{"chave2", {{"","C",30,0,"titulo cpo",'@!','D1_DOC'}},1,.T. },;
+	//					{"chave3", {{"","C",30,0,"titulo cpo",'@!','D1_DOC'}},1,.T. }})
+
+Return
+
+//##################################################################################################
+//##+========+=================================+=======+====================+======+=============+##
+//##|Programa| CXTabTmp                        | Autor | Cirilo Rocha       | Data | 01/02/2023  |##
+//##+========+=================================+=======+====================+======+=============+##
+//##|Desc.   | Monta a tabela temporária baseado em uma query, para ser usada na montagem do     |##
+//##|        |  browse                                                                           |##
+//##+========+==========+========================================================================+##
+//##|  DATA  | ANALISTA | MANUTENÇÃO EFETUADA                                                    |##
+//##+========+==========+========================================================================+##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##+========+==========+========================================================================+##
+//##################################################################################################
+Method CXTabTmp()	Class tCXMBrowse
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aTamSX3			AS Array
+	Local cCpoDic			AS Character
+	Local cCpoQry			AS Character
+	Local cBindParam		AS Character
+	Local cParam			AS Character
+	Local nCont				AS Integer
+	Local nPos				AS Integer
+	Local nPosIni			AS Integer
+	Local nX				AS Integer
+	Local lRet				AS Logical
+	Local lBindParam		AS Logical
+
+	//---------------------------------------------------------------------------------------------
+	cCpoQry	:= ''
+	For nX := 1 to Len(::_aCampos)
+		If ValType(::_aCampos[nX]) == 'C'	//Array apenas com campos
+			nPos	:= aScan(::_aCpoSub,{|x| x[1] == ::_aCampos[nX] })	//Campos substitutos
+			If nPos == 0
+				cCpoDic	:= ::_aCampos[nX]
+			Else
+				cCpoDic	:= ::_aCpoSub[nPos][2]
+			EndIf
+
+			aTamSX3	:= FwTamSX3(cCpoDic)
+			If Len(aTamSX3) == 0
+				U_CXMsgErro('ERRO ao localizar o campo '+cCpoDic,/*cSolucao*/,/*lMsg*/,/*oArea*/)
+			Else
+				//Guardo esses dados para reutilizar depois
+				//					Campo			Tipo		Tamanho		Decimal
+				::_aCampos[nX]	:= {::_aCampos[nX],aTamSX3[3],aTamSX3[1],aTamSX3[2]}
+			EndIf
+		EndIf
+		cCpoQry			+= ::_aCampos[nX][nST_CAMPO]+','
+	Next
+	cCpoQry	:= U_CXSubStr(cCpoQry,1,-1)	//Remove última vírgula
+
+	//---------------------------------------------------------------------------------------------
+	::_oTable := FWTemporaryTable():New()
+	::_oTable:setFields(::_aCampos)
+	aEval(::_aIndices,{|uItem,nX| ::_oTable:addIndex( StrZero(nX,1), uItem ) })
+	::_oTable:create()
+
+	//---------------------------------------------------------------------------------------------
+	lBindParam	:= Len(::_aBindParam) > 0
+	cQuery		:= ""
+	If lBindParam
+		//Preciso pré-processar a query antes!
+		U_CXProcQBind(	@::_cQuery		,;	//01 Se por referência devolve query processada
+						@::_aBindParam	);	//02 Se por referência devolve parametros processados
+		
+		::_cQuery	:= StrTran(@::_cQuery,"'","''")
+		nPosIni		:= 0
+		nCont		:= 1
+		While (nPos	:= At('?',::_cQuery,nPosIni+1)) > 0		// buscar texto da esquerda para a direita
+			::_cQuery	:= Left(::_cQuery,nPos-1)+'@P'+StrZero(nCont++,2)+SubStr(::_cQuery,nPos+1)
+			nPosIni		:= nPos
+		EndDo
+
+		//-----------------------------------------------------------------------------------------
+		cQuery	+= "Declare @Out int; "+CRLF
+		cQuery	+= "EXEC sp_prepexec @Out output, "+CRLF
+		cQuery	+= "	N'"+CRLF
+		//@P1 nvarchar(128), @P2 nvarchar(100)', "
+		//@P1 = 'tempdb', @P2 = 'ONLINE'
+		cBindParam	:= ''
+		For nX := 1 to Len(::_aBindParam)
+			cParam	:= U_CXVal2SQL(::_aBindParam[nX],.F.)
+			If ValType(::_aBindParam) == 'N'
+				cQuery		+= "	@P"+StrZero(nX,2)+" FLOAT"
+				cBindParam	+= "@P"+StrZero(nX,2)+" = "+cParam
+			Else
+				cQuery		+= "	@P"+StrZero(nX,2)+" NVARCHAR("+LTrim(Str(Len(cParam)))+")"
+				cBindParam	+= "@P"+StrZero(nX,2)+" = '"+cParam+"'"
+			EndIf
+			If nX <> Len(::_aBindParam)	
+				cQuery		+= ','+CRLF
+				cBindParam	+= ','+CRLF
+			EndIf
+		Next
+		cBindParam	+= ";"+CRLF
+
+		cQuery		+= "',"+CRLF
+		cQuery		+= CRLF+"	N'"
+	EndIf
+
+	cQuery	+= "INSERT INTO " + ::_oTable:getRealName()+CRLF
+	cQuery	+= "("+cCpoQry+")"+CRLF
+	cQuery	+= ::_cQuery
+
+	If lBindParam
+		cQuery	+= "',"+CRLF
+		cQuery	+= cBindParam
+		cQuery	+= "EXEC sp_unprepare @Out;"+CRLF	//Limpa o cache
+	EndIf
+	
+	lRet	:= TCSqlExec(cQuery) >= 0
+
+	If .Not. lRet
+		U_CXMsgErro('Erro ao criar tabela temporária com os dados.',;
+					'INFORME O SETOR DE T.I.',/*lMsg*/,/*oArea*/,,,,,.T.)
+		U_CXConOut(cQuery)
+		U_CXConOut(TCSqlError())
+	EndIf
+
+Return lRet

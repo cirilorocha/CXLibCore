@@ -1,0 +1,71 @@
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+#INCLUDE 'CXInclude.ch'
+
+//#############################################################################
+//##+==========+===========+=======+===================+======+=============+##
+//##|Programa  | CXParForm | Autor | Cirilo Rocha      | Data | 25/11/2022  |##
+//##+==========+===========+=======+===================+======+=============+##
+//##|Desc.     | Função para expressar de forma mais clara os parâmetros    |##
+//##|          |  formais das funções internas padrões                      |##
+//##+==========+==========+=================================================+##
+//##| DATA     | ANALISTA | MANUTENÇÃO EFETUADA                             |##
+//##+==========+==========+=================================================+##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+==========+==========+=================================================+##
+//#############################################################################
+User Function CXParForm(cParam);	//01 cParam
+							AS Character
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cTipo					AS Character
+	Local cObrig				AS Character
+	Local cRet					AS Character
+	Local nX					AS Numeric
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cParam		AS Character
+	
+	//---------------------------------------------------------------------------------------------
+	cRet	:= ''
+	For nX := 1 to len(cParam) step 2
+		cTipo	:= SubStr(cParam,nX,1)
+		cObrig  := SubStr(cParam,nX+1,1)
+
+		If cTipo == 'C'
+			cTipo	:= 'Char'
+		ElseIf cTipo == 'A'
+			cTipo	:= 'Arr'
+		ElseIf cTipo == 'N'
+			cTipo	:= 'Num'
+		ElseIf cTipo == 'F'
+			cTipo	:= 'Float'
+		ElseIf cTipo == 'D'
+			cTipo	:= 'Data'
+		ElseIf cTipo == 'L'
+			cTipo	:= 'Log'
+		ElseIf cTipo == 'B'
+			cTipo	:= 'Bloc'
+		ElseIf cTipo == 'O'
+			cTipo	:= 'Obj'
+		ElseIf cTipo == '*'
+			cTipo	:= 'Var'
+		Else
+			cTipo	:= cTipo+' - '+'Desconhecido'
+		EndIf
+
+		If cObrig == 'R' //Obrigatorio
+			cTipo	:= '<'+cTipo+'>'
+		ElseIf cObrig == 'O' //Opcional
+			cTipo	:= '['+cTipo+']'
+		Else
+			cTipo	:= cTipo+'[des]'
+		EndIf
+
+		cRet	:= U_CXConcTxt(cRet,cTipo,',')
+	Next
+
+Return cRet

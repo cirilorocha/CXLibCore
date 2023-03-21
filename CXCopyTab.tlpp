@@ -31,6 +31,7 @@
 //##| 10/03/23 | Cirilo R. | Pequena revisao no fonte                       |##
 //##|          |           | Ajustes para usar as classes zDBF para salvar  |##
 //##|          |           |  em DBF                                        |##
+//##| 19/03/23 | Cirilo R. | Melhoria no tratamento para arquivos DBF       |##
 //##|          |           |                                                |##
 //##|          |           |                                                |##
 //##+----------+-----------+------------------------------------------------+##
@@ -54,6 +55,7 @@ User Function CXCopyTab(cFileSource	,; 	//01 Arquivo de origem (ex: \system\sx30
 	Local aStruTgt		AS Array
 	Local cFileExt		AS Character
 	Local cIndice		AS Character
+	Local cArqMemo		AS Character
 	Local cNmSrc		AS Character
 	Local cQry			AS Character
 	Local cQuery		AS Character
@@ -90,7 +92,7 @@ User Function CXCopyTab(cFileSource	,; 	//01 Arquivo de origem (ex: \system\sx30
 	lBack 		:= .T.
 	lCanUseBulk	:= FWBulk():CanBulk()
 	nBuffer		:= 0
-	oArea	  	:= tCtrlAlias():GetArea() //U_CXGetArea({})
+	oArea	  	:= tCtrlAlias():GetArea()
 	aRecnoDel	:= {}
 
 	//Isolamento da variavel recebida por parametro!
@@ -127,11 +129,59 @@ User Function CXCopyTab(cFileSource	,; 	//01 Arquivo de origem (ex: \system\sx30
 	U_CXIncRegua(nTpRegua,'Copiando tabela '+cNmSrc+'...')
 
 	// Deletando arquivo de Destino caso exista
-	If MsFile(cTarget,cIndice,cDrvTgt)
+	If lTgtDBF
+		//Arquivo principal
+		If File(cFileTarget)
+			lBack	:= ( FErase( cFileTarget ) == 0 )
+			If .Not. lBack
+				U_CXMsgErro('ERRO AO APAGAR ARQUIVO DESTINO: '+CRLF+;
+							cFileTarget+CRLF+;
+							'ERRO: '+U_CXDescErro(),;
+							'INFORME O SETOR DE T.I.',lMsg,/*oArea*/)
+			EndIf
+		EndIf
 
-		cIndice := U_CXRetFileName(cTarget)+OrdBagExt()
-
-		lBack 	:= MsErase(cTarget,cIndice,cDrvTgt)
+		//Índices
+		If lBack
+			cIndice := U_CXRetFileName(cFileTarget)+'.cdx'
+			If .Not. File(cIndice)
+				cIndice := U_CXRetFileName(cFileTarget)+'.ndx'
+			EndIf
+			If .Not. File(cIndice)
+				cIndice := U_CXRetFileName(cFileTarget)+'.ntx'
+			EndIf
+			If .Not. File(cIndice)
+				cIndice := U_CXRetFileName(cFileTarget)+'.mdx'
+			EndIf
+			If File(cIndice)
+				lBack	:= ( FErase( cIndice ) == 0 )
+				If .Not. lBack
+					U_CXMsgErro('ERRO AO APAGAR ARQUIVO DESTINO: '+CRLF+;
+								cIndice+CRLF+;
+								'ERRO: '+U_CXDescErro(),;
+								'INFORME O SETOR DE T.I.',lMsg,/*oArea*/)
+				EndIf
+			EndIf
+		EndIf
+		//Campos Memo
+		If lBack
+			cArqMemo	:= U_CXRetFileName(cFileTarget)+'.fpt'
+			If .Not. File(cArqMemo)
+				cArqMemo	:= U_CXRetFileName(cFileTarget)+'.dbt'
+			EndIf
+			If File(cArqMemo)
+				lBack	:= ( FErase( cArqMemo ) == 0 )
+				If .Not. lBack
+					U_CXMsgErro('ERRO AO APAGAR ARQUIVO DESTINO: '+CRLF+;
+								cArqMemo+CRLF+;
+								'ERRO: '+U_CXDescErro(),;
+								'INFORME O SETOR DE T.I.',lMsg,/*oArea*/)
+				EndIf
+			EndIf
+		EndIf
+	ElseIf MsFile(cFileTarget,,cDrvTgt)
+		cIndice := U_CXRetFileName(cFileTarget)+OrdBagExt()
+		lBack 	:= MsErase(cFileTarget,cIndice,cDrvTgt)
 	EndIf
 
 	//Obtem a estrutura do arquivo origem
@@ -222,7 +272,9 @@ User Function CXCopyTab(cFileSource	,; 	//01 Arquivo de origem (ex: \system\sx30
 			If nPos <= 0 .And. ;
 				nX <> nPosRec
 
-				U_CXMsgErro("Problema na estrutura da tabela "+cSource+".",/*cSolucao*/,lMsg,/*oArea*/)
+				U_CXMsgErro('Problema na estrutura da tabela '+cSource+'.'+CRLF+;
+							'Campo Destino: '+aStruTgt[nX][nST_CAMPO]+' não encontrado na origem!',;
+							'INFORME O SETOR DE T.I.',lMsg,/*oArea*/)
 				lBack	:= .F.
 				Exit
 			EndIf
@@ -267,6 +319,7 @@ User Function CXCopyTab(cFileSource	,; 	//01 Arquivo de origem (ex: \system\sx30
 			oBulk:SetFields(aStruTgt)
 		EndIf
 		
+		aDados	:= Array(Len(aStruTgt))
 		SOURCE->(dbGoTop())
 		While SOURCE->(!EOF())
 
@@ -281,11 +334,7 @@ User Function CXCopyTab(cFileSource	,; 	//01 Arquivo de origem (ex: \system\sx30
 			EndIf
 			
 			nBuffer++
-			If lCanUseBulk
-				aDados	:= {}
-			ElseIf lTgtDbf
-				oDBFTgt:Insert()	//Equivalente ao reclock()
-			Else
+			If .Not. lTgtDbf
 				RecLock('TARGET',.T.)
 			EndIf
 			
@@ -303,10 +352,10 @@ User Function CXCopyTab(cFileSource	,; 	//01 Arquivo de origem (ex: \system\sx30
 					uConteudo	:= 	SOURCE->(FieldGet(aPosSrc[nX]))
 				EndIf
 
-				If lCanUseBulk
-					aAdd(aDados,uConteudo)
-				ElseIf lTgtDbf
-					oDBFTgt:FieldPut(nX,uConteudo)
+				If 	lCanUseBulk .Or. ;
+					lTgtDbf
+
+					aDados[nX]	:= uConteudo
 				Else
 //					TARGET->(&(aStruTgt[nX][nST_CAMPO]))	:= SOURCE->(FieldGet(aPosSrc[nX]))
 //					TARGET->(FieldPut(nX,SOURCE->(FieldGet(aPosSrc[nX])))) //Melhor otimizacao!
@@ -318,7 +367,7 @@ User Function CXCopyTab(cFileSource	,; 	//01 Arquivo de origem (ex: \system\sx30
 			If lCanUseBulk
 				oBulk:AddData(aDados)
 			ElseIf lTgtDbf
-				oDBFTgt:Update()	//Equivalente ao UnLock()
+				oDBFTgt:Insert(aDados,SOURCE->(Deleted()))
 			Else
 //	   			TARGET->(MsUnLock())
 				
@@ -333,7 +382,7 @@ User Function CXCopyTab(cFileSource	,; 	//01 Arquivo de origem (ex: \system\sx30
 				If lCanUseBulk
 					aAdd(aRecnoDel,nBuffer)
 				ElseIf lTgtDbf
-					oDBFTgt:dbDelete()	//Apaga o registro
+					//oDBFTgt:dbDelete()	//Apaga o registro
 				Else
 					TARGET->(dbDelete()) //Apaga o registro corrente
 				EndIf
@@ -345,7 +394,7 @@ User Function CXCopyTab(cFileSource	,; 	//01 Arquivo de origem (ex: \system\sx30
 		Set(_SET_DELETED,lDelBak) //Restaura o filtro antes do processamento
 	EndIf
 	
-	If lCanUseBulk
+	If ValType(oBulk) == 'O'
 		oBulk:Flush()
 		
 		//Faz um processamento nos registros deletados
@@ -386,7 +435,6 @@ User Function CXCopyTab(cFileSource	,; 	//01 Arquivo de origem (ex: \system\sx30
 		TARGET->(dbCloseArea())
 	EndIf
 
-	//U_CXRestArea(aArea)
 	oArea:RestArea()
 
 Return( lBack )

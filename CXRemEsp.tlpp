@@ -1,0 +1,132 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#Include "CXInclude.ch"
+
+//#############################################################################
+//##+==========+==========+=======+====================+======+=============+##
+//##|Programa  | CXRemEsp | Autor | Cirilo Rocha       | Data | 06/09/2017  |##
+//##+==========+==========+=======+====================+======+=============+##
+//##|Descr.    | Função genérica para retirar caracteres inválidos de textos|##
+//##|          | como tabulações, quebras de linhas, etc... que não são vá- |##
+//##|          | lidos nos campos para SPEDs e outras escriturações         |##
+//##+==========+===========+================================================+##
+//##|   DATA   |Programador| Manutenção Efetuada                            |##
+//##+==========+===========+================================================+##
+//##| 26/03/18 | Cirilo R. | Adicionado tratamento para converter : em .    |##
+//##|          |           | Tratamento para remover espaços duplos         |##
+//##| 19/04/18 | Cirilo R. | Pequena otmização no fonte                     |##
+//##| 28/04/18 | Cirilo R. | Adicionados mais caracteres especiais          |##
+//##| 09/08/21 | Cirilo R. | Tratamento para espaços a esquerda             |##
+//##| 12/11/21 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+==========+===========+================================================+##
+//#############################################################################
+Static aCharSpc			AS Array
+Static aChNUtf8			AS Array
+//Outros caracteres especiais cp1252
+Static aChrEsp := {	{128,'E'  },{130,"'"  },{131,'f'  },{132,'"'  },{133,'...'},;
+					{134,''   },{135,''   },{136,'^'  },{137,'%o' },{138,'S'  },;
+					{139,'<'  },{140,'OE' },{142,'Z'  },{145,"'"  },{146,"'"  },;
+					{147,'"'  },{148,'"'  },{149,'*'  },{150,'-'  },{151,'-'  },;
+					{152,'~'  },{153,' TM'},{154,'S'  },{155,'>'  },{156,'oe' },;
+					{158,'z'  },{159,'Y'  },{175,'-'  } ;
+				}	AS Array
+//-----------------------------------------------------------------------------
+User Function CXRemEsp(	cTexto		,;	//01
+						lEnder		,;	//02 Processa como se fosse endereco, ou seja, remove espacos duplos, dois pontos, e compatibiliza o tamanho
+						lNoAcento	);	//03
+							AS Character
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cRet		AS Character
+	Local cChar     AS Character
+	Local nChar     AS Integer
+	Local nX,nY		AS Integer
+	Local nTam		AS Integer
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cTexto		AS Character
+	ParamType 1		VAR lEnder		AS Logical				Optional Default .T.
+	ParamType 2		VAR lNoAcento	AS Logical				Optional Default .T.
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	cRet		:= ''
+	nTam		:= len(cTexto)
+
+	If aCharSpc == NIL //Otimizacao
+		aCharSpc	:= StrTokArr2(GetMV('MX_CHRESP' ,.F.,'10,13,09,160'),',',.F.) 					//Caracteres identificados como espaco CP1252
+		aChNUtf8	:= StrTokArr2(GetMV('MX_CHNUTF8',.F.,'127,129,141,143,144,157,173'),',',.F.) 	//Caracteres que nao sao mapeaveis de CP1252 para UTF8
+
+		For nX := 1 to len(aChNUtf8)
+			aChNUtf8[nX]	:= Val(aChNUtf8[nX])
+		Next
+		
+		//Pre-Processa os dados
+		For nX := 1 to len(aCharSpc)
+			aCharSpc[nX]	:= Val(aCharSpc[nX])
+		Next
+	
+	EndIf
+
+	For nX := 1 to nTam
+		cChar	:= SubStr(cTexto,nX,1)
+		nChar	:= Asc(cChar)
+
+		If 	cChar == '|' .And. ; //Este caractere tambem nao e' permitido por causa dos speds
+			lEnder
+			
+			cChar	:= Space(1) //Substituo por espaco
+		ElseIf nChar == 09 		//Tabulacao
+			cChar := space(5)
+		ElseIf nChar == 13  //Quebra de linha
+			cChar := ' / '
+		ElseIf nChar < 32 	//Comandos de formatacao
+			cChar := '.'
+		Else
+			//Processa espacos
+			For nY := 1 to len(aCharSpc)
+				If nChar == aCharSpc[nY]
+					cChar	:= Space(1) //Substituo por espaco
+					Exit
+				EndIf
+			Next
+			
+			//Substitui outros caracteres especiais
+			For nY := 1 to len(aChrEsp)
+				If nChar == aChrEsp[nY][1]
+					cChar	:= aChrEsp[nY][2]
+				EndIf
+			Next
+
+			//Substitui outros caracteres invalidos cp1252 para UTF8
+			For nY := 1 to len(aChNUtf8)
+				If nChar == aChNUtf8[nY]
+					cChar	:= '.'
+				EndIf
+			Next
+
+		EndIf
+
+		cRet	+= cChar
+	Next
+	
+	//cret := alltrim(cret)+'CX'
+	
+	If lEnder
+		cRet	:= StrTran(cRet,':','.') //Converte : em .
+		For nX := 1 to 5
+			cRet	:= StrTran(cRet,Space(2),Space(1)) //Remove espacos duplos
+		Next
+	EndIf
+
+	If lNoAcento
+		cRet	:= FwNoAccent(cRet)
+	EndIf
+
+	cRet	:= LTrim(cRet)
+	cRet	:= PadR(cRet,nTam) //Complementa a string com espacos para retornar o mesmo tamanho
+
+Return cRet

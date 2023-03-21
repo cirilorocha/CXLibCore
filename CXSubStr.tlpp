@@ -1,0 +1,115 @@
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+#INCLUDE 'CXInclude.ch'
+
+//#############################################################################
+//##+==========+==========+=======+====================+======+=============+##
+//##|Programa  | CXSubStr | Autor | Cirilo Rocha       | Data | 12/03/2020  |##
+//##+==========+==========+=======+====================+======+=============+##
+//##|Descr.    | Função semelhante ao SubStr, sendo o segundo argumento a   |##
+//##|          |  posição final e não o tamanho da String, além de aceitar  |##
+//##|          |  valores negativos no final para cortar os últimos caracter|##
+//##+==========+==========+=================================================+##
+//##+ DATA     | ANALISTA | MANUTENÇÃO EFETUADA                             |##
+//##+==========+==========+=================================================+##
+//##| 24/02/22 | Cirilo R.| Melhoria no segundo parâmetro                   |##
+//##| 25/05/22 | Cirilo R.| Revisão no fonte                                |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+==========+==========+=================================================+##
+//#############################################################################
+User Function CXSubStr( cTexto  ,;  //01
+                        nPIni   ,;  //02
+                        nPFim   ,;	//03
+						lMsg	);	//04
+							AS Variant //Nao usei retorno Char para usar o NIL como tratamento de erro!
+	
+	//Declaração de Variáveis----------------------------------------------------------------------
+	Local cPosMsg		AS Character
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+    ParamType 0		VAR cTexto		AS Character
+    ParamType 1		VAR nPIni		AS Numeric			Optional Default 1
+    ParamType 2		VAR nPFim		AS Numeric
+    ParamType 3		VAR lMsg		AS Logical			Optional Default .T.
+
+   //Inicializa Variaveis-------------------------------------------------------------------------
+	cPosMsg	:= 	"Texto: '"+cTexto+CRLF+;
+				"PIni: "+AllTrim(Str(nPIni))+CRLF+;
+				"PFim: "+AllTrim(Str(nPFim))
+
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+
+    If nPFim < 0
+        nPFim   += Len(cTexto)
+    EndIf
+
+    If nPFim == 0
+		cCodErr	:= U_CXTxtMsg(,2,.T.)
+		cMsgErr	:= 'CXSubStr: Posição Final (zero) inválida.'+CRLF+;
+					cPosMsg
+		cSoluc	:= 'INFORME O SETOR DE T.I.'
+		cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+
+		If lMsg
+			U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+		EndIf
+        Return
+    ElseIf nPIni == 0
+		cCodErr	:= U_CXTxtMsg(,2,.T.)
+		cMsgErr	:= 'CXSubStr: Posição Inicial (zero) inválida.'+CRLF+;
+					cPosMsg
+		cSoluc	:= 'INFORME O SETOR DE T.I.'
+		cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+
+		If lMsg
+			U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+		EndIf
+
+        Return
+    ElseIf nPFim < nPIni
+		cCodErr	:= U_CXTxtMsg(,2,.T.)
+		cMsgErr	:= 'CXSubStr: Posição Final menor que a Inicial.'+CRLF+;
+					cPosMsg
+		cSoluc	:= 'INFORME O SETOR DE T.I.'
+		cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+
+		If lMsg
+			U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+		EndIf
+
+        Return
+    ElseIf nPIni > Len(cTexto)
+		cCodErr	:= U_CXTxtMsg(,2,.T.)
+		cMsgErr	:= 'CXSubStr: Posição Inicial inválida. Maior que o tamanho do texto.'+CRLF+;
+					cPosMsg
+		cSoluc	:= 'INFORME O SETOR DE T.I.'
+		cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+
+		If lMsg
+			U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+		EndIf
+
+        Return
+    ElseIf nPFim > Len(cTexto)
+		cCodErr	:= U_CXTxtMsg(,2,.T.)
+		cMsgErr	:= 'CXSubStr: Posição Final inválida. Maior que o tamanho do texto.'+CRLF+;
+					cPosMsg
+		cSoluc	:= 'INFORME O SETOR DE T.I.'
+		cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+
+		If lMsg
+			U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+		EndIf
+
+        Return
+    EndIf
+
+    cTexto  := SubStr(cTexto,nPIni,nPFim-nPIni+1)
+
+Return cTexto

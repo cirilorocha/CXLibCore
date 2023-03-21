@@ -1,0 +1,39 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#Include "CXInclude.ch"
+
+//#############################################################################
+//##+----------+-----------+-------+-------------------+------+-------------+##
+//##|Programa  | CXConcTxt | Autor | Cirilo Rocha      | Data | 19/11/2015  |##
+//##+----------+-----------+-------+-------------------+------+-------------+##
+//##|Descricao | Concatena dois textos usando um separador, respeitando se  |##
+//##|          | os textos não são vazios para usar o separador             |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção Efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 08/01/19 | Cirilo R. | Revisão no fonte                               |##
+//##| 17/11/21 | Cirilo R. | Revisão no fonte                               |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXConcTxt(cTexto	,; //01 Texto original que sera concatenado (pode ser passado por referencia @)
+						cTxtAdic,; //02 Texto que sera adicionado (desde que nao vario)
+						cSep	);  //03 Separador entre os textos
+							AS Character
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cTexto  	  		AS Character
+	ParamType 1		VAR cTxtAdic	  	  	AS Character			Optional Default ''
+	ParamType 2		VAR cSep 				AS Character			Optional Default ','
+
+	//---------------------------------------------------------------------------------------------
+	If .Not. Empty(cTxtAdic)	//So mexe se o texto adicional nao for vazio
+		If .Not. Empty(cTexto)	//Adiciona o separador se ja houver texto anterior
+			cTexto += cSep
+		EndIf
+		cTexto += cTxtAdic
+	EndIf
+
+Return cTexto

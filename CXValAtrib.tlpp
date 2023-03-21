@@ -1,0 +1,63 @@
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+#INCLUDE 'CXInclude.ch'
+
+//#############################################################################
+//##+==========+============+=======+==================+======+=============+##
+//##|Programa  | CXValAtrib | Autor | Cirilo Rocha     | Data | 23/12/2021  |##
+//##+==========+============+=======+==================+======+=============+##
+//##|Desc.     | Função para substituir o Type em objetos XML, faz o papel  |##
+//##|          |  da função ValAtrib que a Totvs está usando como arranjo   |##
+//##|          |  técnico                                                   |##
+//##|          | Esta até o momento está funcionando bem e inclusive é bem  |##
+//##|          |  mais rápida que usar diretamente o Type mesmo tendo todo  |##
+//##|          |  esse processamento                                        |##
+//##+==========+==========+=================================================+##
+//##| DATA     | ANALISTA | MANUTENÇÃO EFETUADA                             |##
+//##+==========+==========+=================================================+##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+==========+==========+=================================================+##
+//#############################################################################
+User Function CXValAtrib(cAtributo);
+							    AS Character
+	
+	//Declaração de Variáveis----------------------------------------------------------------------
+	Local aTags		AS Array
+	Local nX		AS Numeric //Integer
+	Local nPos		AS Numeric
+	Local cTmp		AS Character
+	Local cTmp2		AS Character
+	Local cTipo		AS Character
+	
+    //Parametros da rotina-------------------------------------------------------------------------
+    ParamType 0		VAR cAtributo		AS Character
+    
+
+	//Inicialização de Variáveis--------------------------------------------------------------------
+	If At(':',cAtributo) == 0 //Não tem subObjetos, tratamento caso seja usado em um Type normal mesmo
+		cTipo	:= Type(cAtributo)
+	Else
+		aTags	:= StrTokArr2(Upper(cAtributo),':',.F.)
+		cTmp	:= aTags[1]
+		
+		For nX := 2 to Len(aTags)
+			cTmp2	:= aTags[nX]
+			nPos	:= At('[',cTmp2)	//Array
+			If nPos > 0
+				cTmp2	:= Left(cTmp2,nPos-1)
+			EndIf
+			cTipo	:= ValType(&('XmlChildEx('+cTmp+',"'+cTmp2+'")'))
+			If 	cTipo == 'U' .Or. ;
+				( nPos > 0 .And. cTipo <> 'A' )	//Se era para ser um array e não é
+
+				Exit
+			Else
+				cTmp	+= ':'+aTags[nX]
+			EndIf
+		Next
+	EndIf
+
+Return cTipo

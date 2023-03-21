@@ -1,0 +1,64 @@
+#INCLUDE "RWMake.ch"
+#INCLUDE "Totvs.ch"
+#INCLUDE "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+
+Static aModulos	:= RetModName(.T.)
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXSetMod | Autor | Cirilo Rocha       | Data | 27/08/2019  |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descr.    | Função para alterar o módulo do sistema e salvar o módulo  |##
+//##|          | atual para fazer a restauração                             |##
+//##+----------+----------+-------------------------------------------------+##
+//##| DATA     | ANALISTA | MANUTENÇÃO EFETUADA                             |##
+//##+----------+----------+-------------------------------------------------+##
+//##| 22/06/21 | Cirilo R.| Pequena revisão                                 |##
+//##| 21/06/22 | Cirilo R.| Correção porque estava dando erro no CFG        |##
+//##|          |          | Ajuste para trabalhar exatamente como a função  |##
+//##|          |          |  padrão SetModulo (RHLIBMOD.PRX)                |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+----------+----------+-------------------------------------------------+##
+//#############################################################################
+User Function CXSetMod(xMod);	//01
+						AS Numeric
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local nPos		AS Numeric
+	Local nModBak	AS Numeric
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR xMod		AS Numeric,Character 
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	nModBak	:= nModulo
+	
+	If ValType(xMod) == 'N'
+		//nPos	:= aScan(aModulos,{|x| x[1] == xMod })
+		nPos	:= xMod	//Não precisa do aScan porque o array já vem ordenado
+		If nPos > Len(aModulos)
+			nPos	:= 0	//Forca erro
+		EndIf
+		xMod	:= AllTrim(Str(xMod))
+	Else
+		nPos	:= aScan(aModulos,{|x| x[2] == Upper(xMod) })
+		If 	nPos == 0 .And. ;
+			Len(xMod) <= 4
+			
+			nPos	:= aScan(aModulos,{|x| SubStr( x[2] , 5 ) == Upper(xMod) })
+		EndIf
+	EndIf
+
+	If nPos > 0
+		//SetModulo(aModulos[nPos][2],Rtrim(SubStr(aModulos[nPos][2],5)))
+		nModulo	:= nPos
+		cModulo	:= Rtrim(SubStr(aModulos[nPos][2],5))
+	Else
+		ApMsgStop(	'Erro ao setor o módulo '+xMod+CRLF+;
+					'Informe ao setor de T.I.',U_CXTxtMsg(,,.T.))
+	EndIf
+
+Return nModBak

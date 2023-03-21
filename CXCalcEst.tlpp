@@ -1,0 +1,64 @@
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+#INCLUDE 'CXInclude.ch'
+
+//#############################################################################
+//##+----------+-----------+-------+-------------------+------+-------------+##
+//##|Programa  | CXCalcEst | Autor | Cirilo Rocha      | Data | 16/02/2017  |##
+//##+----------+-----------+-------+-------------------+------+-------------+##
+//##|Descr.    | Função para calcular o saldo em estoque de outra filial    |##
+//##|          |                                                            |##
+//##|          | Feito assim para não precisar salvar o SM0 e o cFilAnt por-|##
+//##|          | que o fonte padrão da diferença se não setar na filial de  |##
+//##|          | cálculo                                                    |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção Efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 30/07/21 | Cirilo R. | Pequena revisão                                |##
+//##| 05/01/23 | Cirilo R. | Pequena revisão                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXCalcEst(cCodProd	,;	//01 cCodProd
+						cLocal		,;	//02 cLocal
+						dData		,;	//03 dData (def dDataBase)
+						cFilEst		,;	//04 cFilEst (def cFilAnt)
+						lConsTesTerc,;	//05 lConsTesTer (def .F.)
+						lCusRep		);	//06 lCusRep (def .T.)
+								AS Array
+	
+	//Declaração de Variáveis----------------------------------------------------------------------
+	Local aRet		AS Array
+	Local oArea		AS Object
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cCodProd		AS Character
+	ParamType 1		VAR cLocal			AS Character
+	ParamType 2		VAR dData			AS Date					Optional Default dDataBase
+	ParamType 3		VAR cFilEst			AS Character			Optional Default cFilAnt
+	ParamType 4		VAR lConsTesTerc	AS Logical				Optional Default .F.
+	ParamType 5		VAR lCusRep			AS Logical				Optional Default .T.
+
+	//Inicialização de Variáveis-------------------------------------------------------------------
+	oArea	:= tCtrlAlias():GetArea({'SB2','SB8','SM0','SB9','SD1','SD2','SD3'})
+
+	If cFilEst <> cFilAnt
+		cFilAnt	:= cFilEst
+		FWSM0Util():setSM0PositionBycFilAnt() //Seta SM0
+	EndIf
+
+	cCodProd	:= PadR(cCodProd,FWTamSX3('B1_COD')[1])
+
+	//Calcula o saldo em estoque
+	aRet  := CalcEst(	cCodProd	,;
+						cLocal		,;
+						dData		,;
+						cFilAnt		,;
+						lConsTesTerc,;
+						lCusRep		)
+
+	oArea:RestArea()	//Restaura a area
+
+Return aRet

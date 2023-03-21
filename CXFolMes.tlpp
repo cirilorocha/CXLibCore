@@ -1,0 +1,58 @@
+#INCLUDE "RWMake.ch"
+#INCLUDE "Protheus.ch"
+#INCLUDE "Totvs.ch"
+#Include "ParmType.ch"
+#Include "CXInclude.ch"
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXFolMes | Autor | Cirilo Rocha       | Data | 08/09/2017  |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descr.    | Função para substuir o parâmetro MV_FOLMES que não funciona|##
+//##|          | no Protheus 12                                             |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 28/08/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 09/11/21 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 21/12/21 | Cirilo R. | Tratamento para permitir manipular o FolMes    |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXFolMes(	cProcess	,;	//01
+						cRoteiro	,; 	//02
+						lMsg		);	//03
+							AS Character
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aPerAtual		AS Array
+	Local cFolMes		AS Character
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cProcess			AS Character			Optional Default '00001'
+	ParamType 1		VAR cRoteiro			AS Character			Optional Default 'FOL'
+	ParamType 2		VAR lMsg				AS Logical				Optional Default .T.
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	aPerAtual	:= {}
+	
+	If 	Type('_cCXFolMes') == 'C' .And. ;
+		.Not. Empty(_cCXFolMes)
+		
+		cFolMes	:= _cCXFolMes
+	Else
+		fGetPerAtual( @aPerAtual, /*Filial*/, cProcess, cRoteiro )
+
+		If Empty(aPerAtual)
+			If lMsg
+				U_CXHelp(	"F402APERCALC",,U_CXTxtMsg()+"Não existe o período de cálculo para o processo "+;
+							cProcess+" e roteiro "+cRoteiro+".",,;
+							'Cadastrar período ou entrar em contato com o setor de T.I.')
+			EndIf
+		Else
+			cFolMes	:= aPerAtual[1][1]
+		EndIf
+	EndIf
+
+Return cFolMes

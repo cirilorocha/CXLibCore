@@ -1,0 +1,106 @@
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+#INCLUDE 'CXInclude.ch'
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXLogo   | Autor | Cirilo Rocha       | Data | 17/01/2017  |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descr.    | Funcao generica para obter o logotipo da empresa           |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 16/02/17 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 03/05/17 | Cirilo R. | Pequeno ajuste para o FIRST                    |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+Static cPath			:= GetSrvProfString("Startpath","")		AS Character
+//-------------------------------------------------------------------------------------------------
+User Function CXLogo(	cDescLogo	,;	//01 cDescLogo
+						lEmpresa	);	//02 lEmpresa
+							AS Character
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cGrpCompany			AS Character
+	Local cCodEmpGrp			AS Character	
+	Local cUnitGrp				AS Character	
+	Local cFilGrp				AS Character	
+	Local cDetLogo				AS Character
+	Local cLogoBMP				AS Character
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cDescLogo		AS Character			Optional Default 'DANFE'
+	ParamType 1		VAR lEmpresa		AS Logical				Optional Default .F.
+
+	//Variaveis compartilhadas de mensagens de erro
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+
+	#IFDEF TOTVS_FIRST
+		cUnitGrp		:= ''
+		lEmpresa		:= .T.
+	#ELSE
+		cUnitGrp		:= AllTrim(FWUnitBusiness())
+	#ENDIF
+	
+	If !Empty(cUnitGrp)
+		cGrpCompany	:= AllTrim(FWGrpCompany())
+		cCodEmpGrp	:= AllTrim(FWCodEmp())
+		cFilGrp		:= AllTrim(FWFilial())
+		cDetLogo	:= cGrpCompany + cCodEmpGrp + cUnitGrp + cFilGrp
+	Else
+		cDetLogo	:= cEmpAnt + cFilAnt
+	EndIf
+
+	cLogoBMP := cPath + cDescLogo + cDetLogo + ".BMP"
+	If 	.Not. U_CXFile(cLogoBMP) .Or. ;
+		lEmpresa                 	//Forca bitmap da empresa
+		
+		cLogoBMP	:= cPath + cDescLogo + cEmpAnt + ".BMP"
+		If  .Not. U_CXFile(cLogoBMP)
+			ApMsgAlert(	'ERRO ao localizar logomarca da empresa '+cEmpAnt+'-'+cFilAnt+CRLF+;
+						'Erro: '+cMsg,U_CXTxtMsg(,,.T.))
+							
+			cLogoBMP	:= FisxLogo("1") //Busca logo padrao
+		EndIf
+	EndIf
+
+Return cLogoBMP
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##| Programa | FisxLogo | Autor | Mary C. Hergert    | Data | 10/08/2006  |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##| Desc.    |Retorna o arquivo com o logotipo padrao da empresa corrente.|##
+//##|          | FIRST                                                      |##
+//##+----------+------------------------------------------------------------+##
+//##| Uso      | SigaFis                                                    |##
+//##+----------+------------------------------------------------------------+##
+//#############################################################################
+User Function XFisxLogo(cTipo)
+
+	Local cLogo 		:= ""
+	
+	Default cTipo 	:= "1"
+	
+	//+------------------------------------------+
+	//|Seleciona o logotipo da filial posicionada|
+	//+------------------------------------------+
+	If cTipo =="1"
+		cLogo := cPath + "LGRL"+cFilAnt+".BMP" 	// Empresa+Filial
+		If !U_CXFile(cLogo)
+			cLogo := cPath + "LGRL.BMP" 				// Empresa
+		endif
+	Else		
+		//+----------------------------------------+
+		//|Seleciona o logotipo padrao da Microsiga|
+		//+----------------------------------------+
+		cLogo := cPath + "LogoSiga.bmp"
+	Endif
+
+Return cLogo

@@ -1,0 +1,96 @@
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+#INCLUDE 'CXInclude.ch'
+
+//#############################################################################
+//##+==========+==========+=======+====================+======+=============+##
+//##|Programa  | CXArqCst | Autor | Cirilo Rocha       | Data | 30/03/2022  |##
+//##+==========+==========+=======+====================+======+=============+##
+//##|Desc.     | Função para retornar o caminho completo dentro da pasta    |##
+//##|          |  /system/_CUSTOMIZAÇÕES/ de arquivos para serem lidos.     |##
+//##|          | Busca por Empresa+Filial, Empresa, somente Arquivo         |##
+//##+==========+==========+=================================================+##
+//##| DATA     | ANALISTA | MANUTENÇÃO EFETUADA                             |##
+//##+==========+==========+=================================================+##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+==========+==========+=================================================+##
+//#############################################################################
+Static cPathCst		:= '\system\_CUSTOMIZACOES\'				AS Character
+//-------------------------------------------------------------------------------------------------
+User Function CXArqCst(	cArq	,;	//01 Nome do arquivo
+						cNomeFun,;	//02 Nome da função
+						cFilBsc	,;	//03 Filial para busca (def cFilAnt)
+						lMsg	,;	//04 Mostra mensagens de erro ao usuário (def .T.)
+						lNoMsg	);	//05 Não alimenta variáveis de erro (def .F.)
+							AS Character
+
+	//Declaração de variáveis----------------------------------------------------------------------
+	Local cPath			AS Character
+	Local cArquivo		AS Character
+
+	Local cMsgErrBak	AS Character
+	Local cCodErrBak	AS Character
+	Local cSolucBak		AS Character
+	Local cMsgBak		AS Character
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cArq			AS Character
+	ParamType 1		VAR cNomeFun		AS Character
+	ParamType 2		VAR cFilBsc			AS Character		Optional Default cFilAnt
+	ParamType 3		VAR lMsg			AS Logical			Optional Default .T.
+	ParamType 4		VAR lNoMsg			AS Logical			Optional Default .F.
+
+	//Inicializa variáveis-------------------------------------------------------------------------
+	cPath		:= cPathCst+cNomeFun+'\'
+	cArquivo	:= cPath+cEmpAnt+cFilBsc+cArq
+
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+
+	//Salvo estas variaveis caso necessário
+	cMsgErrBak	:= cMsgErr
+	cCodErrBak	:= cCodErr
+	cSolucBak	:= cSoluc
+	cMsgBak		:= cMsg
+
+	If .Not. U_CXFile(cArquivo,.F.,lNoMsg)			//Usei apenas File porque CXFile preenche a variável cMsg
+		//Busca o arquivo pela empresa
+		cArquivo	:= cPath+cEmpAnt+cArq
+		If .Not. U_CXFile(cArquivo,.F.,lNoMsg)
+			//Busca o arquivo pela empresa
+			cArquivo	:= cPath+cArq
+			If .Not. U_CXFile(cArquivo,.F.,lNoMsg)
+				cArquivo	:= ''	//Se não achou retorna vazio
+			EndIf
+		EndIf
+	EndIf
+
+	//Erro!
+	If 	Empty(cArquivo)
+
+		cCodErr	:= U_CXTxtMsg(,2,.T.)
+		cMsgErr	:= 'ERRO AO LOCALIZAR O ARQUIVO '+cPath+cArq
+		cSoluc	:= 'INFORME O SETOR DE T.I.'
+		cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+
+		If lMsg
+			U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+		EndIf
+	EndIf
+
+	//Se não deve alimentar as variaveis compartilhadas, restaura o conteudo anterior,
+	//situação de fazer apenas uma verificação dos arquivos sem nada impeditivo
+	If lNoMsg
+		cMsgErr	:= cMsgErrBak
+		cCodErr	:= cCodErrBak
+		cSoluc	:= cSolucBak
+		cMsg	:= cMsgBak
+	EndIf
+
+Return cArquivo

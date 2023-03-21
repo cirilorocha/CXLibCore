@@ -1,0 +1,81 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+#Include "LogMsg.ch"
+
+#Define DateTime	Transform(DtoS(Date()),"@R 9999-99-99")+'_'+StrTran(Time(),':',';')
+
+//#############################################################################
+//##+==========+==============+=======+================+======+=============+##
+//##|Programa  | CXConOut     | Autor | Cirilo Rocha   | Data | 07/03/2017  |##
+//##+==========+==============+=======+================+======+=============+##
+//##|Descr.    | Função para mostrar uma mensagem no console do servidor    |##
+//##+==========+===========+================================================+##
+//##|   DATA   |Programador| Manutenção Efetuada                            |##
+//##+==========+===========+================================================+##
+//##| 17/08/21 | Cirilo R. | Adicionada rotina chamadora no console         |##
+//##| 06/05/22 | Cirilo R. | Melhoria para usar a função padrão LogMsg()    |##
+//##|          |           | Diminuir mensagens no CodeAnalysis             |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+==========+===========+================================================+##
+//#############################################################################
+User Function CXConOut(	xMsg	,;	//01
+						cLog	,;	//02
+						lDtHr	,;	//03
+						cCodErr	)	//04
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+//	Local nX		AS Numeric
+	Local cMsg		AS Character
+//	Local aMsg		AS Array
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+//	ParamType 0		VAR xMsg			AS Character,Numeric,Date,Logical,Block	Optional Default ''
+	ParamType 1		VAR cLog			AS Character			Optional Default ''
+	ParamType 2		VAR lDtHr			AS Logical				Optional Default .F. 
+	ParamType 3		VAR cCodErr			AS Character			Optional Default ''
+
+	//Adiciona o timbre de data--------------------------------------------------------------------
+	If ValType(xMsg) == 'C'
+		cMsg	:= xMsg
+	Else
+		cMsg	:= U_CXMostraTipo(	xMsg			,; 	//01 Variavel que sera exibida
+									/*nTamanho*/	,; 	//02 Tamanho para impressao de campos numericos (def 16)
+									/*nDecimais*/	,; 	//03 Decimais para impressao de campos numericos (def 2)
+									/*lX3Combo*/	,; 	//04 Indica se o campo e' um combo, para obter os dados do SX3 (def .F.)
+									/*cCampo*/		,; 	//05 Campo do SX3 para referencia do combo (se o campo acima for .T.)
+									/*aCombo*/		,; 	//06 Opcoes do combo para selecao (def {} )
+									/*nNivel*/		,; 	//07 Nivel para impressao (recuo) usado as chamadas recursivas (def 0)
+									''				,; 	//08 Nome do array usado para impressao (def 'SEM NOME')
+									.F.				,;	//09 Se deve mostrar o tipo da variavel (def .T.)
+									.F.				)	//10 Se imprime este nivel do array (def se nv > 0)
+	EndIf
+	
+	If lDtHr
+		cMsg	:= '********* '+DateTime+' *********'+'<br>'+cMsg
+	EndIf
+
+	If !Empty(cMsg)
+		cMsg	:= UpStrTran(cMsg,'<br>',CRLF) 			//Converte a tag <br> em quebra de linhas para impressao no console
+//		aMsg	:= U_CXMemoLine(cMsg,,,800,.F.,.F.,5) 	//Nao quebra por tamanho pq o padrao ja faz isso sozinho
+//		For nX := 1 to len(aMsg)
+//			coNouT(ANSIToOEM(aMsg[nX]))
+//		Next
+//		coNouT(ANSIToOEM(cMsg))
+//	Else
+//		coNouT() //Linha em branco
+	EndIf
+	If .Not. Empty(cCodErr)
+		cCodErr	+= ' - '
+	EndIf
+
+	//coNouT(cCodErr+ANSIToOEM(cMsg))
+	LogMsg('U_CXConOut',FAC_FRAME_,SEV_INFORM_,1, cCodErr,'',cCodErr+ANSIToOEM(cMsg))
+	
+	If Valtype(cLog) == 'C'
+		cLog	:= U_CXConcTxt(cLog,cMsg,CRLF)
+	EndIf
+
+Return

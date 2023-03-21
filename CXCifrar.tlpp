@@ -1,0 +1,47 @@
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+#INCLUDE 'CXInclude.ch'
+
+//#############################################################################
+//##+==========+==========+=======+====================+======+=============+##
+//##|Programa  | CXCifrar | Autor | Cirilo Rocha       | Data | 11/02/2022  |##
+//##+==========+==========+=======+====================+======+=============+##
+//##|Desc.     | Função genérica para cifrar textos escondendo dados mais   |##
+//##|          |  sensíveis de forma a dificultar a busca por desconhecidos |##
+//##+==========+==========+=================================================+##
+//##| DATA     | ANALISTA | MANUTENÇÃO EFETUADA                             |##
+//##+==========+==========+=================================================+##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+==========+==========+=================================================+##
+//#############################################################################
+User Function CXCifrar(cTexto);
+						AS Character
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aCifras		AS Array
+	Local nX			AS Integer
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cTexto		AS Character
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	cCifrado	:= cTexto
+
+	aCifras		:= {;
+					{'PASSWORD'		,'P455W0RD'		},;
+					{'PSW'			,'P5W'			},;
+					{'SENHA'		,'S3NH4'		},;
+					{'IDCLIENTE'	,'1DCL13NT3'	},;
+					{'LOGIN'		,'L0G1N'		},;
+					{'CHAVE'		,'CH4V3'		},;
+					{'AUTENTICACAO'	,'4UT3NT1C4C40'	};
+					}
+
+	For nX := 1 to Len(aCifras)
+		cCifrado	:= UpStrTran(cCifrado,aCifras[nX][1],aCifras[nX][2])
+	Next
+
+Return cCifrado

@@ -1,0 +1,68 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#Include "CXInclude.ch"
+
+//#############################################################################
+//##+----------+-----------+-------+-------------------+------+-------------+##
+//##|Programa  | CXEncMemo | Autor | Cirilo Rocha      | Data | 22/08/2019  |##
+//##+----------+-----------+-------+-------------------+------+-------------+##
+//##|Descr.    | Ativar a funcao U_CXEdtMemo nos campos Memo da enchoice nas|##
+//##|          |  operações de visualização e exclusão                      |##
+//##+----------+----------+-------------------------------------------------+##
+//##| DATA     | ANALISTA | Manutenção efetuada                             |##
+//##+----------+----------+-------------------------------------------------+##
+//##| 15/03/23 | Cirilo R.| Melhoria na pesquisa dos camos no SX3           |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+----------+----------+-------------------------------------------------+##
+//#############################################################################
+User Function CXEncMemo(cAlias	,;	//01 cAlias
+						oEnchoice)	//@oEnchoice
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aCpoMemo		:= {}		AS Array
+	Local aBindParam	:= {}		AS Array
+	Local cQuery					AS Character
+	Local nPos						AS Numeric
+	Local nX						AS Numeric
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cAlias			AS Character
+	ParamType 1		VAR oEnchoice		AS Object Class MsMGet
+
+	//---------------------------------------------------------------------------------------------
+	cQuery	:= ""
+	cQuery	+= "SELECT X3_CAMPO "+CRLF
+	cQuery 	+= "FROM "+RetSqlTab("SX3")+" "+CRLF	//Precisa ser esta função (RetSqlTab) não mudar
+	cQuery	+= "WHERE SX3.D_E_L_E_T_='' "+CRLF
+	cQuery	+= "	AND X3_ARQUIVO = ? "+CRLF
+	cQuery	+= "	AND X3_WHEN <> '' "+CRLF
+	cQuery	+= "	AND UPPER(X3_WHEN) LIKE '%U_CXEDTMEMO%' "+CRLF
+
+	aAdd(aBindParam,cAlias)
+	If TCSqlToArr( cQuery, @aCpoMemo, aBindParam,/*aSetFields*/,/*aQryStru*/ ) < 0
+		U_CXMsgErro('Erro na execução da consulta.'+CRLF+TCSqlError(),;
+					'INFORME O SETOR DE T.I.',/*lMsg*/,/*oArea*/)
+		Return
+	EndIf
+
+	//---------------------------------------------------------------------------------------------
+	
+	For nX := 1 to len(oEnchoice:aEntryCtrls)
+		nPos	:= aScan(aCpoMemo,{|x| RTrim(x[1]) $ GetCbSource(oEnchoice:aEntryCtrls[nX]:bSetGet) })
+		If nPos > 0
+			oEnchoice:aEntryCtrls[nX]:lReadOnly:= .F.
+			cbWhen	:= GetCbSource(oEnchoice:aEntryCtrls[nX]:bWhen)
+			If .Not. ( 'U_CXEDTMEMO' $ Upper( cbWhen ) )
+			 	If Empty(cbWhen)
+			 		cbWhen	:= '{|x| .T. }'
+			 	EndIf
+			 	cbWhen	:= StrTran(cbWhen,'{ ||','{ |x|')
+			 	cbWhen	:= UpStrtran(cbWhen,'self','x')
+				oEnchoice:aEntryCtrls[nX]:bWhen	:= &(Left(cbWhen,Len(cbWhen)-1)+" .And. U_CXEdtMemo('"+RTrim(aCpoMemo[nPos][1])+"')} ")
+			EndIf
+		EndIf
+	Next
+
+Return

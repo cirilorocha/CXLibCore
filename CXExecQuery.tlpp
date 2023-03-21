@@ -45,10 +45,10 @@
 //##+----------+-----------+------------------------------------------------+##
 //#############################################################################
 //Static cUsrGrv	:= GetMV('MS_USGRQRY',.F.,'') //Usuarios que deve gravar as queries
-Static cPathQry		:= GetMV('MX_PATHQRY',.F.,'c:\temp\')		AS Character
-Static lDftGrv		:= GetMV('MX_GRVQRY' ,.F.,.F.)				AS Logical
-Static nTolStat		:= GetMV('MX_EXQRTOL',.F.,500)				AS Numeric //Tolerância para mostrar um alerta no console
-Static nTamCpo		:= Len(U_CXFieldGet('X3_CAMPO','SX3'))		AS Numeric
+Static cPathQry		:= GetMV('MX_PATHQRY',.F.,'c:\temp\')			AS Character
+Static lDftGrv		:= GetMV('MX_GRVQRY' ,.F.,.F.)					AS Logical
+Static nTolStat		:= GetMV('MX_EXQRTOL',.F.,500)					AS Numeric //Tolerância para mostrar um alerta no console
+Static nTamCpo		:= Len(SX3->(FieldGet(FieldPos('X3_CAMPO'))))	AS Numeric
 
 #Define cDataHora	U_CxGravaData(Date(),'-',8)+'-'+StrTran(Time(),':',';')
 //-------------------------------------------------------------------------------------------------
@@ -61,15 +61,15 @@ User Function CXExecQuery(	cAlias		,;	//01 @Referência
 									AS Logical
 	
 	//Declaracao de variaveis----------------------------------------------------------------------
-	Local oArea			AS Object	
+	Local aBindQry		AS Array
+	Local aStruct		AS Array
+	Local aTamSX3		AS Array
+	Local cCampo		AS Character
+	Local cQryProc		AS Character
 	Local lRet			AS Logical
 	Local nRetDir		AS Numeric
 	Local nTInicio		AS Numeric
 	Local nTempo		AS Numeric
-	Local aStruct		AS Array
-	Local aBindQry		AS Array
-	Local cCampo		AS Character
-	Local cQryProc		AS Character
 	Local nX			AS Integer
 	
 	//Parametros da rotina-------------------------------------------------------------------------
@@ -125,7 +125,7 @@ User Function CXExecQuery(	cAlias		,;	//01 @Referência
 			EndIf
 	
 			If nRetDir == 0
-				U_CXWriteFile(cPathQry+cNomeFun+' - '+cDataHora+".sql",cQryProc)
+				MemoWrite(cPathQry+cNomeFun+' - '+cDataHora+".sql",cQryProc)
 			Else
 				U_CXConOut(	U_CXTxtMsg()+'Não foi possível criar o diretório "'+cPathQry+'" para gravação da query.'+CRLF+;
 							U_CXDescErro() )
@@ -154,35 +154,26 @@ User Function CXExecQuery(	cAlias		,;	//01 @Referência
 		If 	lRet .And. ;
 			lConvCpo
 			
-			oArea		:= tCtrlAlias():GetArea({'SX3'})
-			
 			aStruct 	:= (cAlias)->(dbStruct()) //Obtem a estrutura da query
-			TCSrvMap( 'SX3','X3_CAMPO,X3_TIPO')	//Limita os campos de retorno
-			SX3->(U_CXSetOrd(2))
 			For nX := 1 to len(aStruct)
 				cCampo	:= AllTrim(aStruct[nX][nST_CAMPO])
-				
 				//Verifica se o tamanho do campo é compatível para buscar no dicionário
 				If 	Len(cCampo) <= nTamCpo .And. ;
 					Len(cCampo) >= 5 .And. ;
-					At('_',cCampo) > 0 .And. ;
-					.Not. (Left(cCampo,2) $ 'SX,XX,XB,XA')	//Tabelas de sistema
+					At('_',cCampo) > 0 //.And. ;
+					//.Not. (Left(cCampo,2) $ 'SX,XX,XB,XA')	//Tabelas de sistema
 	
-					cCampo	:= PadR(cCampo,nTamCpo)
-					If 	SX3->(MsSeek(cCampo,.F.)) .And. ;
-						U_CXFieldGet('X3_TIPO','SX3') $ 'D/L'
+					aTamSX3	:= FwTamSX3(cCampo)
+					If 	Len(aTamSX3) > 0 .And. ;	//Não encontrou!
+						aTamSX3[3] $ 'D/L'
 						
-						//converte o campo da query em campo Data
-						TcSetField(cAlias,aStruct[nX][nST_CAMPO],U_CXFieldGet('X3_TIPO','SX3'))
+						//converte o campo da query em campo Data / Lógico
+						TcSetField(cAlias,aStruct[nX][nST_CAMPO],aTamSX3[3])
 					EndIf
 				EndIf
 			Next
-			TCSrvMap('SX3')	//Restauro a limitação de campos
-			
-			oArea:RestArea()		//Restaura area
 		EndIf
 	Else
-		cCodErr	:= U_CXTxtMsg(,,.T.)
 		cMsgErr := ''
 		cMsgErr += 'Erro na execução da query.'+CRLF
 		If Empty(cQuery)
@@ -191,18 +182,15 @@ User Function CXExecQuery(	cAlias		,;	//01 @Referência
 		If .Not. Empty(cAlias)
 			cMsgErr += 'Alias Vazio'+CRLF
 		EndIf
-		cSoluc	:= 'INFORME O SETOR DE T.I.'
-		cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
-		If lMsg
-			U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
-		EndIf
+		U_CXMsgErro(cMsgErr,'INFORME O SETOR DE T.I.',lMsg,/*oArea*/)
 		
 		lRet	:= .F.
 	EndIf
 	
 	nTempo	:= ( Seconds() - nTInicio )*1000
 	If nTempo > nTolStat
-		U_CXConOut(	U_CXTxtMsg(,2)+'CXExecQuery-'+'ALERTA: Execução da query muito demorada, levou '+Transform(nTempo,"@E 9,999.9")+' ms',,.T.)
+		U_CXConOut(	U_CXTxtMsg(,2)+'CXExecQuery-'+'ALERTA: Execução da query muito demorada, levou '+;
+					Transform(nTempo,"@E 9,999.9")+' ms',,.T.)
 		U_CXConOut('QUERY: '+cQryProc)
 	EndIf
 	

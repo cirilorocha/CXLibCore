@@ -1,0 +1,90 @@
+#INCLUDE "RWMake.ch"
+#INCLUDE "Totvs.ch"
+#INCLUDE "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXPosBtn | Autor | Cirilo Rocha       | Data | 06/09/2019  |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descr.    | Auxilia no posicionamento de botões em uma janela de forma |##
+//##|          |  dinâmica de acordo como tamanho da DLG                    |##
+//##+----------+----------+-------------------------------------------------+##
+//##| DATA     | ANALISTA | Manutenção efetuada                             |##
+//##+----------+----------+-------------------------------------------------+##
+//##| 21/09/19 | Cirilo R.| Melhoria para tratar a altura do botao          |##
+//##| 03/10/19 | Cirilo R.| Melhoria para poder usar 6 botoes               |##
+//##| 24/02/23 | Cirilo R.| Pequena revisão no fonte                        |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+----------+----------+-------------------------------------------------+##
+//#############################################################################
+//-------------------------------------------------------------------------------------------------
+//EXEMPLO:
+//	Local aPosBt				AS Array
+//	Local nLarBt	:= 050		AS Numeric /*Integer*/
+//	Local nAltBt	:= 015		AS Numeric /*Integer*/
+//	
+//	aPosBt	:= U_CXPosBtn(oDlg,nLarBt,nAltBt)
+//
+//aPosBt[1],aPosBt[5][1] -> Botão do lado esquerdo
+//	aPosBt[1],aPosBt[5][2]
+//	aPosBt[1],aPosBt[5][3]
+//	aPosBt[1],aPosBt[5][4]
+//aPosBt[1],aPosBt[5][5] -> Botão do lado direito
+//-------------------------------------------------------------------------------------------------
+User Function CXPosBtn(	oDlg	,;	//01 oDlg
+						nLarBt	,;	//02 nLarBt
+						nAltBt	);	//03 nAltBt
+							AS Array
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local nPosCent		AS Numeric
+	Local nPosDir		AS Numeric
+	Local aPosBt		AS Array
+	Local aPos2			AS Array
+	Local aPos3			AS Array
+	Local aPos4			AS Array
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR oDlg			AS Object 
+	ParamType 1		VAR nLarBt			AS Numeric						Optional Default 050 
+	ParamType 2		VAR nAltBt			AS Numeric						Optional Default 015	
+
+	//---------------------------------------------------------------------------------------------
+	
+	//Posiciona os botoes
+	nPosCent	:= (oDlg:nWidth/4)-(nLarBt/2)-003
+	nPosDir		:= (oDlg:nWidth/2)-nLarBt - 010
+	
+	aPos2		:= Array(2)
+	aPos2[1]	:= nPosCent - (nLarBt/2) - 005
+	aPos2[2]	:= nPosCent + (nLarBt/2) + 005
+	
+	aPos3		:= Array(2)
+	aPos3[1]	:= nPosCent - nLarBt - 010
+	aPos3[2]	:= nPosCent + nLarBt + 010
+		
+	aPos4		:= Array(2)
+	aPos4[1]	:= aPos2[1] - nLarBt - 010
+	aPos4[2]	:= aPos2[2] + nLarBt + 010
+
+	nPosCent	:= Round(nPosCent,0)
+	nPosDir		:= Round(nPosDir,0)
+	aPos2[1]	:= Round(aPos2[1],0)
+	aPos2[2]	:= Round(aPos2[2],0)
+	aPos3[1]	:= Round(aPos3[1],0)
+	aPos3[2]	:= Round(aPos3[2],0)
+	aPos4[1]	:= Round(aPos4[1],0)
+	aPos4[2]	:= Round(aPos4[2],0)
+
+	aPosBt		:= Array(6)
+	aPosBt[1]	:= Round( (oDlg:nHeight/2)-(1.75*nAltBt)-12,0)			//Parte inferior da tela
+	aPosBt[2]	:= {005,nPosDir}										//Dois botões um em cada canto
+	aPosBt[3]	:= {005,nPosCent,nPosDir}								//Três botões
+	aPosBt[4]	:= {005,aPos2[1],aPos2[2],nPosDir}						//Quatro botões
+	aPosBt[5]	:= {005,aPos3[1],nPosCent,aPos3[2],nPosDir}				//Cinco botões
+	aPosBt[6]	:= {005,aPos4[1],aPos2[1],aPos2[2],aPos4[2],nPosDir}	//Seis botões
+
+Return aPosBt

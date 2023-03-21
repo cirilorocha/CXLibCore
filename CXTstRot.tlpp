@@ -1,0 +1,195 @@
+#INCLUDE "RWMake.ch"
+#INCLUDE "Protheus.ch"
+#INCLUDE "Totvs.ch"
+#Include "ParmType.ch"
+#INCLUDE "CXRegua.ch"
+#INCLUDE "CXInclude.ch"
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXTstRot | Autor | Cirilo Rocha       | Data | 09/01/2018  |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descr.    | Funcao generica para limpar as customizacoes do roteiro da |##
+//##|          | folha de pagamento e recupera-las                          |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 16/08/18 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 05/10/18 | Cirilo R. | Correção de erro log                           |##
+//##| 13/04/22 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXTstRot()
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local lAtiva		AS Logical
+	Local oArea         AS Object
+
+	Private aTabelas	AS Array
+	Private cPref		AS Character
+
+	//Inicializa variaveis-------------------------------------------------------------------------
+	oArea		:= tCtrlAlias():GetArea(aTabelas)
+	aTabelas	:= {'RC2','RC3','SRY','SRM'}
+	cPref		:= 'CX'
+
+	//---------------------------------------------------------------------------------------------
+	Set(_SET_DELETED, .F.)
+	SRY->(dbSetOrder(1))
+	SRY->(dbSeek(cPref))
+	lAtiva := .Not. (SRY->RY_FILIAL == cPref)
+	Set(_SET_DELETED, .T.)
+
+	If lAtiva
+		If !ApMsgYesNo(	'DESEJA EFETUAR O BACKUP DOS ROTEIROS DE CÁLCULO DA FOLHA '+;
+						'E <B>RECRIAR</B> UTILIZANDO OS ROTEIROS PADRÕES ?',;
+						U_CXTxtMsg()+'!!! A T E N Ç Ã O !!!')
+			Return
+		EndIf
+	Else
+		If !ApMsgYesNo(	'DESEJA <B>RECUPERAR</B> O BACKUP DOS ROTEIROS DE CÁLCULO '+;
+						'CUSTOMIZADOS DA FOLHA?',U_CXTxtMsg()+'!!! A T E N Ç Ã O !!!')
+			Return
+		EndIf
+	EndIf
+
+	//PROCESSAMENTO------------------------------------------------------------
+	Processa( { || ProcRot(lAtiva) },  U_CXTxtMsg()+"Alterando Roteiros...", "Aguarde...", .F. )
+
+	//Recompila roteiros e formulas
+
+	oArea:RestArea() //Precisa estar aqui
+
+	//Preciso reabrir esta tabela
+	SRY->(dbSetOrder(1))
+	SRY->(dbGoTop())
+
+	SRM->(dbSetOrder(1))
+	SRM->(dbGoTop())
+
+	If lAtiva
+		MsAguarde( { || Gpea160RotGer( .T. ) } , U_CXTxtMsg()+"ReCriando roteiros..." )
+	EndIf
+
+	MsAguarde( { || GPCompAll("SRY",0,0,.T.,.T.) } , U_CXTxtMsg()+"Compilação de Roteiros e Fórmulas..." )
+
+	ApMsgInfo('Processamento terminado.',U_CXTxtMsg(,,.T.))
+
+Return
+
+//-------------------------------------------------------------------------------------------------
+Static Function ProcRot(lAtiva)
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local nX			AS Numeric
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR lAtiva  	  	AS Logical
+
+	//---------------------------------------------------------------------------------------------
+	U_CXSetRegua(nRG_PROCESSA,len(aTabelas))
+
+	Begin Transaction
+
+		For nX := 1 to len(aTabelas)
+			U_CXIncRegua(nRG_PROCESSA,,'Tabela '+aTabelas[nX])
+			If !lAtiva
+				ApagaTab(aTabelas[nX])		//Apaga os registros atuais para depois restaurar o backup
+			EndIf
+
+			MudaCpo(aTabelas[nX],lAtiva) 	//Altera/recupera os registros atuais colocando CX no campo filial (Backup)
+		Next
+
+	End Transaction
+
+Return
+
+//-------------------------------------------------------------------------------------------------
+// Altera o campo filial dos registros ativos para CX (uma especie de backup)
+//-------------------------------------------------------------------------------------------------
+Static Function MudaCpo(cTab	,;	//01
+						lAtiva	 )	//02
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cCpoFil		AS Character
+	Local cCpoComp		AS Character
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cTab  	  		AS Character
+	ParamType 1		VAR lAtiva  	  	AS Logical
+
+	//Inicializa variaveis-------------------------------------------------------------------------
+	cCpoFil		:= FwPrefixoCpo(cTab)+'_FILIAL'
+	cCpoComp	:= ''
+
+	If cTab $ 'SRY/RC2'
+		cCpoComp	:= FwPrefixoCpo(cTab)+'_RECOMP'
+	EndIF
+
+	If !lAtiva
+		Set(_SET_DELETED, .F.) //Considera os registros deletados!
+	EndIf
+
+	(cTab)->(dbSetOrder(0)) //Por recno
+	(cTab)->(dbGoTop())
+	While (cTab)->(!EOF())
+		RecLock(cTab,.F.)
+			If lAtiva									//Faz uma especie de backup dos registros atuais
+				U_CXFieldPut(cCpoFil,cPref,cTab)
+				(cTab)->(DBDelete()) //Apaga registro para nao interferir nos outros processos!
+			ElseIf U_CXFieldGet(cCpoFil,cTab) == cPref	//Recupera registros alterados
+				U_CXFieldPut(cCpoFil,'',cTab)
+
+				If !Empty(cCpoComp)
+					U_CXFieldPut(cCpoComp,'1',cTab) 	//Marca como recompilar
+				EndIf
+
+				//Restaura registro deletado
+				If (cTab)->(Deleted())
+					(cTab)->(DBRecall())
+				EndIf
+
+			EndIf
+//		(cTab)->(MsUnLock())
+
+		(cTab)->(dbSkip())
+	EndDo
+
+//	dbUnlockAll()
+
+	If !lAtiva
+		Set(_SET_DELETED, .T.) //Considera os registros deletados!
+	EndIf
+
+Return
+//-------------------------------------------------------------------------------------------------
+// Apaga os registros na antes da restauracao
+//-------------------------------------------------------------------------------------------------
+Static Function ApagaTab(cTab)
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cCpoFil		AS Character
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cTab  	  		AS Character
+
+	//Inicializa variaveis-------------------------------------------------------------------------
+	cCpoFil	:= FwPrefixoCpo(cTab)+'_FILIAL'
+
+	(cTab)->(dbSetOrder(0)) //Por recno
+	(cTab)->(dbGoTop())
+	While (cTab)->(!EOF())
+		RecLock(cTab,.F.)
+			If Empty(U_CXFieldGet(cCpoFil,cTab))
+				(cTab)->(dbDelete())
+			EndIf
+		//(cTab)->(MsUnLock())
+
+		(cTab)->(dbSkip())
+	EndDo
+
+//	dbUnlockAll()
+
+Return

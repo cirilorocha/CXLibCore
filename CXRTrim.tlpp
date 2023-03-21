@@ -1,0 +1,66 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXRTrim  | Autor | Cirilo Rocha       | Data | 28/09/2016  |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descr.    | Função genérica para retirar espaços e caracteres semelhan-|##
+//##|          | tes no final do string (tab, quebra linha, etc.)           |##
+//##|          | O RTrim padrão não remove esses caracteres                 |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção Efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 05/01/18 | Cirilo R. | Otimização geral do fonte                      |##
+//##| 28/08/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 12/11/21 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+Static aCharSpc		AS Array
+//-------------------------------------------------------------------------------------------------
+User Function CXRTrim(cTexto);	//01 cTexto
+						AS Character
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cRet		AS Character
+	Local cChar	    AS Character
+	Local lAchou	AS Logical
+	Local nX		AS Integer	
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cTexto			AS Character
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	cRet	:= RTrim(cTexto)
+	lAchou	:= .T.
+ 
+ 	//Otimizacao
+	If aCharSpc == NIL
+		aCharSpc	:= StrTokArr2(GetMV('MX_CHRESP',.F.,'32,10,13,09,160'),',',.F.) //Caracteres identificados como espaco
+		For nX := 1 to len(aCharSpc)
+			aCharSpc[nX]	:= Chr(Val(aCharSpc[nX]))
+		Next
+	EndIf
+	
+	While lAchou
+		lAchou	:= .F.
+		cChar	:= Right(cRet,1)
+
+		For nX := 1 to len(aCharSpc)
+			If cChar == aCharSpc[nX]
+				lAchou	:= .T.
+				Exit
+			EndIf
+		Next
+
+		If lAchou
+			cRet	:= Left(cRet,len(cRet)-1)
+		EndIf
+	EndDo
+	
+Return cRet

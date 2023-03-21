@@ -1,0 +1,57 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+
+//ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ
+//±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±
+//±±ÉÍÍÍÍÍÍÍÍÍÍÑÍÍÍÍÍÍÍÍÍÍÍÍËÍÍÍÍÍÍÍÑÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍËÍÍÍÍÍÍÑÍÍÍÍÍÍÍÍÍÍÍÍ»±±
+//±±ºPrograma  ³ CXLimpaLog º Autor ³ Cirilo Rocha      º Data ³ 09/03/2017 º±±
+//±±ÌÍÍÍÍÍÍÍÍÍÍØÍÍÍÍÍÍÍÍÍÍÍÍÊÍÍÍÍÍÍÍÏÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÊÍÍÍÍÍÍÏÍÍÍÍÍÍÍÍÍÍÍÍ¹±±
+//±±ºDescricao ³ Funcao generica limpar alguns dados desnecessarios nos logsº±±
+//±±º          ³ de erro do sistema                                         º±±
+//±±º          ³                                                            º±±
+//±±ÌÍÍÍÍÍÍÍÍÍÍØÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÑÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ¹±±
+//±±º   DATA   ³ Programador   ³ Manutencao efetuada                        º±±
+//±±ÌÍÍÍÍÍÍÍÍÍÍØÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍØÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ¹±±
+//±±º          ³               ³                                            º±±
+//±±º          ³               ³                                            º±±
+//±±º          ³               ³                                            º±±
+//±±º          ³               ³                                            º±±
+//±±ÈÍÍÍÍÍÍÍÍÍÍÏÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÏÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ¼±±
+//±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±
+//ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß
+User Function CXLimpaLog(cLogErro)
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aRemove	AS Array
+	Local nPosIni	AS Numeric
+	Local nPosFim	AS Numeric
+	Local nX		AS Numeric
+	Local cTemp		AS Character
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cLogErro			AS Character					Optional Default ''
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	aRemove	:= {	{'CARQTAB(C) :'		,'Public '	},;
+					{'CMDIARQTAB(C) :'	,'Param '	},;
+					{'CMDIARQTAB(C) :'	,'Local '	},;
+					{'XX1_PARAM(C) :'	,'Field ' 	},;
+					{'XV_MEMO(C) :'		,'Field '	} }
+
+	//Remove alguns valores desnecessarios e muito grandes
+	For nX := 1 to len(aRemove)
+		nPosIni	:=	At(aRemove[nX][1],cLogErro)		// buscar texto da esquerda para a direita
+		If nPosIni > 0
+			cTemp		:= SubStr(cLogErro,nPosIni)
+			cLogErro		:= Left(cLogErro,nPosIni)
+			nPosFim	:= At(aRemove[nX][2],cTemp) // buscar texto da esquerda para a direita
+			If nPosFim > 0
+				cTemp	:= SubStr(cTemp,nPosFim)
+			EndIf
+			cLogErro	+= cTemp
+		EndIf
+	Next
+
+Return cLogErro

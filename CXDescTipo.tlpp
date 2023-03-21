@@ -1,0 +1,61 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+
+//#############################################################################
+//##+----------+-------------+-------+-----------------+------+-------------+##
+//##|Programa  | CXDescTipo  | Autor | Cirilo Rocha    | Data | 19/01/2017  |##
+//##+----------+-------------+-------+-----------------+------+-------------+##
+//##|Descr.    | Função responsável por mostrar a descrição dos tipos de da-|##
+//##|          | dos advpl                                                  |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 24/07/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           | Novo tipo Json                                 |##
+//##| 17/11/21 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+Static aTipos	:= {;
+					{'C' ,'String'},;
+					{'N' ,'Numérico'},;
+					{'A' ,'Array'},;
+					{'L' ,'Lógico'},;
+					{'B' ,'Bloco de Código'},;
+					{'D' ,'Data'},;
+					{'J' ,'Json'},;
+					{'O' ,'Objeto'},;
+					{'F' ,'Decimal de ponto fixo'},;
+					{'UE','Erro de sintaxe'},;
+					{'UI','Erro indeterminado (chamada de função)'},; //Type nao funciona com chamadas de funcao
+					{'U' ,'Indefinido'};
+					}
+//-------------------------------------------------------------------------------------------------
+User Function CXDescTipo(	cTipo	,;	//01
+							lLeg	);	//02
+								AS Character
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local nPos		AS Integer
+	Local cDesc		AS Character
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cTipo			AS Character
+	ParamType 1		VAR lLeg			AS Logical					Optional Default .F.
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	nPos	:= aScan(aTipos,{|x| x[1] == cTipo })
+	If nPos == 0
+		cDesc	:= 'Tipo ['+cTipo+'] não identificado'
+	Else
+		cDesc	:= aTipos[nPos][2]
+		
+		If lLeg
+			cDesc	:= '['+cTipo+'] '+cDesc
+		EndIf
+	EndIf
+	
+Return cDesc

@@ -1,0 +1,56 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+
+//#############################################################################
+//##+----------+----------+-------+-----------------------+------+----------+##
+//##|Programa  | CXArray  | Autor | Cirilo Rocha          | Data | 03/04/14 |##
+//##+----------+----------+-------+-----------------------+------+----------+##
+//##|Descr.    | Funcao para inicializar um array nDimensional com zeros ou |##
+//##|          | vazio                                                      |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 22/06/18 | Cirilo R. | Tratamento quando a inicializacao é um array   |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXArray(	xVlrInic,;	// 01
+						nPar1	,;	// 02
+						nPar2	,;	// 03
+						nPar3	,;	// 04
+						nPar4	,;	// 05
+						nPar5	)	// 06
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local xRet
+	Local nX		AS Numeric
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR xVlrInic		AS Character,Numeric,Date,Array,Logical,Object,Block
+	ParamType 1		VAR nPar1			AS Numeric				Optional Default 0
+	ParamType 2		VAR nPar2			AS Numeric				Optional Default 0
+	ParamType 3		VAR nPar3			AS Numeric				Optional Default 0
+	ParamType 4		VAR nPar4			AS Numeric				Optional Default 0
+	ParamType 5		VAR nPar5			AS Numeric				Optional Default 0
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	xRet		:= {}
+
+	If ValType(xVlrInic) == 'A'
+		xVlrInic	:= aClone(xVlrInic)
+	EndIf
+
+	If nPar1 == 0
+		xRet	:= xVlrInic
+	Else
+		xRet	:= Array(nPar1)
+
+		For nX := 1 to nPar1
+			xRet[nX]	:= U_CXArray(xVlrInic,nPar2,nPar3,nPar4,nPar5)
+		Next
+	EndIf
+
+Return xRet

@@ -1,0 +1,110 @@
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+#INCLUDE 'CXInclude.ch'
+
+//#############################################################################
+//##+----------+-------------+-------+--------------------+------+----------+##
+//##|Programa  | CXOrdinal   | Autor | Cirilo Rocha       | Data |29/08/2014|##
+//##+----------+-------------+-------+--------------------+------+----------+##
+//##|Descr.    | Função para retornar o número ordinal                      |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 11/05/22 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           | Acrescentada opção de modo feminino no retorno |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXOrdinal(nOrdinal	,;	//01 nOrdinal
+						lCaptalize	,;	//02 lCaptalize
+						lFeminino	);	//03 lFeminino
+							AS Character
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cMsg			AS Character
+	Local nPos			AS Numeric
+	Local cOrdinal		AS Character
+	Local aUnitario 	AS Array
+	Local aDecimal		AS Array
+	Local aCentesimo	AS Array
+	Local aMilesimo		AS Array
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR nOrdinal		AS Numeric
+	ParamType 1		VAR lCaptalize		AS Logical				Optional Default .F.
+	ParamType 2		VAR lFeminino		AS Logical				Optional Default .F.
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	cOrdinal	:= ''
+	aUnitario 	:= {	'primeiro'				,'segundo'			,'terceiro'			,;
+						'quarto'				,'quinto'			,'sexto'			,;
+						'sétimo'				,'oitavo'			,'nono'				}
+	aDecimal 	:= {	'décimo'				,'vigésimo'	  		,'trigésimo'		,;
+						'quadragésimo'			,'quinquagésimo'	,'sexagésimo' 		,;
+						'septuagésimo'			,'octogésimo'		,'nonagésimo'		}
+	aCentesimo	:= {	'centésimo'				,'ducentésimo'		,'tricentésimo'		,;
+						'quadringentésimo'		,'quingentésimo'	,'sexcentésimo'		,;
+						'septingentésimo'		,'octingentésimo'	,'noningentésimo'	}
+	aMilesimo	:= {	'milésimo'				,'dois milésimo'	,'três milésimo'	,;
+						'quatro milésimo'		,'cinco milésimo'	,'seis milésimo'	,;
+						'sete milésimo'			,'oito milésimo'	,'nove milésimo'	}
+	
+	If nOrdinal > 10000
+		cMsg	:= AllTrim(Str(nOrdinal))+' NÃO É UM NÚMERO TRATADO PELA FUNÇÃO CXORDINAL.'
+		Return cMsg
+	EndIf
+	
+	//Milesimal
+	If nOrdinal >= 1000
+		nPos		:= Int(nOrdinal/1000)
+		nOrdinal	-= nPos * 1000 //Remove a parte ja usada
+		If lFeminino
+			aMilesimo[nPos]	:= Left(aMilesimo[nPos],Len(aMilesimo[nPos])-1)+'a'
+		EndIf
+		cOrdinal	+= aMilesimo[nPos]
+	EndIf
+
+	//Centesimal
+	If nOrdinal >= 100
+		nPos		:= Int(nOrdinal/100)
+		nOrdinal	-= nPos * 100 //Remove a parte ja usada
+		If !Empty(cOrdinal)
+			cOrdinal	+= ' '
+		EndIf
+		If lFeminino
+			aCentesimo[nPos]	:= Left(aCentesimo[nPos],Len(aCentesimo[nPos])-1)+'a'
+		EndIf
+		cOrdinal	+= aCentesimo[nPos]
+	EndIf
+
+	//Decimal
+	If nOrdinal >= 10
+		nPos		:= Int(nOrdinal/10)
+		nOrdinal	-= nPos * 10 //Remove a parte ja usada
+		If !Empty(cOrdinal)
+			cOrdinal	+= ' '
+		EndIf
+		If lFeminino
+			aDecimal[nPos]	:= Left(aDecimal[nPos],Len(aDecimal[nPos])-1)+'a'
+		EndIf
+		cOrdinal	+= aDecimal[nPos]
+	EndIf
+
+	//Unitario
+	If nOrdinal > 0
+		If !Empty(cOrdinal)
+			cOrdinal	+= ' '
+		EndIf
+		If lFeminino
+			aUnitario[nOrdinal]	:= Left(aUnitario[nOrdinal],Len(aUnitario[nOrdinal])-1)+'a'
+		EndIf
+		cOrdinal	+= aUnitario[nOrdinal]
+	EndIf
+	
+	If lCaptalize
+		cOrdinal	:= Capital(cOrdinal)
+	EndIf
+	
+Return cOrdinal

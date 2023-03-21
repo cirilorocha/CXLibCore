@@ -1,0 +1,52 @@
+#include "protheus.ch"
+#include "rwmake.ch"
+#include "topconn.ch"
+#Include "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+
+//#############################################################################
+//##+----------+-------------+-------+------------------+------+------------+##
+//##|Programa  | CXSoNumeros | Autor | Cirilo Rocha     | Data | 13/09/2011 |##
+//##+----------+-------------+-------+------------------+------+------------+##
+//##|Descr.    | Deixa apenas os caracteres numéricos na string passada     |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção Efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 18/04/12 | Cirilo R. | Feito tratamento para aceitar também o caracte-|##
+//##|          |           |  tere 'X' para os casos de agência/conta com X |##
+//##| 18/08/17 | Cirilo R. | Melhoria no tratamento do dígito X             |##
+//##| 03/09/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 12/11/21 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXSoNumeros(	cString	,;	//01
+							lDigitoX);	//02
+								AS Character
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local nX		AS Integer
+	Local cChar	    AS Character
+	Local cRet		AS Character
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cString			AS Character
+	ParamType 1		VAR lDigitoX		AS Logical						Optional Default .F.
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	cRet	:= ''
+	cString	:= RTrim(cString)
+	For nX := 1 To Len(cString)
+		cChar	:=	SubStr(cString, nX, 1)
+		If IsDigit(cChar)
+			cRet	+= cChar
+		ElseIf lDigitoX .And. ; //So considera o digito X se este for o ultimo caractere
+			Upper(cChar) == 'X' .And. ;
+			nX == Len(cString)
+			
+			cRet	+= 'X'
+		Endif
+	Next
+
+Return cRet

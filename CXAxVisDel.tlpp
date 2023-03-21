@@ -1,0 +1,412 @@
+#INCLUDE "RWMake.ch"
+#INCLUDE "Totvs.ch"
+#INCLUDE "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+#INCLUDE "CXnOpc.ch"
+
+#DEFINE PDABOTTOM 234
+#DEFINE PDARIGHT  234
+
+//#############################################################################
+//##+----------+------------+-------+------------------+------+-------------+##
+//##|Programa  | CXAxVisDel | Autor | Cirilo Rocha     | Data | 21/08/2019  |##
+//##+----------+------------+-------+------------------+------+-------------+##
+//##|Descr.    | Função para visualizar os registros, baseado no AxVisual e |##
+//##|          | AxDeleta                                                   |##
+//##|          | Customizada para permitir mostrar os campos Memo usando a  |##
+//##|          | funcao CXEdtMemo                                           |##
+//##+----------+----------+-------------------------------------------------+##
+//##| DATA     | ANALISTA | MANUTENÇÃO EFETUADA                             |##
+//##+----------+----------+-------------------------------------------------+##
+//##| 12/10/21 | Cirilo R.| Pequena revisão (release 33)                    |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+----------+----------+-------------------------------------------------+##
+//#############################################################################
+User Function CXAxVisDel(	cAlias		,;	// 01 Alias (def Alias())
+							nReg		,;	// 02 Recno (def Recno())
+							nOpc		,;	// 03 Numero da opcao selecionada  
+							aAcho		,;	// 04 Campos que aparecem na tela (def todos)
+							nColMens	,;	// 05 Coluna a ser impressa uma determinada mensagem
+							cMensagem	,;	// 06 Mensagem a ser impressa
+							cFunc		,;	// 07 Funcao a ser chamada antes da interface
+							cTudoOK		,;	// 08 Funcao de validacao para confirmacao dos dados (Especifico do AxDeleta)
+							aButtons	,;	// 09 Array com os botoes da EnchoiceBar
+							lMaximized	,;	// 10 Abrir o dialogo maximizado (def .T.)
+							cTela		,;	// 11 Nome da variável tipo "private" que a enchoice utilizará no lugar da variável aTela
+							lPanelFin	,;	// 12 Quando .T. cria o painel Gestor Financeiro
+							oFather		,;	// 13 Cria o dialogo painel do Gestor Financeiro dentro da janela oFather informado.
+							oEnc01		,;	// 14
+							lCriaBut	,;	// 15
+							aDim		,;	// 16 Array com as dimensões do dialogo do painel Gestor Financeiro
+							cStack		,;	// 17
+							cTransact	,;	// 18 Funcao a ser chamada durante a transacao (Especifico do AxDeleta)
+							aParam		,;	// 19 Array de codeblock de execucao (Especifico do AxDeleta)
+							aAuto		);	// 20 Array da rotina automatica (Especifico do AxDeleta)
+								AS Numeric
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local oArea			AS Object
+	Local nX			AS Numeric
+	Local nOpcA			AS Numeric
+	Local cMsgError		AS Character
+	
+	Private bOk,bOk2	AS CodeBlock
+	Private bEndDlg		AS CodeBlock
+	Private	___bEndDlg	AS CodeBlock
+	Private INCLUI		AS Logical
+	Private ALTERA		AS Logical
+	Private EXCLUI		AS Logical
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 01 VAR cAlias			AS Character		Optional Default Alias()
+	ParamType 02 VAR nReg			AS Numeric			Optional Default (cAlias)->(RecNO())
+	ParamType 03 VAR nOpc			AS Numeric			Optional Default NIL
+	ParamType 04 VAR aAcho			AS Array			Optional Default NIL
+	ParamType 05 VAR nColMens		AS Numeric			Optional Default NIL
+	ParamType 06 VAR cMensagem		AS Character		Optional Default NIL
+	ParamType 07 VAR cFunc			AS Character		Optional Default NIL
+	ParamType 08 VAR cTudoOK		AS Character		Optional Default '.T.'
+	ParamType 09 VAR aButtons		AS Array			Optional Default NIL
+	ParamType 10 VAR lMaximized		AS Logical			Optional Default NIL
+	ParamType 11 VAR cTela			AS Character		Optional Default NIL
+	ParamType 12 VAR lPanelFin		AS Logical			Optional Default .F.
+	ParamType 13 VAR oFather		AS Object			Optional Default If(lPanelFin,FinWindow:GetVisPanel(),NIL)
+	ParamType 14 VAR oEnc01			AS Object			Optional Default NIL
+	ParamType 15 VAR lCriaBut		AS Logical			Optional Default .F.
+	ParamType 16 VAR aDim			AS Array			Optional Default NIL
+	ParamType 17 VAR cStack			AS Character		Optional Default NIL
+	ParamType 18 VAR cTransact		AS Character		Optional Default NIL
+	ParamType 19 VAR aParam			AS Array			Optional Default NIL
+	ParamType 20 VAR aAuto			AS Array			Optional Default NIL
+	
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	oArea		:= tCtrlAlias():GetArea({cAlias})	//Salva Area
+	cMsgError	:= ''
+	
+	//Forco nao alterar nada
+	INCLUI		:= .F.
+	ALTERA		:= .F.
+	EXCLUI		:= ( nOpc == nOPC_EXCLUI )
+	
+	If .Not. EXCLUI
+		cTransact	:= ''
+	EndIf
+	
+	//---------------------------------------------------------------------------------------------
+	
+	DbSelectArea(cAlias)
+	If 	.Not. EXCLUI .Or. ;
+		SoftLock( cAlias )
+		
+		//+-------------------------------------------------------------------+
+		//| Processamento de codeblock de antes da interface                  |
+		//+-------------------------------------------------------------------+
+		If .Not. Empty(aParam)
+			Eval(aParam[1],nOpc)
+		EndIf
+		
+		If 	.Not. Empty(cTudoOk) .And. ;
+			EXCLUI
+			
+			bOk := &("{|| "+cTudoOk+"}")
+		EndIf
+		
+		//+-------------------------------------------------------------------+
+		//| Processamento de codeblock de validacao de confirmacao            |
+		//+-------------------------------------------------------------------+
+		If 	.Not. Empty(aParam) .And. ;
+			EXCLUI
+			
+			bOk2 := aParam[2]
+		EndIf	
+
+		nOpcA	:= AxVisual(	cAlias		,;	// 01
+								nReg		,;	// 02
+								nOPC_VISUAL	,;	// 03
+								aAcho		,;	// 04
+								nColMens	,;	// 05
+								cMensagem	,;	// 06
+								cFunc		,;	// 07
+								aButtons	,;	// 08
+								lMaximized	,;	// 09
+								cTela		,;	// 10
+								lPanelFin	,;	// 11
+								oFather		,;	// 12
+								oEnc01		,;	// 13
+								lCriaBut	,;	// 14
+								aDim		,;	// 15
+								cStack		,;	// 16
+								/*aCpos*/	)	// 17
+
+		If 	EXCLUI .And. ;
+			nOpcA == 2
+
+			//Atualizacao da tabela----------------------------------------------------------------
+			Begin Transaction
+				DbSelectArea(cAlias)
+				
+				If cTransact != Nil .And. ValType(cTransact) == "C"
+					If !("("$cTransact)
+						cTransact+="()"
+					EndIf
+					&cTransact
+				EndIf
+				
+				//Processamento de codeblock dentro da transacao-----------------------------------
+				If !Empty(aParam)
+					Eval(aParam[3],nOpc)
+				EndIf
+							
+				If Type("aMemos")=="A"
+					For nX := 1 To Len(aMemos)
+						//Incluído parametro com o nome da tabela de memos => para módulo APT
+						cAliasMemo := If(len(aMemos[nX]) == 3,aMemos[nX][3],Nil)
+						MSMM(&(aMemos[nX][1]),,,,2,,,,,cAliasMemo)
+					Next nX
+				EndIf
+	
+				RecLock(cAlias,.F.,.T.)
+				IF !FKDelete(@cMsgError)
+				   RollBackDelTran(cMsgError)
+				   nOpcA	:= 2
+				EndIf
+				MsUnLock()
+				
+			End Transaction
+
+			//Processamento de codeblock fora da transacao-----------------------------------------
+			If !Empty(aParam)
+				Eval(aParam[4],nOpc)
+			EndIf
+		EndIf
+	EndIf
+	
+	dbUnLockAll()
+	
+Return nOpcA
+
+/*/
+
+#############################################################################
+##+----------+----------+-------+-----------------------+------+----------+##
+##|Fun‡…o	 | AxVisual | Autor | Jorge Queiroz         | Data |          |##
+##+----------+----------+-------+-----------------------+------+----------+##
+##|Descri‡…o | Programa generico para visualizacao 		                  |##
+##+----------+------------------------------------------------------------+##
+##|Sintaxe	 | AxVisual(ExpC1,ExpN1,ExpN2,ExpA1,ExpN3,ExpC1)              |##
+##+----------+------------------------------------------------------------+##
+##|Parametros| ExpC1 = Alias do arquivo                                   |##
+##|			 | ExpN2 = Numero do registro                                 |##
+##|			 | ExpN3 = Numero da opcao selecionada                        |##
+##|			 | ExpA4 = Array com os campos a serem mostrados              |##
+##|			 | ExpN5 = Coluna a ser impressa uma determinada mensagem	  |##
+##|			 | ExpC6 = Mensagem a ser impressa                            |##
+##|			 | ExpC7 = Funcao a ser executada antes de entrar na tela	  |##
+##|			 | ExpA8 = Array com os botoes da EnchoiceBar            	  |##
+##+----------+------------------------------------------------------------+##
+##| Uso		 | Generico                                                   |##
+##+----------+------------------------------------------------------------+##
+#############################################################################
+ß
+/*/
+Static Function AxVisual(	cAlias		,;	// 01
+							nReg		,;	// 02
+							nOpc		,;	// 03
+							aAcho		,;	// 04
+							nColMens	,;	// 05
+							cMensagem	,;	// 06
+							cFunc		,;	// 07
+							aButtons	,;	// 08
+							lMaximized	,;	// 09
+							cTela		,;	// 10
+							lPanelFin	,;	// 11
+							oFather		,;	// 12
+							oEnc01		,;	// 13
+							lCriaBut	,;	// 14
+							aDim		,;	// 15
+							cStack		,;	// 16
+							aCpos		)	// 17
+
+	Local aArea    := GetArea()
+	Local aPosEnch := {}            
+	Local nOpcA    := 3
+	Local cCpoFil  := PrefixoCpo(cAlias)+"_FILIAL"
+	Local cMemo    := ""
+	LOcal nX       := 0
+	Local oDlg    
+	Local lVirtual:=.F. // Qdo .F. carrega inicializador padrao nos campos virtuais
+	Local nTop
+	Local nLeft
+	Local nBottom
+	Local nRight
+	Local oSize 
+	Local lProperty := .F.
+	
+	Private Altera :=.F.
+	Private Inclui :=.F.
+	Private aTELA[0][0]
+	Private aGETS[0]
+	
+	//verifica a criacao ou nao da barra de botoes (enchoicebar) quando chamado do Gestor Financeiro
+	DEFAULT lCriaBut := .F.
+	DEFAULT lPanelFin := .F.  
+	DEFAULT oFather:= If(lPanelFin,FinWindow:GetVisPanel(),NIL)
+	DEFAULT aCpos :={}
+	
+	bOk			:= {|| .T. } 
+	bOk2		:= {|| .T. }
+	
+	// Build com correção no tratamento dos controles pendentes na dialog ao executar o método End()
+	bEndDlg 	:= {|lOk| If(lOk:=oDlg:End(),nOpcA:=2,nOpcA:=3), lOk}
+	___bEndDlg	:= {|lOk| If(lOk:=___oDlg:End(),nOpcA:=2,nOpcA:=3), lOk}
+
+	//+-------------------------------------------------------------------------------+
+	//|Tratamento efetuado na variavel "cFilDep", utilizada na consulta padrao "QDD". |
+	//+-------------------------------------------------------------------------------+
+	If Type("cFilDep") ==  "U"
+	   cFilDep := xFilial("QAD") // Utilizada no SXB
+	Endif
+	
+	//+----------------------------------------------------------------------+
+	//|VerIfica se esta' vizualizando um registro da mesma filial            |
+	//+----------------------------------------------------------------------+
+	DbSelectArea(cAlias)
+	
+	If (If(!lPanelFin,(cAlias)->(FieldGet(FieldPos(cCpoFil))) == xFilial(cAlias),.T.)) .OR. FunName() = 'EDAPP'
+		//+--------------------------------------------------------------+
+		//| Monta a entrada de dados do arquivo						     |
+		//+--------------------------------------------------------------+
+		RegToMemory(cAlias, .F., If(lPanelFin,.T., .F.),,cStack )
+		//+----------------------------------------------------------------------+
+		//| Inicializa variaveis para campos Memos Virtuais						 |
+		//+----------------------------------------------------------------------+
+		If Type("aMemos")=="A"
+			For nX := 1 To Len(aMemos)
+				cMemo := aMemos[nX][2]
+				If ExistIni(cMemo)
+					&cMemo := FwInitPad(U_CXFieldGet('X3_RELACAO','SX3'))
+				Else
+					&cMemo := ""
+				EndIf
+			Next nX
+		EndIf
+
+		If cFunc != NIL
+			lVirtual:=.T.
+			&cFunc.()
+		EndIf
+		
+		If nOpc == Nil
+			nOpc := 2 //Visualizar
+		EndIf
+	
+		If !lPanelFin	
+	
+			//+---------------------------------------------------------------------------+
+			//| Calcula as dimensoes dos objetos                                          |
+			//+---------------------------------------------------------------------------+
+			oSize := FwDefSize():New( .T. ) // Com enchoicebar
+			
+			oSize:lLateral     := .F.  // Calculo vertical 
+			
+			//+------------------------------------------------------------------------+
+			//| Cria Enchoice                                                          |
+			//+------------------------------------------------------------------------+
+			oSize:AddObject( "ENCHOICE", 100, 60, .T., .T. ) // Adiciona enchoice
+			
+			//+------------------------------------------------------------------------+
+			//| Dispara o calculo                                                      |
+			//+------------------------------------------------------------------------+
+			oSize:Process() 
+			
+			nTop    := oSize:aWindSize[1]
+			nLeft   := oSize:aWindSize[2]
+			nBottom := oSize:aWindSize[3]
+			nRight  := oSize:aWindSize[4]
+			
+			If IsPDA()
+				nTop := 0
+				nLeft := 0
+				nBottom := PDABOTTOM
+				nRight  := PDARIGHT
+			EndIf
+		
+			DEFINE MSDIALOG oDlg TITLE cCadastro FROM nTop,nLeft TO nBottom,nRight PIXEL OF oMainWnd STYLE nOr(WS_VISIBLE,WS_POPUP)
+		
+			If lMaximized <> NIL
+				oDlg:lMaximized := lMaximized
+			EndIf
+			
+			If IsPDA()  
+				aPosEnch := {,,(oDlg:nClientHeight - 4)/2,}  // ocupa todo o  espaço da janela
+				oEnc01:= MsMGet():New( cAlias, nReg, nOpc ,,,,aAcho,aPosEnch,,,nColMens,cMensagem,,,,lVirtual,.t.,,,,,,,, cTela )
+				oEnc01:oBox:align := CONTROL_ALIGN_ALLCLIENT
+			Else        
+			
+				aPosEnch := {oSize:GetDimension("ENCHOICE","LININI"),;
+					 oSize:GetDimension("ENCHOICE","COLINI"),;
+					 oSize:GetDimension("ENCHOICE","LINEND"),;
+					 oSize:GetDimension("ENCHOICE","COLEND")}
+				if Type("aRotina") == 'A'
+					If nOpc > len(aRotina)
+						lProperty := .T.
+					EndIf
+				endif
+				If nColMens != NIL
+					oEnc01:= MsMGet():New( cAlias, nReg, nOpc ,,,,aAcho,aPosEnch,aCpos,,nColMens,cMensagem,,,,lVirtual,,,,lProperty,,,,, cTela)
+					oEnc01:oBox:align := CONTROL_ALIGN_ALLCLIENT
+				Else
+					oEnc01:= MsMGet():New( cAlias, nReg, nOpc ,,,,aAcho,aPosEnch,aCpos,,,,,,,lVirtual,,,,lProperty,,,,, cTela)
+					oEnc01:oBox:align := CONTROL_ALIGN_ALLCLIENT
+				EndIf
+			EndIf
+			
+			/////////////////////////////////////////////////////////////////
+			//Ativa a funcao U_CXEdtMemo para os campos da enchoice
+			U_CXEncMemo(cAlias,oEnc01)
+			/////////////////////////////////////////////////////////////////
+			
+			ACTIVATE MSDIALOG oDlg ON INIT EnchoiceBar(oDlg,{|| IIf(Eval(bOk).And.Eval(bOk2,nOpc),Eval(bEndDlg),(nOpcA:=3,.F.))},{|| nOpcA := 3,oDlg:End()},,aButtons,nReg,cAlias)
+			
+//			ACTIVATE MSDIALOG oDlg ON INIT EnchoiceBar(oDlg,{|| nOpcA := 1,oDlg:End()},{|| nOpcA := 2,oDlg:End()},,aButtons)
+	
+		Else
+	
+			If lCriaBut
+	
+				//dimensoes do painel visual contido no Gestor Financeiro
+				//aDim := FinWindow:DimObj("panel_visual") 							
+	
+				//Visualizacao no Gestor Financeiro com enchoicebar
+				DEFINE MSDIALOG ___oDlg OF oFather:oWnd FROM 0, 0 TO 0, 0 PIXEL STYLE nOR( WS_VISIBLE, WS_POPUP )
+				
+				aPosEnch := {,,,}
+				oEnc01:= MsMGet():New( cAlias, nReg, nOpc,,,,aAcho,aPosEnch,,,,,,___oDlg,,lVirtual,,,,,,,,,cTela)
+				oEnc01:oBox:align := CONTROL_ALIGN_ALLCLIENT
+					
+				// posiciona dialogo sobre a celula
+				___oDlg:nWidth := aDim[4]-aDim[2]
+				
+				ACTIVATE MSDIALOG ___oDlg  ON INIT (FaMyBar(___oDlg,{|| If(Eval(bOk).And.Eval(bOk2,nOpc),Eval(___bEndDlg),(nOpcA:=3,.f.))},{|| nOpcA := 3,___oDlg:End()},aButtons), ___oDlg:Move(aDim[1],aDim[2],aDim[4]-aDim[2], aDim[3]-aDim[1]) )			
+//				ACTIVATE MSDIALOG ___oDlg ON INIT (FaMyBar(___oDlg,{|| nOpcA := 1,___oDlg:End(),},	{|| nOpcA := 2,___oDlg:End()},aButtons), ___oDlg:Move(aDim[1],aDim[2],aDim[4]-aDim[2], aDim[3]-aDim[1]) )
+				
+				If Type("FinWindow") <> "U"	
+					FinVisual(cAlias,FinWindow,(cAlias)->(Recno()))
+				EndIf	
+			Else
+				//Visualizacao no Gestor Financeiro sem enchoicebar
+				aPosEnch := {,,,}
+				oEnc01:= MsMGet():New( cAlias, nReg, 1,,,,aAcho,aPosEnch,,,,,,oFather,,lVirtual,,,,,,,,,cTela)
+				oEnc01:oBox:align := CONTROL_ALIGN_ALLCLIENT
+			Endif			
+		Endif
+	
+	Else
+		Help("A000FI")
+		nOpcA := 3
+	EndIf
+	
+	RestArea(aArea)
+	
+Return(nOpcA)

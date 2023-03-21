@@ -1,0 +1,268 @@
+#INCLUDE "RWMake.ch"
+#INCLUDE "Protheus.ch"
+#INCLUDE "Totvs.ch"
+#INCLUDE "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+
+//Static cDirLog	:= GetMv('MS_DIRLOG',.T.,'\ErroLog\')
+//Static cArqLog	:= GetMv('MS_ARQLOG',.T.,"DtoS(Date())+' - '+StrTran(Time(),':',';')+' - '+M->CEMPANT+' - '+M->CFILANT+' - '+__cUserID+' - '+AllTrim(cUserName)")
+
+//#############################################################################
+//##+----------+------------+-------+---------------------+------+----------+##
+//##|Programa  | CXApMsgLog | Autor | Cirilo Rocha        | Data |13/09/2011|##
+//##+----------+------------+-------+---------------------+------+----------+##
+//##|Descr.    | Função para mostrar e gravar um log de erro                |##
+//##|          | Pode desfazer a transação de necessário e restaurar a área |##
+//##|          | criada pela função CXGetArea                               |##
+//##|          |                                                            |##
+//##|          | //Variaveis de controle da funcao CXApMsgLog               |##
+//##|          | Local cCap		 :=	'SF2460I (ERRO)'                        |##
+//##|          | Local lMostra   :=	.T.                                     |##
+//##|          | Local lDisarma  :=	.T.                                     |##
+//##|          | Local uArea     :=	tCtrlAlias():GetArea({'SA2','SA1'})     |##
+//##|          | Local lRllBck	 :=	.T.                                     |##
+//##|          | Local nMdBk   	 :=	nModulo                                 |##
+//##|          | Local cFilBak   :=	cFilAnt                                 |##
+//##|          | Local cEmpBak   :=	cEmpAnt                                 |##
+//##|          | Local nSvSx8Len :=	GetSx8Len()                             |##
+//##|          | Local dDtBk	 := dDataBase                               |##
+//##|          | Local lFErro    :=	.F.                                     |##
+//##|          |                                                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 19/04/12 | Cirilo R. | Contemplado backup do módulo, filial, empresa  |##
+//##|          |           | Corrigido o rollbak do sx8.                    |##
+//##| 06/11/13 | Cirilo R. | Pequena melhoria na mensagem de gravação       |##
+//##| 29/07/14 | Cirilo R. | Feito tratamento para ler o arquivo de log do  |##
+//##|          |           |  execauto                                      |##
+//##| 20/03/17 | Cirilo R. | Adicionados database e forca erro              |##
+//##| 11/10/17 | Cirilo R. | Adicionado parâmetro para gravar o log ou não  |##
+//##| 13/08/18 | Cirilo R. | Tratamento para o novo controle de área        |##
+//##| 29/07/19 | Cirilo R. | Melhoria para gravar os logs na tabela ZSC     |##
+//##|          |           | Melhoria no desarme de transações              |##
+//##| 26/11/20 | Cirilo R. | Revisão no fonte                               |##
+//##|          |           | Gravação das variáveis compartilhadas          |##
+//##| 14/12/21 | Cirilo R. | Pequena revisão (release 33)                   |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXApMsgLog(	cMensagem	,;	//01 Mensagem a ser mostrada (def '')
+							cCap		,;	//02 Titulo da janela de erro (def )
+							lMostra		,;	//03 Se deve ou nao mostrar a janela (def .T.)
+							lDisarma	,;	//04 Disarma as transacoes pendentes (def .T.)
+							uArea		,;	//05 Restaura a area (def NIL)
+							lRllBck		,;	//06 Faz o rollback das numeracoes, usado em conjunto com nSvSx8Len (def .T.)
+							nMdBk		,;	//07 Restaura o modulo (def 0)
+							cFilBak		,;	//08 Restaura a filial (def '')
+							cEmpBak		,;	//09 Restaura a empresa (def '')
+							nSvSx8Len	,;	//10 Tamanho do SX8 para fazer o rollback (def 0)
+							dDtBk		,;	//11 Restaura a data base
+							lFErro		,;	//12 Forca mensagem de erro e fechar o sistema, para casos onde nao e' possivel cancelar a gravacao (def .F.)
+							lGrava		)	//13 Se grava a mensagem (def .T.)
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cLogSis		AS Character
+	Local cTexto		AS Character
+	Local cFunName		AS Character
+	Local cLinha		AS Character
+	Local nTmp			AS Integer
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType  0	VAR cMensagem  	AS Character		Default ''
+	ParamType  1	VAR cCap	  	AS Character		Default 'CXApMsgLog: Erro processamento'
+	ParamType  2	VAR lMostra	  	AS Logical			Default .T.
+	ParamType  3	VAR lDisarma  	AS Logical			Default .T.
+	ParamType  4	VAR uArea	  	AS Array,Object		Default {}
+	ParamType  5	VAR lRllBck	  	AS Logical			Default .T.
+	ParamType  6	VAR nMdBk	  	AS Numeric			Default 0
+	ParamType  7	VAR cFilBak	  	AS Character		Default ''
+	ParamType  8	VAR cEmpBak	  	AS Character		Default ''
+	ParamType  9	VAR nSvSx8Len	AS Numeric			Default 0
+	ParamType 10	VAR dDtBk		AS Date				Default NIL
+	ParamType 11	VAR lFErro	  	AS Logical			Default .F.	//Forca mensagem de erro
+	ParamType 12	VAR lGrava	  	AS Logical			Default .T.
+
+	//Verifica se o objeto eh do tipo correto
+	If ValType(uArea) == 'O'
+		ParamType  4	VAR uArea	  	AS Object Class tCtrlAlias
+	EndIf
+
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+
+	//---------------------------------------------------------------------------------------------
+	//Disarma a transacao
+	If 	lDisarma .And. ;
+		inTransact() //Esta dentro de uma transacao
+		
+		For nTmp := 1 to 10
+			If inTransact() //Esta dentro de uma transacao
+				DisarmTransaction()
+				sleep(50)
+			Else
+				Exit
+			EndIf
+		Next
+		
+		If inTransact() //Esta dentro de uma transacao
+			UserException(U_CXTxtMsg()+'ERRO AO DESARMAR TRANSAÇÃO.') //Forca um erro no sistema
+		EndIf
+	EndIf
+
+	//Restaura a area das tabelas
+	If ValType(uArea) == 'O'
+		uArea:RestAlias(.T.)
+		uArea:Destroy()
+		//FWFreeVar(uArea)
+	ElseIf 	ValType(uArea) == 'A' .And. ;
+			Len(uArea) > 0
+
+		U_CXRestArea(uArea)
+		FWFreeArray(uArea)
+	EndIf
+
+	//Volta o controle de numeracao
+	If 	lRllBck .And. ;
+		ValType(nSvSx8Len) == 'N'
+
+		While (GetSx8Len() > nSvSx8Len)
+			SX5->(RollbackSX8())
+		EndDo
+	EndIf
+
+	//Restaura modulo
+	If 	ValType(nMdBk) == 'N' .And. ;
+		nMdBk > 0
+
+		//nModulo	:= nMdBk
+		U_CXSetMod(nMdBk)
+	EndIf
+
+	//Restaura filial
+	If .Not. Empty(cFilBak)
+		cFilAnt	:= cFilBak
+	EndIf
+
+	//Restura empresa
+	If .Not. Empty(cEmpBak)
+		cEmpAnt	:= cEmpBak
+	EndIf
+
+	//Restura SM0
+	If 	Empty(cEmpBak) .Or. ;
+		.Not. Empty(cFilBak)
+
+		FWSM0Util():setSM0PositionBycFilAnt()
+	EndIf
+
+	//Restaura a database
+	If ValType(dDtBk) == 'D'
+		dDataBase	:= dDtBk
+	EndIf
+
+	//Escreve o erro log
+	If 	ValType(cMensagem) == 'C' .And. ;
+		lGrava
+
+//		If .Not. ExistDir(cDirLog)
+//			If MakeDir(cDirLog) <> 0
+//				ConOut('CXApMsgLog: Falha ao criar o diretório de logs: '+cDirLog)
+//			EndIf
+//		EndIf
+
+		//Busca dados do arquivo de log
+//		If Empty(cMensagem) .And. ;
+		If 	Type('lMsErroAuto') == 'L' .And. ;
+			lMsErroAuto
+
+			//Obtem o log do execauto
+			cLogSis	:= NomeAutoLog()
+
+			//Verifica se existe o arquivo e le as informacoes
+			If .Not. Empty(cLogSis) .And. ;
+				U_CXFile(cLogSis)
+
+				cMensagem += CRLF+U_CXReadFile(cLogSis)
+			EndIf
+		EndIf
+
+		cMensagem	:= StrTran(cMensagem,'<br>',CRLF)
+
+//		If ExistDir(cDirLog)
+//			cTexto	:= 	'Função: '+FunName()+CRLF+;
+//						'Título: '+cCap+CRLF+;
+//						'Mensagem: '+CRLF+;
+//						StrTran(cMensagem,'<br>',CRLF)
+//
+//			U_CXWriteFile(cDirLog+&(cArqLog)+'.log',cTexto)
+
+			//Controle de erros
+			If Type('cFilAnt') <> 'C'
+				cFilAnt	:= 'XX'
+			EndIf
+			If Type('cEmpAnt') <> 'C'
+				cEmpAnt	:= 'XX'
+			EndIf
+			If Type('__cUserID') <> 'C'
+				__cUserID	:= 'XXXXXX'
+			EndIf
+			If Type('cUserName') <> 'C'
+				cUserName	:= 'ERRO USR'
+			EndIf
+
+			cFunName	:= U_CXTxtMsg(/*oObjeto*/,2)
+			cLinha		:= '0'
+			nTmp		:= At('(',cFunName)
+			If nTmp > 0
+				cLinha		:= SubStr(cFunName,nTmp)
+				cFunName	:= Left(cFunName,nTmp-1)
+			EndIf
+			cLinha	:= StrTran(cLinha,')')
+			cLinha	:= StrTran(cLinha,'(')
+			
+			cTexto	:= 	'Título: '+cCap+CRLF+;
+						'Mensagem: '+CRLF+;
+						StrTran(cMensagem,'<br>',CRLF)
+
+			U_CXLogProc('CXAPMSGMEMO',cFunName,'***',Val(cLinha),'',cTexto,.F.)
+//		EndIf
+
+		If lFErro
+			UserException(cMensagem)
+		EndIf
+
+		//Mostra aviso de erro
+		If .Not. Empty(cMensagem)
+			If lMostra
+				U_CXHelp(cCap,,cMensagem)
+//				ApMsgStop(cMensagem,cCap)
+			EndIf
+		EndIf
+
+	EndIf
+	
+	If ValType(cMensagem) == 'C'
+		If .Not. Empty(cCap)
+			cCodErr	:= cCap
+		Else
+			cCodErr	:= U_CXTxtMsg(/*oObjeto*/,2,.T.)
+		EndIf
+		cMsgErr	:= cMensagem
+		cSoluc	:= ''
+		cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+	EndIf
+	
+Return .T.
+
+//-----------------------------------------------------------------------------
+//APENAS POR QUESTAO DE COMPATIBILIDADE
+//-----------------------------------------------------------------------------
+User Function ApMsgLog(cMsg, cCap, lMostra, lDisarma, uArea, lRllBck, nMdBk, cFilBak, cEmpBak)
+
+Return U_CXApMsgLog(cMsg, cCap, lMostra, lDisarma, uArea, lRllBck, nMdBk, cFilBak, cEmpBak)

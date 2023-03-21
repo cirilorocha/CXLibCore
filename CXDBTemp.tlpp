@@ -1,0 +1,85 @@
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+#INCLUDE 'CXInclude.ch'
+#INCLUDE 'CXStruct.ch'
+
+//#############################################################################
+//##+==========+============+=======+==================+======+=============+##
+//##|Programa  | CXDBTemp   | Autor | Cirilo Rocha     | Data | 23/05/2022  |##
+//##+==========+============+=======+==================+======+=============+##
+//##|Desc.     | Função análoga a FWOpenTemp, permite escolher se cria a ta-|##
+//##|          |  bela no BD ou Ctree                                       |##
+//##+==========+==========+=================================================+##
+//##| DATA     | ANALISTA | MANUTENÇÃO EFETUADA                             |##
+//##+==========+==========+=================================================+##
+//##| 03/01/23 | Cirilo R.| Proteção de erro log por duplicidade de arquivos|##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+==========+==========+=================================================+##
+//#############################################################################
+Static cDriverTmp	:= GetMV('MX_ARQNEWT',.F.,'CTREECDX') 		AS Character
+//EM TESTES FOI VISTO QUE O CTREE AINDA É MAIS RÁPIDO QUE O SQL PARA ISSO AQUI
+//PARA INCLUSÃO PODE ATÉ SER UM POUCO MAIS LENTO, MAS A LEITURA É MUITO MAIS RÁPIDA
+//-------------------------------------------------------------------------------------------------
+User Function CXDBTemp(	aStruct		,;	//01 aStruct
+						cDriver		,;	//02 cDriver
+						cNomeTrb	);	//03 cNomeTrb
+								AS Character
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cAliasTmp			AS Character
+	Local nCont				AS Integer
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR aStruct		AS Array
+	ParamType 1		VAR cDriver		AS Character		Optional Default cDriverTmp
+	ParamType 2		VAR cNomeTrb	AS Character		Optional Default NIL
+
+	//---------------------------------------------------------------------------------------------
+	cAliasTmp	:= GetNextAlias() //Cria um Alias temporario
+	
+	//PROTEÇÃO DE ERROS
+	nCont	:= 1
+	If ( cDriver $ 'CTREECDX' )
+		//Se o arquivo já existe previne erro log
+		While 	File(cAliasTmp+GetDBExtension()) .Or. ; //Arquivo .DTC (tabela principal)
+				File(cAliasTmp+RetIndExt())				//Arquivo .CDX (índice)
+			cAliasTmp	:= GetNextAlias()
+			If nCont++ > 100	//Proteção contra loop infinito
+				Exit
+			EndIf
+		EndDo
+	EndIf
+
+	If ValType(cNomeTrb) <> 'C'
+		cNomeTrb	:= cAliasTmp
+	EndIf
+
+	If cDriver == 'FWTMP'
+		If ValType(cNomeTrb) <> 'C'
+			cNomeTrb	:= GetNextAlias() //Cria um Alias temporario
+			cAliasTmp	:= cNomeTrb
+		EndIf
+		//cAliasTmp	:= FWOpenTemp(/*cAlias*/, aStruct, /*cName*/)	//Mesmo doc dizendo que ia criar como top ele cria Ctree
+		oTab 		:= FwTemporaryTable():New(cNomeTrb,aStruct)
+		oTab:Create()
+
+		//Destroi objeto, a tabela sera excluida pela rotina chamadora
+		FreeObj(oTab)
+		oTab := NIL
+	Else
+		If ValType(cNomeTrb) <> 'C'
+			cNomeTrb	:= cAliasTmp
+		EndIf
+		FWDBCreate( cAliasTmp, aStruct , cDriver , (cDriver=='TOPCONN') )	//Somente top suporte autorecno
+		//If fError() == 0 //TRATAMENTO DE ERRO NÃO FUNCIONOU
+			DBUseArea(.T., cDriver, cAliasTmp, cNomeTrb, .F., .F.)
+		//Else
+		//	U_CXMsgErro('Erro ao criar arquivo temporário.'+CRLF+U_CXDescErro(),;
+		//				'INFORME O SETOR DE T.I.',/*lMsg*/,/*oArea*/,2)
+		//	cAliasTmp	:= ''
+		//EndIf
+	EndIf
+
+Return cAliasTmp

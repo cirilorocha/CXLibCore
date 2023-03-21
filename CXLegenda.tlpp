@@ -1,0 +1,69 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+
+//#############################################################################
+//##+==========+===========+=======+===================+======+=============+##
+//##|Programa  | CXLegenda | Autor | Cirilo Rocha      | Data | 16/10/2013  |##
+//##+==========+===========+=======+===================+======+=============+##
+//##|Descr.    | Para exibir as legendas de um mBroser                      |##
+//##|          | Nao precisa que os arrays sejam passados como parametro    |##
+//##|          | basta que os mesmos sejam privados ou publicos             |##
+//##+==========+===========+================================================+##
+//##|   DATA   |Programador| Manutenção Efetuada                            |##
+//##+==========+===========+================================================+##
+//##| 29/10/15 | Cirilo R. | Melhoria para a funcao montar sozinha o array  |##
+//##|          |           |  aLegenda                                      |##
+//##| 11/09/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 02/05/22 | Cirilo R. | Melhoria para mostrar legenda do novo objeto de|##
+//##|          |           |  browser FWmBrowser                            |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+==========+===========+================================================+##
+//#############################################################################
+User Function CXLegenda(cAlias, nRecno, nOpc)
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cTitCad	AS Character
+	Local uRet		AS Variant
+	
+	//---------------------------------------------------------------------------------------------
+	If Type('oMBrw:aLegends[1][2]') == 'O'
+		oMBrw:aLegends[1][2]:View()
+	ElseIf Type('oBrw:aLegends[1][2]') == 'O'
+		oBrw:aLegends[1][2]:View()
+	ElseIf Type('oBrowser:aLegends[1][2]') == 'O'
+		oBrowser:aLegends[1][2]:View()
+	Else
+		//Se a variavel nao for alimentada e o aCores estiver disponivel monta
+		If 	Type('aLegenda') == 'U' .And. ;
+			Type('aCores') == 'A'
+
+			aLegenda	:= U_CXMontLeg(aCores)
+		EndIf
+		
+		cTitCad	:= ''
+		If Type('aLegenda') == 'A'
+			//Se existir a variavel private cCadastro pega a descricao dela
+			If Type('cCadastro') == "C"
+				cTitCad	:= cCadastro
+				
+			//Se existir um alias busca da descricao da tabela
+			ElseIf Type('cAlias') == "C"
+				cTitCad	:= FwSX2Util():GetX2Name(cAlias)
+			ElseIf Type('cString') == "C"
+				cTitCad	:= FwSX2Util():GetX2Name(cString)
+			EndIf
+			
+			If At('LEGENDA',Upper(cTitCad)) == 0 
+				cTitCad	+= ' - LEGENDA '
+			EndIf
+			cTitCad	+= ' '+U_CXTxtMsg(,2,.T.)
+			
+			uRet	:= BrwLegenda(cTitCad,'Legenda', aLegenda)
+		EndIf
+	EndIf
+
+Return uRet

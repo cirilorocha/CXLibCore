@@ -1,6 +1,7 @@
 #INCLUDE "Protheus.ch"
 #INCLUDE "RWMake.ch"
-#INCLUDE 'MSObject.ch'
+//#INCLUDE 'MSObject.ch'
+#INCLUDE 'tlpp-object.th'
 #INCLUDE "ParmType.ch"
 #INCLUDE "CXInclude.ch"
 
@@ -38,6 +39,10 @@
 //##|          |           | Tratamento para alias temporários fechados     |##
 //##| 14/12/21 | Cirilo R. | Pequena revisão (release 33)                   |##
 //##| 09/05/22 | Cirilo R. | Melhoria na abertura do SM0                    |##
+//##| 15/06/22 | Cirilo R. | Melhoria para também salvar parâmetros, SX8 e  |##
+//##|          |           |  FKeys                                         |##
+//##| 29/11/22 | Cirilo R. | Agora permite salvar tabela de usuários        |##
+//##| 02/01/23 | Cirilo R. | Implementado método destroy                    |##
 //##|          |           |                                                |##
 //##|          |           |                                                |##
 //##+----------+-----------+------------------------------------------------+##
@@ -59,25 +64,40 @@ Class tCtrlAlias
 	PUBLIC DATA cClassName	AS Character
 
 	//Variaveis internas
-	HIDE DATA aAreas   		AS Array
-	HIDE DATA ucEmpAnt  	AS Variant	//Character	//Se tipar o tlpp vai inicializar com ''
-	HIDE DATA ucFilAnt  	AS Variant	//Character	//Se tipar o tlpp vai inicializar com ''
-	HIDE DATA ulDeleted		AS Variant	//Logical //Se tipar o tlpp vai inicializar com .F.
+	PRIVATE DATA aAreas   		AS Array
+	PRIVATE DATA ucEmpAnt  		AS Variant	//Character	//Se tipar o tlpp vai inicializar com ''
+	PRIVATE DATA ucFilAnt  		AS Variant	//Character	//Se tipar o tlpp vai inicializar com ''
+	PRIVATE DATA ulDeleted		AS Variant	//Logical //Se tipar o tlpp vai inicializar com .F.
+	PRIVATE DATA nModBak		AS Numeric
+	PRIVATE DATA udDataBak		AS Variant 	//Date //Se tipar o tlpp vai inicializar com 31/12/1899
+	PRIVATE DATA oKeyBak		AS Object
+	PRIVATE DATA nSvSx8Len		AS Numeric
+	PRIVATE DATA aParamBak		AS Array
+	PRIVATE DATA ucReadVar		AS Variant	//Character //Se tipar o tlpp vai inicializar com ''
+	PRIVATE DATA ucInternet		AS Variant	//Character //Se tipar o tlpp vai inicializar com ''
+	
+	PRIVATE DATA lUsrBak		AS Logical
+	PRIVATE DATA ucUsrBak		AS Variant	//Character
+	PRIVATE DATA ucUsrPsw		AS Variant	//Character
+	PRIVATE DATA ucUsrNom		AS Variant	//Character
+	PRIVATE DATA unUsrOrd		AS Variant	//Numeric
 
 	//---------------------------------------------------------------------------------------------
 	PUBLIC METHOD GetAlias() 	Constructor
 	PUBLIC METHOD GetArea() 	Constructor
 	PUBLIC METHOD RestAlias()
 	PUBLIC METHOD RestArea()
-	PUBLIC METHOD VerifTab()	AS Logical
 	PUBLIC METHOD ClassName()	AS Character
+	PUBLIC METHOD Destroy()
+	
+	PRIVATE METHOD VerifTab()	AS Logical
 
 EndClass
 
 //-------------------------------------------------------------------------------------------------
 //Salva a area
 //-------------------------------------------------------------------------------------------------
-METHOD GetAlias(uTabelas		,;	// 01 Quais tabelas devem ser salvas
+METHOD GetArea( uTabelas		,;	// 01 Quais tabelas devem ser salvas
 				lAtual			,;	// 02 Se salva a tabela atual (def .T.)
 				lLimpaFiltros	,;	// 03 Limpa filtros das tabelas (.F.)
 				lDeletados		;	// 04 Salva e restaura o _SET_DELETED (def .F.) grande impacto no desempenho
@@ -110,7 +130,30 @@ METHOD GetAlias(uTabelas		,;	// 01 Quais tabelas devem ser salvas
 		::ucEmpAnt 		:= cEmpAnt
 		::ucFilAnt 		:= cFilAnt
 	EndIf
+	
+	::nSvSx8Len 	:= GetSx8Len()			//Salva controle de numerações
+	::nModBak		:= nModulo
+	::udDataBak		:= dDataBase
+	::aParamBak		:= {}
+	
+	If aScan(aTabSv,{|x| x == '#PAR' }) > 0
+		::aParamBak		:= U_CXGetParam()
+		::ucReadVar		:= __ReadVar
+		::ucInternet	:= __cInternet
+	EndIf
 
+	If aScan(aTabSv,{|x| x == '#KEY' }) > 0
+		::oKeyBak		:= tCXLibFKey():New()	//Salva teclas Fx
+	EndIf
+	
+	::lUsrBak	:= aScan(aTabSv,{|x| x == '#PSW' }) > 0
+	If ::lUsrBak
+		::ucUsrBak		:= __cUserID
+		::ucUsrPsw		:= PswID()
+		::ucUsrNom		:= cUserName
+		::unUsrOrd		:= PswOrder()
+	EndIf
+	
 	If lDeletados
 		::ulDeleted	:= Set(_SET_DELETED,.F.)
 		Set(_SET_DELETED,::ulDeleted)
@@ -126,7 +169,8 @@ METHOD GetAlias(uTabelas		,;	// 01 Quais tabelas devem ser salvas
 	EndIf
 
 	For nX := 1 to len(aTabSv)
-		If .Not. Empty(aTabSv[nX])
+		If .Not. Empty(aTabSv[nX]) .And. ;
+			Left(aTabSv[nX],1) <> '#'
 
 			//A tabela esta aberta entao salva
 			If Select(aTabSv[nX]) <> 0
@@ -169,9 +213,10 @@ RETURN Self
 //-------------------------------------------------------------------------------------------------
 //Salva a area
 //-------------------------------------------------------------------------------------------------
-METHOD GetArea(	uTabelas		,;	//01 Quais tabelas devem ser salvas
+METHOD GetAlias(uTabelas		,;	//01 Quais tabelas devem ser salvas
 				lAtual			,;	//02 Se salva a tabela atual (def .T.)
-				lLimpaFiltros	;	//03 Limpa filtros das tabelas (.F.)
+				lLimpaFiltros	,;	//03 Limpa filtros das tabelas (.F.)
+				lDeletados		;	//04 Salva e restaura o _SET_DELETED (def .F.) grande impacto no desempenho
 					) CLASS tCtrlAlias
 
 	//Parametros da rotina-------------------------------------------------------------------------
@@ -179,18 +224,26 @@ METHOD GetArea(	uTabelas		,;	//01 Quais tabelas devem ser salvas
 //	ParamType 1		VAR lAtual  	  		AS Logical				Optional Default NIL
 //	ParamType 2		VAR lLimpaFiltros  	  	AS Logical				Optional Default NIL
 
-Return ::GetAlias(	uTabelas	,;	//01 Quais tabelas devem ser salvas
+Return ::GetArea(	uTabelas	,;	//01 Quais tabelas devem ser salvas
 					lAtual		,;	//02 Se salva a tabela atual (def .T.)
 					lLimpaFiltros)	//03 Limpa filtros das tabelas (.F.)
 
 //-------------------------------------------------------------------------------------------------
 //Restaura a area
 //-------------------------------------------------------------------------------------------------
-METHOD RestAlias() CLASS tCtrlAlias
+METHOD RestArea(lErro) CLASS tCtrlAlias
 
 	//Declaracao de variaveis----------------------------------------------------------------------
 	Local bFiltro	AS CodeBlock
 	Local nX		AS Integer
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR lErro  	  		AS Logical		Optional Default .F.
+	
+	//---------------------------------------------------------------------------------------------
+	If ValType(::aAreas) == 'U'	//Já limpou objeto
+		Return
+	EndIf
 
 	//Restura a propriedade Set Deleted
 	If ValType(::ulDeleted) == 'L'
@@ -206,6 +259,54 @@ METHOD RestAlias() CLASS tCtrlAlias
 	If 	ValType(::ucFilAnt) == 'C'
 		cFilAnt	:= ::ucFilAnt
 	EndIf
+	
+	If 	ValType(::ucFilAnt) == 'C' .Or. ;
+		ValType(::ucEmpAnt) == 'C'
+	
+		//Reposiciona o SM0
+		FWSM0Util():setSM0PositionBycFilAnt()
+	EndIf
+	
+	If ValType(::oKeyBak) == 'O'
+		::oKeyBak:RestFKey()	//Restaura teclas Fx
+	EndIf
+
+	If ValType(::nModBak) == 'N'
+		U_CXSetMod(::nModBak)
+	EndIf
+	dDataBase		:= ::udDataBak
+	
+	//Restaura tabela de usuário
+	If ::lUsrBak
+		__cUserID		:= ::ucUsrBak
+		cUserName		:= ::ucUsrNom
+		
+		PswOrder(1)
+		PswSeek(::ucUsrPsw)
+		PswOrder(::unUsrOrd)
+	EndIf
+	
+	If Len(::aParamBak) > 0
+		U_CXRestParam(::aParamBak)	//Restaura parâmetros
+		::ucReadVar		:= __ReadVar
+		::ucInternet	:= __cInternet
+	EndIf
+
+	If lErro
+		//Rollback das numeracoes
+		While (GetSx8Len() > ::nSvSx8Len)
+			SX5->(RollBackSX8())
+		EndDo
+
+		If inTransact() //Esta dentro de uma transacao
+			DisarmTransaction()
+		EndIf
+	Else
+		//Confirma as numeracoes
+		While (GetSx8Len() > ::nSvSx8Len)
+			SX5->(ConfirmSx8())
+		EndDo
+	EndIf
 
 	For nX := 1 to len(::aAreas)
 		If ValType(::aAreas[nX]) == 'C' //Salvou o alias correte e precisa restaurar
@@ -219,7 +320,9 @@ METHOD RestAlias() CLASS tCtrlAlias
 				(cAliasTmp)->(dbCloseArea())
 			EndIf
 		Else
-			If ::VerifTab(::aAreas[nX][cAR_ALIAS])
+			If  Left(::aAreas[nX][cAR_ALIAS],1) <> '#' .And. ;
+				::VerifTab(::aAreas[nX][cAR_ALIAS])
+
 				//Se a area estava fechada entao fecha antes de sair
 				If ::aAreas[nX][nAR_ORDEM] < 0
 
@@ -236,7 +339,7 @@ METHOD RestAlias() CLASS tCtrlAlias
 							OpenSm0(ucEmpAnt)
 						EndIf
 
-						(::aAreas[nX][cAR_ALIAS])->(U_CXSetOrd(::aAreas[nX][nAR_ORDEM]))	//Seta a ordem ou abre a tabela
+						(::aAreas[nX][cAR_ALIAS])->(dbSetOrder(::aAreas[nX][nAR_ORDEM]))	//Seta a ordem ou abre a tabela
 					EndIf
 
 					//Remonta indice temporario
@@ -295,7 +398,7 @@ METHOD VerifTab(cAlias	;
 					Type('cEmpAnt') == 'C' .And. ; 	//Verifica se o ambiente possui os 
 					Type('cFilAnt') == 'C' .And. ;	//dados necessarios para abrir a tabela
 					Select("SX2") <> 0 .And. ;
-					.Not. Empty(RetSqlName(cAlias)) ;
+					.Not. Empty(FWSX2Util():GetFile(cAlias)) ;
 				) .Or. ;													//Tabelas de dicionário (SX2 aberto e existem?)
 				cAlias $ 'SM0,SIX' .Or. ;					//Tabela empresas
 				Left(cAlias,2) $ 'SX' .Or. ;				//Tabela de Sistema
@@ -311,10 +414,9 @@ Return lRet
 //-------------------------------------------------------------------------------------------------
 //Restaura a area
 //-------------------------------------------------------------------------------------------------
-METHOD RestArea();
-			CLASS tCtrlAlias
+METHOD RestAlias() CLASS tCtrlAlias
 
-Return ::RestAlias()
+Return ::RestArea()
 
 //#############################################################################
 //##+==========+=============+=======+=================+======+=============+##
@@ -329,7 +431,26 @@ Return ::RestAlias()
 //##|          |               |                                            |##
 //##+==========+===============+============================================+##
 //#############################################################################
-METHOD ClassName();
-			CLASS tCtrlAlias
+METHOD ClassName() CLASS tCtrlAlias
 
 Return ::cClassName
+
+//#############################################################################
+//##+==========+=============+=======+=================+======+=============+##
+//##|Programa  | ClassName   | Autor | Cirilo Rocha    | Data | 01/12/2015  |##
+//##+==========+=============+=======+=================+======+=============+##
+//##|Descr.    | Método para retornar o nome da classe atual                |##
+//##+==========+===============+============================================+##
+//##|   DATA   | Programador   | Manutenção Efetuada                        |##
+//##+==========+===============+============================================+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+==========+===============+============================================+##
+//#############################################################################
+METHOD Destroy()	CLASS tCtrlAlias
+
+	FwFreeArray(::aParamBak)
+	FwFreeArray(::aAreas)
+
+Return

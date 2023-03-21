@@ -1,0 +1,92 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#Include "CXInclude.ch"
+
+//#############################################################################
+//##+==========+==========+=======+=====================+======+============+##
+//##|Programa  | CXCodUF  | Autor | Cirilo Rocha        | Data | 29/02/2012 |##
+//##+==========+==========+=======+=====================+======+============+##
+//##|Desc.     | Funcao generica para retornar o codigo do estado para os   |##
+//##|          | SPED's e a NFe                                             |##
+//##+==========+===============+============================================+##
+//##|   DATA   | Programador   | Manutencao Efetuada                        |##
+//##+==========+===============+============================================+##
+//##| 27/01/17 | Cirilo Rocha  | Ajuste para poder buscar pelo codigo e re- |##
+//##|          |               | tornar a sigla                             |##
+//##| 04/02/19 | Cirilo Rocha  | Pequena revisao no fonte                   |##
+//##| 29/08/19 | Cirilo Rocha  | Pequena revisao no fonte                   |##
+//##| 04/12/20 | Cirilo Rocha  | Pequena revisao no fonte                   |##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+==========+===============+============================================+##
+//#############################################################################
+Static aUF	:= __InitUF()
+//-------------------------------------------------------------------------------------------------
+User Function CXCodUF(	cCod	,;	//01
+						lRetCod	);	//02
+							AS Character
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local nPos		AS Numeric
+	Local nPosBsc	AS Numeric
+	Local nPosRet	AS Numeric
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cCod  	  		AS Character				Optional Default ''
+	ParamType 1		VAR lRetCod  	  	AS Logical					Optional Default .F.
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	cRet		:= Space(2)
+	
+	//---------------------------------------------------------------------------------------------
+	If lRetCod 			//Busca por codigo de estado e retorna a sigla
+		nPosBsc	:= 2
+		nPosRet	:= 1
+	Else				//Busca por sigla e retorna o codigo
+		nPosBsc	:= 1
+		nPosRet	:= 2
+	EndIf
+
+	nPos	:= aScan(aUF,{|x| x[nPosBsc] == cCod })
+	If nPos > 0
+		cRet	:= aUF[nPos][nPosRet]
+	Else
+		ApMsgStop('Estado '+cCod+' não localizado.',U_CXTxtMsg(,,.T.))
+	EndIf
+	
+Return cRet
+//-------------------------------------------------------------------------------------------------
+Static Function __InitUF()
+
+//Preenchimento do Array de UF
+Return	aUF	:= {;
+				{"RO","11"},;
+				{"AC","12"},;
+				{"AM","13"},;
+				{"RR","14"},;
+				{"PA","15"},;
+				{"AP","16"},;
+				{"TO","17"},; //Regiao Norte (1x)
+				{"MA","21"},;
+				{"PI","22"},;
+				{"CE","23"},;
+				{"RN","24"},;
+				{"PB","25"},;
+				{"PE","26"},;
+				{"AL","27"},;
+				{"SE","28"},;
+				{"BA","29"},; //Regiao Nordete (2x)
+				{"MG","31"},;
+				{"ES","32"},;
+				{"RJ","33"},;
+				{"SP","35"},; //Regiao Sudeste (3x)
+				{"PR","41"},;
+				{"SC","42"},;
+				{"RS","43"},; //Regiao Sul (4x)
+				{"MS","50"},;
+				{"MT","51"},;
+				{"GO","52"},;
+				{"DF","53"},; //Regiao Centro-Oeste (5x)
+				{"EX","99"} ;
+			}

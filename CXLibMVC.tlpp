@@ -1,0 +1,236 @@
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+#INCLUDE 'CXInclude.ch'
+#Include 'FWMVCDef.ch'
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXLibMVC | Autor | Cirilo Rocha       | Data | 16/11/2021  |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descr.    | Biblioteca de funções para uso com componentes MVC         |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+
+//-------------------------------------------------------------------------------------------------
+
+//#############################################################################
+//##+==========+==============+=======+================+======+=============+##
+//##|Programa  | CXMVCOrdGrid | Autor | Cirilo Rocha   | Data | 16/11/2021  |##
+//##+==========+==============+=======+================+======+=============+##
+//##|Desc.     | Ordena manualmente um aCols/Grid MVC baseado no próprio    |##
+//##|          |  aCols (inclusive campos virtuais)                         |##
+//##|          | Utiliza o algoritmo BubleSort mais simples e razoavelmente |##
+//##|          |  eficiente, não deve ser utilizado com grandes quantidades |##
+//##|          |  de elementos para ordenação (pode ficar lento). Foi usado |##
+//##|          |  esse algoritmo pela simplicidade e porque o MVC já tem um |##
+//##|          |  método que faz a permuta de linhas                        |##
+//##|          | No bloco de código nunca use >= ou <= sempre use < ou > se-|##
+//##|          |  não vai entrar em loop infinito                           |##
+//##+==========+==========+=================================================+##
+//##| DATA     | ANALISTA | MANUTENÇÃO EFETUADA                             |##
+//##+==========+==========+=================================================+##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+==========+==========+=================================================+##
+//#############################################################################
+User Function CXMVCOrdGrid( oGrid   ,;  //01
+                            bSort   )   //02
+
+    //Declaracao de variaveis----------------------------------------------------------------------
+    Local nX            AS Integer
+	Local nCont			AS Integer
+    Local lTrocado      AS Logical
+
+    //Parametros da rotina-------------------------------------------------------------------------
+    ParamType 0		VAR oGrid		AS Object
+    ParamType 1		VAR bSort       AS Block
+
+    //Inicializa Variaveis-------------------------------------------------------------------------
+    lTrocado    := .T.
+	nCont		:= 0
+	
+	//Otimização!
+	If oGrid:Length() <= 1	//1 ou 0 elementos não há o que se ordenar
+		Return .T.
+	EndIf
+	
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+
+	//---------------------------------------------------------------------------------------------
+    While lTrocado
+        lTrocado    := .F.
+		nCont++
+
+        For nX := 1 to oGrid:Length() - 1
+            // verificar se os elementos estão na ordem certa
+            If Eval(bSort,oGrid,nX,nX+1)
+                // trocar elementos de lugar
+                oGrid:LineShift(nX,nX+1)	//Permuta as linhas
+                lTrocado := .T.
+            EndIf
+        Next
+		
+		//Detectação de loop infinito!-------------------------------------------------------------
+		// O algoritmo garante que no pior caso (array em ordem inversa) ele vai rodar apenas N 
+		// vezes (N = Len(Array))
+		If 	lTrocado .And. ;
+			nCont > (oGrid:Length()+1)
+			
+			cCodErr	:= U_CXTxtMsg(,,.T.)
+			cMsgErr	:= 	'Detecção de Loop Infinito.'+CRLF+;
+						'Bloco: '+GetCbSource(bSort)+CRLF+;
+						'IDMVC: '+oGrid:GetId()
+			cSoluc	:= 'INFORME O SETOR DE T.I.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			If .Not. U_CXRotAuto()
+				U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+			EndIf
+			
+			Return .F.
+		EndIf
+    EndDo
+
+Return .T.
+
+//#############################################################################
+//##+==========+===========+=======+===================+======+=============+##
+//##|Programa  | CXErroMVC | Autor | Cirilo Rocha      | Data | 30/09/2020  |##
+//##+==========+===========+=======+===================+======+=============+##
+//##|Descricao | Função para ler o array com os dados do erro MVC e gerar   |##
+//##|          | as strings para apresentar ao usuário                      |##
+//##+==========+==========+=================================================+##
+//##| DATA     | ANALISTA | MANUTENCAO EFETUADA                             |##
+//##+==========+==========+=================================================+##
+//##| 16/03/21 | Cirilo R.| Pequena revisão no fonte                        |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+==========+==========+=================================================+##
+//#############################################################################
+User Function CXErroMVC(oModel);	//01
+							AS Character
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aErro		AS Array
+	Local cTmp		AS Character
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType  0	VAR oModel		AS Object		Optional Default FWModelActive()
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	aErro 	:= oModel:GetErrorMessage()
+
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr	:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr	:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc	:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg	:= IIf(Type('cMsg')<>'C','',cMsg)
+	
+	cTmp	:= RTrim(AllToChar(aErro[MODEL_MSGERR_IDFORM]))
+	If .Not. Empty(cTmp)
+		U_CXConcTxt(@cMsgErr,"Id formulário de origem: "+' [' + cTmp + ']',CRLF)
+	EndIf
+	
+	cTmp	:= RTrim(AllToChar(aErro[MODEL_MSGERR_IDFIELD]))
+	If .Not. Empty(cTmp)
+		U_CXConcTxt(@cMsgErr,"Id campo de origem: " 	+' [' + cTmp + ']',CRLF)
+	EndIf
+	
+	cTmp	:= RTrim(AllToChar(aErro[MODEL_MSGERR_IDFORMERR]))
+	If .Not. Empty(cTmp)
+		U_CXConcTxt(@cMsgErr,"Id formulário de erro: " 	+' [' + cTmp + ']',CRLF)
+	EndIf
+	
+	cTmp	:= RTrim(AllToChar(aErro[MODEL_MSGERR_IDFIELDERR]))
+	If .Not. Empty(cTmp)
+		U_CXConcTxt(@cMsgErr,"Id campo de erro: " 	 	+' [' + cTmp + ']',CRLF)
+	EndIf
+	
+	cTmp	:= RTrim(AllToChar(aErro[MODEL_MSGERR_ID]))
+	If .Not. Empty(cTmp)
+		U_CXConcTxt(@cMsgErr,"Id erro: " 				+' [' + cTmp + ']',CRLF)
+	EndIf
+	
+	cTmp	:= RTrim(AllToChar(aErro[MODEL_MSGERR_MESSAGE]))
+	If .Not. Empty(cTmp)
+		U_CXConcTxt(@cMsgErr,"Mensagem do erro: " 		+ cTmp ,CRLF)
+	EndIf
+	
+	cTmp	:= RTrim(AllToChar(aErro[MODEL_MSGERR_VALUE]))
+	If .Not. Empty(cTmp)
+		U_CXConcTxt(@cMsgErr,"Valor atribuído: " 		+ ' ['	+ cTmp + ']',CRLF)
+	EndIf
+	
+	cTmp	:= RTrim(AllToChar(aErro[MODEL_MSGERR_OLDVALUE]))
+	If .Not. Empty(cTmp)
+		U_CXConcTxt(@cMsgErr,"Valor anterior: "			+ ' [' + cTmp + ']',CRLF)
+	EndIf
+	
+	If Empty(cMsg)
+		cMsg	:= "ERRO DESCONHECIDO"
+	EndIf
+	
+	cTmp	:= RTrim(AllToChar(aErro[MODEL_MSGERR_SOLUCTION]))
+	If .Not. Empty(cTmp)
+		cSoluc 	:= cTmp
+	EndIf
+	
+	cCodErr	:= U_CXTxtMsg(/*oObjeto*/,2,.T.)
+	cMsg	:= U_CXConcTxt(cMsg,cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,''),CRLF)
+	
+Return cMsg
+
+//##################################################################################################
+//##+========+=================================+=======+====================+======+=============+##
+//##|Programa| CXDescMVC                       | Autor | Cirilo Rocha       | Data | 09/12/2022  |##
+//##+========+=================================+=======+====================+======+=============+##
+//##|Desc.   | Função para fazer a substituição do título dos campos na tela MVC pela descrição  |##
+//##|        | Ex.: U_CXDescMVC(oStruZ04,.T.) //Usa descrição completa do campo                  |##
+//##|        |  COLOCAR DENTRO DA ModelView em cada FWFormStruct                                 |##
+//##+========+==========+========================================================================+##
+//##|  DATA  | ANALISTA | MANUTENÇÃO EFETUADA                                                    |##
+//##+========+==========+========================================================================+##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##+========+==========+========================================================================+##
+//##################################################################################################
+User Function CXDescMVC(oStruct	,;	//01 oStruct
+						lEnch	)	//02 lEnch (def .F.)
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aFields	AS Array
+	Local cDescri	AS Character
+	Local nX		AS Integer
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR oStruct		AS Object
+	ParamType 1		VAR oStruct		AS Object		Optional Default .F.
+
+	//---------------------------------------------------------------------------------------------
+	aFields	:= oStruct:getFields()
+
+	For nX := 1 to Len(aFields)
+		cDescri	:= FWSX3Util():GetDescription(aFields[nX][MVC_VIEW_IDFIELD])
+		If .Not. Empty(cDescri)	//Precaução se o campo realmente existe no dicionário
+			If 	lEnch .Or. ;	//Quando enchoice sempre existe espaço porque o título fica logo acima do cmapo
+				FwTamSx3(aFields[nX][MVC_VIEW_IDFIELD])[1] >= Len(cDescri)	//Na GRID preciso verificar se existe espaço
+
+				oStruct:SetProperty(aFields[nX][MVC_VIEW_IDFIELD], MVC_VIEW_TITULO,cDescri)
+			EndIf
+		EndIf
+	Next
+	
+Return

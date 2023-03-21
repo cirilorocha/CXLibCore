@@ -1,0 +1,51 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXMapCod | Autor | Cirilo Rocha       | Data | 17/01/2014  |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descr.    | Função genérica para mapear códigos                        |##
+//##|          |                                                            |##
+//##|          | Ex. Parametro: 500=887/502=931/118,119,120=913             |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção Efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 13/04/17 | Cirilo R. | Pequena melhoria no fonte                      |##
+//##| 26/08/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXMapCod(	cCodigo	,;	//01 cCodigo
+						cParam	); 	//02 cParam
+							AS Character
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aTrcCod			AS Array
+	Local aCodOri   		AS Array
+	Local aCodigos  		AS Array
+	Local cNovoCod			AS Character
+	Local nX				AS Numeric
+		
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cCodigo		AS Character
+	ParamType 1		VAR cParam		AS Character
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	cNovoCod	:= cCodigo
+	aTrcCod		:= StrTokArr2(cParam,'/',.F.)
+	For nX := 1 to len(aTrcCod)
+		aCodigos	:= StrTokArr2(aTrcCod[nX],'=',.F.)
+		aCodOri		:= StrTokArr2(Alltrim(aCodigos[1]),',',.F.)
+		cCodDes		:= Alltrim(aCodigos[2])
+		
+		If aScan(aCodOri,{|x| x == cCodigo } ) > 0
+			cNovoCod	:= cCodDes //Troca o codigo
+			Exit
+		EndIf
+	Next
+
+Return cNovoCod

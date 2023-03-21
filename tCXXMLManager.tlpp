@@ -1,0 +1,1819 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#INCLUDE 'MSObject.ch'
+#INCLUDE "ParmType.ch"
+#Include "CXInclude.ch"
+
+//#############################################################################
+//##+==========+===============+=======+===============+======+=============+##
+//##|Programa  | tCXXMLManager | Autor | Cirilo Rocha  | Data | 08/06/2022  |##
+//##+==========+===============+=======+===============+======+=============+##
+//##|Descr.    | Classe que extede a tXMLManager, simplificando o uso com os|##
+//##|          |  nameSpaces e extendendo vários métodos                    |##
+//##+==========+============================================================+##
+//##|Observação| INFELIZMENTE NÃO FOI POSSÍVEL CRIAR A CLASSE HERDANDO A PA-|##
+//##|          |  PADRÃO TXMLMANAGER, O SISTEMA NÃO COMPILA.                |##
+//##|          | https://devforum.totvs.com.br/2814-classe-herdando-        |##
+//##|          |  txmlmanager-nao-compila                                   |##
+//##+==========+===============+============================================+##
+//##|   DATA   | Programador   | Manutenção Efetuada                        |##
+//##+==========+===============+============================================+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+==========+===============+============================================+##
+//#############################################################################
+Class tCXXMLManager //From TXMLManager
+	
+	//Declaração de Variáveis----------------------------------------------------------------------
+	PUBLIC DATA cClassName			AS Character
+	PUBLIC DATA _xPath				AS Character
+	PUBLIC DATA _cCodErr			AS Character
+	PUBLIC DATA _cMsgErr			AS Character
+	PUBLIC DATA _cSoluc				AS Character
+	PUBLIC DATA _cError				AS Character
+	PUBLIC DATA _aRemoveNameSpace	AS Array
+	
+	//Vou deixar o objeto visível para uso caso necessario
+	PUBLIC DATA oXMLMgn				AS Object
+	
+	//Propriedades da classe padrão (REPLICA)
+	PUBLIC DATA Parse_compact		AS Integer
+	PUBLIC DATA Parse_dtdattr		AS Integer
+	PUBLIC DATA Parse_dtdload		AS Integer
+	PUBLIC DATA Parse_dtdvalid		AS Integer
+	PUBLIC DATA Parse_noblanks		AS Integer
+	PUBLIC DATA Parse_nocdata		AS Integer
+	PUBLIC DATA Parse_noent			AS Integer
+	PUBLIC DATA Parse_nsclean		AS Integer
+
+	//---------------------------------------------------------------------------------------------
+	PUBLIC METHOD New() Constructor
+
+	//Métodos padrão sobrepostos
+	PUBLIC METHOD Error()					AS Character
+	PUBLIC METHOD Parse()					AS Logical
+	PUBLIC METHOD ParseFile()				AS Logical
+	PUBLIC METHOD ResetErrors()
+	PUBLIC METHOD XPathAddAtt()				AS Logical
+	PUBLIC METHOD XPathAddAttArray()		AS Logical
+	PUBLIC METHOD XPathAddNode()			AS Logical
+	PUBLIC METHOD XPathAddNs()				AS Logical
+	PUBLIC METHOD XPathAddNsList()			AS Logical
+	PUBLIC METHOD XPathDelAllAtt()			AS Logical
+	PUBLIC METHOD XPathDelAtt()				AS Logical
+	PUBLIC METHOD XPathDelNode()			AS Logical
+	PUBLIC METHOD XPathGetAtt()				AS Character
+	PUBLIC METHOD XPathGetAttArray()		AS Array
+	PUBLIC METHOD XPathGetChildArray()		AS Array
+	PUBLIC METHOD XPathGetNsList()			AS Array
+	PUBLIC METHOD XPathHasAtt()				AS Logical
+	PUBLIC METHOD XPathHasNode()			AS Logical
+	PUBLIC METHOD XPathGetNodeValue()		AS Character
+	PUBLIC METHOD XPathChildCount()			AS Numeric
+	PUBLIC METHOD XPathSetAtt()         	AS Logical
+	PUBLIC METHOD XPathSetNode()			AS Logical
+	
+	//Métodos Próprios
+	PUBLIC METHOD CXRegisterNS()			AS Logical
+	PUBLIC METHOD CXSetXPath()				AS Logical
+	PUBLIC METHOD CXxPathParentNode()		AS Logical
+	PUBLIC METHOD CXxPathChildNode()		AS Logical
+	PUBLIC METHOD ClassName()				AS Character
+	PUBLIC METHOD Destroy()
+	PUBLIC METHOD Reset()					//Limpa variáveis usadas
+	
+	//Métodos da classe padrão (REPLICA)
+	PUBLIC METHOD CanonicalC14N()			AS Character
+	PUBLIC METHOD CanonicalC14NFile()		AS Character
+	PUBLIC METHOD DOMAddAtt()				AS Logical
+	PUBLIC METHOD DOMAddAttArray()			AS Logical
+	PUBLIC METHOD DOMAddNs()				AS Logical
+	PUBLIC METHOD DOMAddNsList()			AS Logical
+	PUBLIC METHOD DOMChildCount()			AS Numeric
+	PUBLIC METHOD DOMChildNode()			AS Logical
+	PUBLIC METHOD DOMDelAllAtt()			AS Logical
+	PUBLIC METHOD DOMDelAtt()				AS Character
+	PUBLIC METHOD DOMDelNode()				AS Logical
+	PUBLIC METHOD DOMGetAtt()				AS Character
+	PUBLIC METHOD DOMGetAttArray()			AS Array
+	PUBLIC METHOD DOMGetChildArray()		AS Array
+	PUBLIC METHOD DOMGetDefNs()				AS Character
+	PUBLIC METHOD DOMGetNs()				AS Character
+	PUBLIC METHOD DOMGetNsList()			AS Array
+	PUBLIC METHOD DOMHasAtt()				AS Logical
+	PUBLIC METHOD DOMHasChildNode()			AS Logical
+	PUBLIC METHOD DOMHasNextNode()			AS Logical
+	PUBLIC METHOD DOMHasParentNode()		AS Logical
+	PUBLIC METHOD DOMHasPrevNode()			AS Logical
+	PUBLIC METHOD DOMNewChildNode()			AS Logical
+	PUBLIC METHOD DOMNextNode()				AS Logical
+	PUBLIC METHOD DOMParentNode()			AS Logical
+	PUBLIC METHOD DOMPrevNode()				AS Logical
+	PUBLIC METHOD DOMSetAtt()				AS Logical
+	PUBLIC METHOD DOMSetNode()				AS Logical
+	PUBLIC METHOD DOMSiblingCount()			AS Numeric
+	PUBLIC METHOD DOMSiblingCountPosition()	AS Numeric
+	PUBLIC METHOD DOMSiblingPosition()		AS Numeric
+	PUBLIC METHOD LastError()				AS Character
+	PUBLIC METHOD ParseSchema()				AS Logical
+	PUBLIC METHOD ParseSchemaFile()			AS Logical
+	PUBLIC METHOD Read()					AS Logical
+	PUBLIC METHOD ReadFile()				AS Logical
+	PUBLIC METHOD Recovery()				AS Logical	//TIVE QUE RENOMEAR NÃO ACEITA RECOVER()
+	PUBLIC METHOD RecoverFile()				AS Logical
+	PUBLIC METHOD Save2File()				AS Logical
+	PUBLIC METHOD Save2String()				AS Character
+	PUBLIC METHOD SchemaValidate()			AS Logical
+	PUBLIC METHOD Warning()					AS Character
+	PUBLIC METHOD XPathGetRootNsList()		AS Array
+	PUBLIC METHOD XPathRegisterNs()     	AS Logical
+	PUBLIC METHOD XPathRegisterNsList() 	AS Logical
+
+EndClass
+
+//#############################################################################
+//##+----------+------------+-------+---------------------+------+----------+##
+//##|Programa  | New        | Autor | Cirilo Rocha        | Data |08/06/2022|##
+//##+----------+------------+-------+---------------------+------+----------+##
+//##|Descr.    | Metodo construtor                                          |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method New(	uParam1	,;
+			uParam2	,;
+			uParam3	,;
+			uParam4	,;
+			uParam5	;
+				) Class tCXXMLManager
+
+	//Inicializa variaveis-------------------------------------------------------------------------
+	::cClassName		:= 'tCXXMLManager'
+	::_aRemoveNameSpace	:= {}
+
+	::oXMLMgn	:= tXMLManager():New(	uParam1	,;
+										uParam2	,;
+										uParam3	,;
+										uParam4	,;
+										uParam5	)
+
+	::Parse_compact		:= ::oXMLMgn:Parse_compact
+	::Parse_dtdattr		:= ::oXMLMgn:Parse_dtdattr
+	::Parse_dtdload		:= ::oXMLMgn:Parse_dtdload
+	::Parse_dtdvalid	:= ::oXMLMgn:Parse_dtdvalid
+	::Parse_noblanks	:= ::oXMLMgn:Parse_noblanks
+	::Parse_nocdata		:= ::oXMLMgn:Parse_nocdata
+	::Parse_noent		:= ::oXMLMgn:Parse_noent
+	::Parse_nsclean		:= ::oXMLMgn:Parse_nsclean
+	
+Return Self
+
+//#############################################################################
+//##+----------+--------------+-------+-------------------+------+----------+##
+//##|Programa  | CXRegisterNS | Autor | Cirilo Rocha      | Data |08/06/2022|##
+//##+----------+--------------+-------+-------------------+------+----------+##
+//##|Descr.    | Método para processar os NS do arquivo XML de forma automá-|##
+//##|          |  tica                                                      |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method CXRegisterNS() Class tCXXMLManager
+	
+	::ResetErrors()	//Limpo as mensagens de erro
+	
+Return ::oXMLMgn:XPathRegisterNsList( ::oXMLMgn:XPathGetRootNsList() )
+
+//#############################################################################
+//##+----------+-------------+-------+--------------------+------+----------+##
+//##|Programa  | CXSetXPath  | Autor | Cirilo Rocha       | Data |08/06/2022|##
+//##+----------+-------------+-------+--------------------+------+----------+##
+//##|Descr.    | Método para processar os NS do arquivo XML de forma automá-|##
+//##|          |  tica                                                      |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method CXSetXPath(	cXPathExpr		,;
+					lOpcional		;	//Não considera como erro se não achar o nó, para não alimentar as varíaveis de erro
+						) Class tCXXMLManager
+	
+	//Declaração de Variáveis----------------------------------------------------------------------
+	Local lRet		AS Logical
+	
+	//Parâmetros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cXPathExpr		AS Character
+	ParamType 1		VAR lOpcional		AS Logical		Optional Default .F.
+
+	//---------------------------------------------------------------------------------------------
+	lRet	:= .T.
+
+	::ResetErrors()	//Limpo as mensagens de erro
+	
+	If .Not. ( ::_xPath	== cXPathExpr )	//Otimização
+		If ::oXMLMgn:XPathHasNode(cXPathExpr)
+			::_xPath	:= cXPathExpr
+		Else
+			lRet		:= .F.
+			
+			If .Not. lOpcional
+				::_cCodErr	:= U_CXTxtMsg(Self,,.T.)+'-'+U_CXTxtMsg(,2,.T.)
+				::_cMsgErr	:= 	'ERRO ao setar XPath: '+cXPathExpr+CRLF+;
+								'Este caminho não existe.'
+				::_cSoluc	:= ''
+				::_cError	:= ::_cCodErr+': '+::_cMsgErr+IIf(!Empty(::_cSoluc),CRLF+'SOLUÇÃO: '+::_cSoluc,'')
+			EndIf
+		EndIf
+	EndIf
+
+	If .Not. lRet
+		//Alimento as variáveis compartilhadas
+		If .Not. lOpcional
+			cCodErr	:= ::_cCodErr
+			cMsgErr	:= ::_cMsgErr
+			cSoluc	:= ::_cSoluc
+			cMsg	:= ::_cError
+		EndIf
+	EndIf
+
+Return lRet
+
+//#############################################################################
+//##+----------+------------------+-------+---------------+------+----------+##
+//##|Programa  | CXxPathChildNode | Autor | Cirilo Rocha  | Data |10/06/2022|##
+//##+----------+------------------+-------+---------------+------+----------+##
+//##|Descr.    | Método para avançar um Node no caminho xPath do XML sem    |##
+//##|          |  precisar passar o caminho completo                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method CXxPathChildNode(cXSubPathExpr	,;
+						lOpcional		;	//Não considera como erro se não achar o nó, para não alimentar as varíaveis de erro
+								) Class tCXXMLManager
+
+	//Parâmetros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cXSubPathExpr		AS Character
+	ParamType 1		VAR lOpcional			AS Logical		Optional Default .F.
+	
+	::ResetErrors()	//Limpo as mensagens de erro
+
+Return ::CXSetXPath(::_xPath+cXSubPathExpr	,;
+					lOpcional				)
+
+//#############################################################################
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Programa  | CXxPathParentNode | Autor | Cirilo Rocha | Data |10/06/2022|##
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Descr.    | Método para retroceder um Node no caminho xPath do XML sem |##
+//##|          |  precisar passar o caminho completo                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method CXxPathParentNode() Class tCXXMLManager
+
+	//Declaração de Variáveis----------------------------------------------------------------------
+	Local nPos		AS Integer
+	Local lRet		AS Logical
+	
+	//---------------------------------------------------------------------------------------------
+	::ResetErrors()	//Limpo as mensagens de erro
+	
+	If Empty(::_xPath)
+		lRet		:= .F.
+		
+		::_cCodErr	:= U_CXTxtMsg(Self,,.T.)+'-'+U_CXTxtMsg(,2,.T.)
+		::_cMsgErr	:= 	'ERRO ao voltar no XPath. Está vazio.'
+		::_cSoluc	:= ''
+		::_cError	:= ::_cCodErr+': '+::_cMsgErr+IIf(!Empty(::_cSoluc),CRLF+'SOLUÇÃO: '+::_cSoluc,'')
+
+	Else
+		nPos	:= Rat('/',::_xPath)
+		If nPos == 0
+			lRet		:= .F.
+			
+			::_cCodErr	:= U_CXTxtMsg(Self,,.T.)+'-'+U_CXTxtMsg(,2,.T.)
+			::_cMsgErr	:= 	'ERRO ao voltar no XPath: '+::_xPath+CRLF+;
+							'Não localizou o Nó anterior.'
+			::_cSoluc	:= ''
+			::_cError	:= ::_cCodErr+': '+::_cMsgErr+IIf(!Empty(::_cSoluc),CRLF+'SOLUÇÃO: '+::_cSoluc,'')
+
+		ElseIf nPos <= 3
+			lRet		:= .F.
+			
+			::_cCodErr	:= U_CXTxtMsg(Self,,.T.)+'-'+U_CXTxtMsg(,2,.T.)
+			::_cMsgErr	:= 	'ERRO ao setar XPath: '+::_xPath+CRLF+;
+							'Este caminho não existe.'
+			::_cSoluc	:= ''
+			::_cError	:= ::_cCodErr+': '+::_cMsgErr+IIf(!Empty(::_cSoluc),CRLF+'SOLUÇÃO: '+::_cSoluc,'')
+
+		Else
+			lRet		:= ::CXSetXPath(Left(::_xPath,nPos-1))
+		EndIf
+	EndIf
+	
+	If .Not. lRet
+		//Alimento as variáveis compartilhadas
+		cCodErr	:= ::_cCodErr
+		cMsgErr	:= ::_cMsgErr
+		cSoluc	:= ::_cSoluc
+		cMsg	:= ::_cError
+	EndIf
+
+Return lRet
+
+//#############################################################################
+//##+==========+=============+=======+=================+======+=============+##
+//##|Programa  | ClassName   | Autor | Cirilo Rocha    | Data | 08/06/2022  |##
+//##+==========+=============+=======+=================+======+=============+##
+//##|Descr.    | Metodo para retornar o nome da classe atual                |##
+//##+==========+===============+============================================+##
+//##|   DATA   | Programador   | Manutenção Efetuada                        |##
+//##+==========+===============+============================================+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+==========+===============+============================================+##
+//#############################################################################
+Method ClassName()	Class tCXXMLManager
+
+Return ::cClassName
+
+//#############################################################################
+//##+----------+--------------+-------+-------------------+------+----------+##
+//##|Programa  | Destroy      | Autor | Cirilo Rocha      | Data |10/06/2022|##
+//##+----------+--------------+-------+-------------------+------+----------+##
+//##|Descr.    | Método destrutor da classse para limpar os objetos internos|##
+//##|          |  utilizados (como o tXMLManager)                           |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method Destroy() Class tCXXMLManager
+
+	FWFreeVar(::oXMLMgn)	//Destroi o tXMLManager
+	FWFreeVar(::_aRemoveNameSpace)
+
+Return
+
+//#############################################################################
+//##+----------+--------------+-------+-------------------+------+----------+##
+//##|Programa  | Reset        | Autor | Cirilo Rocha      | Data |22/06/2022|##
+//##+----------+--------------+-------+-------------------+------+----------+##
+//##|Descr.    | Método para limpar as variáveis usadas                     |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method Reset() Class tCXXMLManager
+
+	::_xPath		:= ''
+
+Return
+
+//#################################################################################################
+//#################################################################################################
+// MÉTODOS EXTENDIDOS
+//#################################################################################################
+//#################################################################################################
+
+//#############################################################################
+//##+----------+------------+-------+---------------------+------+----------+##
+//##|Programa  | Parse      | Autor | Cirilo Rocha        | Data |08/06/2022|##
+//##+----------+------------+-------+---------------------+------+----------+##
+//##|Descr.    | Método para parsear o XML, também remove os NS direto na   |##
+//##|          |  string passada antes de processar                         |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method Parse(	cXml	,;
+				uParam1	,;
+				uParam2	,;
+				uParam3	,;
+				uParam4	,;
+				uParam5	;
+					) Class tCXXMLManager
+	
+	//Parâmetros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cXml		AS Character
+	
+	::ResetErrors()	//Limpo as mensagens de erro
+	::Reset()		//Limpo as variáveis
+	
+	If Len(::_aRemoveNameSpace) > 0
+		aEval(::_aRemoveNameSpace,{|x| cXml := StrTran( cXml, ' '+x, '' ) } )
+	EndIf
+
+Return ::oXMLMgn:Parse(	cXml	,;
+						uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	)
+
+//#############################################################################
+//##+----------+------------+-------+---------------------+------+----------+##
+//##|Programa  | ParseFile  | Autor | Cirilo Rocha        | Data |08/06/2022|##
+//##+----------+------------+-------+---------------------+------+----------+##
+//##|Descr.    | Método para parsear o XML                                  |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method ParseFile(cXmlFile,;
+				uParam1	,;
+				uParam2	,;
+				uParam3	,;
+				uParam4	,;
+				uParam5	;
+					) Class tCXXMLManager
+
+	::ResetErrors()	//Limpo as mensagens de erro
+	::Reset()		//Limpo as variáveis
+
+Return ::oXMLMgn:ParseFile(	cXmlFile,;
+							uParam1	,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+
+//#############################################################################
+//##+----------+--------------+-------+-------------------+------+----------+##
+//##|Programa  | Error        | Autor | Cirilo Rocha      | Data |10/06/2022|##
+//##+----------+--------------+-------+-------------------+------+----------+##
+//##|Descr.    | Método que sobrepõe o padrão usado para também mostrar os  |##
+//##|          |  erros da customização!                                    |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method Error(	uParam1	,;
+				uParam2	,;
+				uParam3	,;
+				uParam4	,;
+				uParam5	;
+					) Class tCXXMLManager
+	
+Return U_CXConcTxt(::_cError,::oXMLMgn:Error(uParam1,uParam2,uParam3,uParam4,uParam5),CRLF)
+
+//#############################################################################
+//##+----------+--------------+-------+-------------------+------+----------+##
+//##|Programa  | ResetErrors  | Autor | Cirilo Rocha      | Data |10/06/2022|##
+//##+----------+--------------+-------+-------------------+------+----------+##
+//##|Descr.    | Método que sobrepõe o padrão usado para também limpar os   |##
+//##|          |  erros da customização!                                    |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method ResetErrors(	uParam1	,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXXMLManager
+	
+	//Limpo as mensagens de erro customizadas
+	::_cCodErr	:= ''
+	::_cMsgErr	:= ''
+	::_cSoluc	:= ''
+	::_cError	:= ''	
+	
+Return ::oXMLMgn:ResetErrors(uParam1,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+
+//#############################################################################
+//##+----------+--------------+-------+-------------------+------+----------+##
+//##|Programa  | XPathHasNode | Autor | Cirilo Rocha      | Data |08/06/2022|##
+//##+----------+--------------+-------+-------------------+------+----------+##
+//##|Descr.    | Método que sobrepõe o padrão usado para tornar transparente|##
+//##|          |  o xPath                                                   |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method XPathHasNode(cXPathExpr	,;
+					uParam1		,;
+					uParam2		,;
+					uParam3		,;
+					uParam4		,;
+					uParam5		;
+							) Class tCXXMLManager
+	
+	//Parâmetros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cXPathExpr		AS Character		Optional Default ''
+	
+	::ResetErrors()	//Limpo as mensagens de erro
+
+Return ::oXMLMgn:XPathHasNode(	::_xPath+cXPathExpr,;
+								uParam1		,;
+								uParam2		,;
+								uParam3		,;
+								uParam4		,;
+								uParam5		)
+
+//#############################################################################
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Programa  | XPathChildCount   | Autor | Cirilo Rocha | Data |10/06/2022|##
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Descr.    | Método que sobrepõe o padrão usado para tornar transparente|##
+//##|          |  o xPath                                                   |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method XPathChildCount( cXPathExpr	,;
+						uParam1		,;
+						uParam2		,;
+						uParam3		,;
+						uParam4		,;
+						uParam5		;
+							) Class tCXXMLManager
+	
+	//Parâmetros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cXPathExpr		AS Character		Optional Default ''
+	
+	::ResetErrors()	//Limpo as mensagens de erro
+
+Return ::oXMLMgn:XPathChildCount(::_xPath+cXPathExpr,;
+								uParam1		,;
+								uParam2		,;
+								uParam3		,;
+								uParam4		,;
+								uParam5		)
+
+//#############################################################################
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Programa  | XPathGetNodeValue | Autor | Cirilo Rocha | Data |08/06/2022|##
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Descr.    | Método que sobrepõe o padrão usado para tornar transparente|##
+//##|          |  o xPath                                                   |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method XPathGetNodeValue(	cXPathExpr	,;
+							uParam1		,;
+							uParam2		,;
+							uParam3		,;
+							uParam4		,;
+							uParam5		;
+								) Class tCXXMLManager
+	
+	//Parâmetros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cXPathExpr		AS Character		Optional Default ''
+	
+	::ResetErrors()	//Limpo as mensagens de erro
+
+Return ::oXMLMgn:XPathGetNodeValue(	::_xPath+cXPathExpr,;
+									uParam1		,;
+									uParam2		,;
+									uParam3		,;
+									uParam4		,;
+									uParam5		)
+
+
+//#############################################################################
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Programa  | XPathAddAtt       | Autor | Cirilo Rocha | Data |10/06/2022|##
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Descr.    | Método que sobrepõe o padrão usado para tornar transparente|##
+//##|          |  o xPath                                                   |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method XPathAddAtt(	cXPathExpr	,;
+					cAttName 	,;
+					cAttValue 	,;
+					uParam1		,;
+					uParam2		,;
+					uParam3		,;
+					uParam4		,;
+					uParam5		;
+						) Class tCXXMLManager
+
+	//Parâmetros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cXPathExpr		AS Character		Optional Default ''
+
+Return ::oXMLMgn:XPathAddAtt(	::_xPath+cXPathExpr	,;
+								cAttName 			,;
+								cAttValue 			,;
+								uParam1				,;
+								uParam2				,;
+								uParam3				,;
+								uParam4				,;
+								uParam5				)
+
+//#############################################################################
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Programa  | XPathAddAttArray  | Autor | Cirilo Rocha | Data |10/06/2022|##
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Descr.    | Método que sobrepõe o padrão usado para tornar transparente|##
+//##|          |  o xPath                                                   |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method XPathAddAttArray(cXPathExpr	,;
+						aAttr 		,;
+						uParam1		,;
+						uParam2		,;
+						uParam3		,;
+						uParam4		,;
+						uParam5		;
+							) Class tCXXMLManager
+
+	//Parâmetros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cXPathExpr		AS Character		Optional Default ''
+
+Return ::oXMLMgn:XPathAddAttArray(	::_xPath+cXPathExpr	,;
+									aAttr 				,;
+									uParam1				,;
+									uParam2				,;
+									uParam3				,;
+									uParam4				,;
+									uParam5				)
+
+//#############################################################################
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Programa  | XPathAddNode      | Autor | Cirilo Rocha | Data |10/06/2022|##
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Descr.    | Método que sobrepõe o padrão usado para tornar transparente|##
+//##|          |  o xPath                                                   |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method XPathAddNode(cXPathExpr	,;
+					cNodeName 	,;
+					cNodeValue 	,;
+					uParam1		,;
+					uParam2		,;
+					uParam3		,;
+					uParam4		,;
+					uParam5		;
+						) Class tCXXMLManager
+
+	//Parâmetros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cXPathExpr		AS Character		Optional Default ''
+
+Return ::oXMLMgn:XPathAddNode(	::_xPath+cXPathExpr	,;
+								cNodeName 			,;
+								cNodeValue 			,;
+								uParam1				,;
+								uParam2				,;
+								uParam3				,;
+								uParam4				,;
+								uParam5				)
+
+//#############################################################################
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Programa  | XPathAddNs        | Autor | Cirilo Rocha | Data |10/06/2022|##
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Descr.    | Método que sobrepõe o padrão usado para tornar transparente|##
+//##|          |  o xPath                                                   |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method XPathAddNs(	cXPathExpr	,;
+					cNsName 	,;
+					cNsValue	,;
+					uParam1		,;
+					uParam2		,;
+					uParam3		,;
+					uParam4		,;
+					uParam5		;
+						) Class tCXXMLManager
+
+	//Parâmetros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cXPathExpr		AS Character		Optional Default ''
+
+Return ::oXMLMgn:XPathAddNs(::_xPath+cXPathExpr	,;
+							cNsName 			,;
+							cNsValue			,;
+							uParam1				,;
+							uParam2				,;
+							uParam3				,;
+							uParam4				,;
+							uParam5				)
+
+//#############################################################################
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Programa  | XPathAddNsList    | Autor | Cirilo Rocha | Data |10/06/2022|##
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Descr.    | Método que sobrepõe o padrão usado para tornar transparente|##
+//##|          |  o xPath                                                   |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method XPathAddNsList(	cXPathExpr	,;
+						aAttr		,;
+						uParam1		,;
+						uParam2		,;
+						uParam3		,;
+						uParam4		,;
+						uParam5		;
+							) Class tCXXMLManager
+
+	//Parâmetros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cXPathExpr		AS Character		Optional Default ''
+
+Return ::oXMLMgn:XPathAddNsList(::_xPath+cXPathExpr	,;
+								aAttr				,;
+								uParam1				,;
+								uParam2				,;
+								uParam3				,;
+								uParam4				,;
+								uParam5				)
+
+//#############################################################################
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Programa  | XPathDelAllAtt    | Autor | Cirilo Rocha | Data |10/06/2022|##
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Descr.    | Método que sobrepõe o padrão usado para tornar transparente|##
+//##|          |  o xPath                                                   |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method XPathDelAllAtt(	cXPathExpr	,;
+						uParam1		,;
+						uParam2		,;
+						uParam3		,;
+						uParam4		,;
+						uParam5		;
+							) Class tCXXMLManager
+
+	//Parâmetros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cXPathExpr		AS Character		Optional Default ''
+
+Return ::oXMLMgn:XPathDelAllAtt(::_xPath+cXPathExpr	,;
+								uParam1				,;
+								uParam2				,;
+								uParam3				,;
+								uParam4				,;
+								uParam5				)
+
+//#############################################################################
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Programa  | XPathDelAtt       | Autor | Cirilo Rocha | Data |10/06/2022|##
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Descr.    | Método que sobrepõe o padrão usado para tornar transparente|##
+//##|          |  o xPath                                                   |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method XPathDelAtt( cXPathExpr	,;
+					cAttName	,;
+					uParam1		,;
+					uParam2		,;
+					uParam3		,;
+					uParam4		,;
+					uParam5		;
+						) Class tCXXMLManager
+
+	//Parâmetros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cXPathExpr		AS Character		Optional Default ''
+
+Return ::oXMLMgn:XPathDelAtt(::_xPath+cXPathExpr,;
+							cAttName			,;
+							uParam1				,;
+							uParam2				,;
+							uParam3				,;
+							uParam4				,;
+							uParam5				)
+
+//#############################################################################
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Programa  | XPathDelNode      | Autor | Cirilo Rocha | Data |10/06/2022|##
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Descr.    | Método que sobrepõe o padrão usado para tornar transparente|##
+//##|          |  o xPath                                                   |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method XPathDelNode(cXPathExpr	,;
+					uParam1		,;
+					uParam2		,;
+					uParam3		,;
+					uParam4		,;
+					uParam5		;
+						) Class tCXXMLManager
+
+	//Parâmetros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cXPathExpr		AS Character		Optional Default ''
+
+Return ::oXMLMgn:XPathDelNode(	::_xPath+cXPathExpr	,;
+								uParam1				,;
+								uParam2				,;
+								uParam3				,;
+								uParam4				,;
+								uParam5				)
+
+//#############################################################################
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Programa  | XPathGetAtt       | Autor | Cirilo Rocha | Data |10/06/2022|##
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Descr.    | Método que sobrepõe o padrão usado para tornar transparente|##
+//##|          |  o xPath                                                   |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method XPathGetAtt(	cXPathExpr	,;
+					cAttName	,;
+					uParam1		,;
+					uParam2		,;
+					uParam3		,;
+					uParam4		,;
+					uParam5		;
+						) Class tCXXMLManager
+
+	//Parâmetros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cXPathExpr		AS Character		Optional Default ''
+
+Return ::oXMLMgn:XPathGetAtt(::_xPath+cXPathExpr,;
+							cAttName			,;
+							uParam1				,;
+							uParam2				,;
+							uParam3				,;
+							uParam4				,;
+							uParam5				)
+
+//#############################################################################
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Programa  | XPathGetAttArray  | Autor | Cirilo Rocha | Data |10/06/2022|##
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Descr.    | Método que sobrepõe o padrão usado para tornar transparente|##
+//##|          |  o xPath                                                   |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method XPathGetAttArray(cXPathExpr	,;
+						uParam1		,;
+						uParam2		,;
+						uParam3		,;
+						uParam4		,;
+						uParam5		;
+							) Class tCXXMLManager
+
+	//Parâmetros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cXPathExpr		AS Character		Optional Default ''
+
+Return ::oXMLMgn:XPathGetAttArray(	::_xPath+cXPathExpr	,;
+									uParam1				,;
+									uParam2				,;
+									uParam3				,;
+									uParam4				,;
+									uParam5				)
+
+//#############################################################################
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Programa  | XPathGetChildArray| Autor | Cirilo Rocha | Data |10/06/2022|##
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Descr.    | Método que sobrepõe o padrão usado para tornar transparente|##
+//##|          |  o xPath                                                   |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method XPathGetChildArray(	cXPathExpr	,;
+							uParam1		,;
+							uParam2		,;
+							uParam3		,;
+							uParam4		,;
+							uParam5		;
+								) Class tCXXMLManager
+
+	//Parâmetros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cXPathExpr		AS Character		Optional Default ''
+
+Return ::oXMLMgn:XPathGetChildArray(::_xPath+cXPathExpr	,;
+									uParam1				,;
+									uParam2				,;
+									uParam3				,;
+									uParam4				,;
+									uParam5				)
+
+//#############################################################################
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Programa  | XPathGetNsList    | Autor | Cirilo Rocha | Data |10/06/2022|##
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Descr.    | Método que sobrepõe o padrão usado para tornar transparente|##
+//##|          |  o xPath                                                   |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method XPathGetNsList(	cXPathExpr	,;
+						uParam1		,;
+						uParam2		,;
+						uParam3		,;
+						uParam4		,;
+						uParam5		;
+							) Class tCXXMLManager
+
+	//Parâmetros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cXPathExpr		AS Character		Optional Default ''
+
+Return ::oXMLMgn:XPathGetNsList(::_xPath+cXPathExpr	,;
+								uParam1				,;
+								uParam2				,;
+								uParam3				,;
+								uParam4				,;
+								uParam5				)
+
+//#############################################################################
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Programa  | XPathHasAtt       | Autor | Cirilo Rocha | Data |10/06/2022|##
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Descr.    | Método que sobrepõe o padrão usado para tornar transparente|##
+//##|          |  o xPath                                                   |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method XPathHasAtt(	cXPathExpr	,;
+					uParam1		,;
+					uParam2		,;
+					uParam3		,;
+					uParam4		,;
+					uParam5		;
+						) Class tCXXMLManager
+
+	//Parâmetros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cXPathExpr		AS Character		Optional Default ''
+
+Return ::oXMLMgn:XPathHasAtt(::_xPath+cXPathExpr,;
+							uParam1				,;
+							uParam2				,;
+							uParam3				,;
+							uParam4				,;
+							uParam5				)
+
+//#############################################################################
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Programa  | XPathHasAtt       | Autor | Cirilo Rocha | Data |10/06/2022|##
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Descr.    | Método que sobrepõe o padrão usado para tornar transparente|##
+//##|          |  o xPath                                                   |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method XPathSetAtt(	cXPathExpr	,;
+					cAttName	,;
+					cAttValue 	,;
+					uParam1		,;
+					uParam2		,;
+					uParam3		,;
+					uParam4		,;
+					uParam5		;
+						) Class tCXXMLManager
+
+	//Parâmetros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cXPathExpr		AS Character		Optional Default ''
+
+Return ::oXMLMgn:XPathSetAtt(::_xPath+cXPathExpr,;
+							cAttName			,;
+							cAttValue 			,;
+							uParam1				,;
+							uParam2				,;
+							uParam3				,;
+							uParam4				,;
+							uParam5				)
+
+//#############################################################################
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Programa  | XPathSetNode      | Autor | Cirilo Rocha | Data |10/06/2022|##
+//##+----------+-------------------+-------+--------------+------+----------+##
+//##|Descr.    | Método que sobrepõe o padrão usado para tornar transparente|##
+//##|          |  o xPath                                                   |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   | Programador   | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+Method XPathSetNode(cXPathExpr	,;
+					cNodeName	,;
+					cNodeValue	,;
+					uParam1		,;
+					uParam2		,;
+					uParam3		,;
+					uParam4		,;
+					uParam5		;
+						) Class tCXXMLManager
+
+	//Parâmetros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cXPathExpr		AS Character		Optional Default ''
+
+Return ::oXMLMgn:XPathSetNode(	::_xPath+cXPathExpr	,;
+								cNodeName			,;
+								cNodeValue			,;
+								uParam1				,;
+								uParam2				,;
+								uParam3				,;
+								uParam4				,;
+								uParam5				)
+
+//#################################################################################################
+//#################################################################################################
+// MÉTODOS PADRÕES
+//#################################################################################################
+//#################################################################################################
+
+//-------------------------------------------------------------------------------------------------
+Method CanonicalC14N( 	cXML 		,;
+						cParam2 	,;
+						nOptions	,;
+						cNS 		,;
+						nComments	,;
+						uParam1		,;
+						uParam2		,;
+						uParam3		,;
+						uParam4		,;
+						uParam5		;
+							) Class tCXXMLManager
+
+Return ::oXMLMgn:CanonicalC14N(	cXML 		,;
+								cParam2 	,;
+								nOptions	,;
+								cNS 		,;
+								nComments	,;
+								uParam1		,;
+								uParam2		,;
+								uParam3		,;
+								uParam4		,;
+								uParam5		)
+
+//-------------------------------------------------------------------------------------------------
+Method CanonicalC14NFile( 	cXML 		,;
+							cParam2 	,;
+							nOptions	,;
+							cNS 		,;
+							nComments	,;
+							uParam1		,;
+							uParam2		,;
+							uParam3		,;
+							uParam4		,;
+							uParam5		;
+							) Class tCXXMLManager
+
+Return ::oXMLMgn:CanonicalC14NFile(	cXML 		,;
+									cParam2 	,;
+									nOptions	,;
+									cNS 		,;
+									nComments	,;
+									uParam1		,;
+									uParam2		,;
+									uParam3		,;
+									uParam4		,;
+									uParam5		)
+
+//-------------------------------------------------------------------------------------------------
+Method DOMAddAtt( 	cName 	,; 
+					cValue 	,;
+					uParam1	,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMAddAtt( cName 	,; 
+							cValue 	,;
+							uParam1	,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+
+//-------------------------------------------------------------------------------------------------
+Method DOMAddAttArray(	aAttr 	,;
+						uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	;
+							) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMAddAttArray(aAttr 	,;
+								uParam1	,;
+								uParam2	,;
+								uParam3	,;
+								uParam4	,;
+								uParam5	)
+
+//-------------------------------------------------------------------------------------------------
+Method DOMAddNs(cNSName ,;
+				cNSValue,;
+				uParam1	,;
+				uParam2	,;
+				uParam3	,;
+				uParam4	,;
+				uParam5	;
+					) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMAddNs(	cNSName ,;
+							cNSValue,;
+							uParam1	,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+
+//-------------------------------------------------------------------------------------------------
+Method DOMAddNsList(aAttr	,;
+					uParam1	,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMAddNsList(	aAttr	,;
+								uParam1	,;
+								uParam2	,;
+								uParam3	,;
+								uParam4	,;
+								uParam5	)
+
+//-------------------------------------------------------------------------------------------------
+Method DOMChildCount(	uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	;
+							) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMChildCount(	uParam1	,;
+								uParam2	,;
+								uParam3	,;
+								uParam4	,;
+								uParam5	)
+
+//-------------------------------------------------------------------------------------------------
+Method DOMChildNode(uParam1	,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMChildNode(	uParam1	,;
+								uParam2	,;
+								uParam3	,;
+								uParam4	,;
+								uParam5	)
+
+
+//-------------------------------------------------------------------------------------------------
+Method DOMDelAllAtt(uParam1	,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMDelAllAtt(	uParam1	,;
+								uParam2	,;
+								uParam3	,;
+								uParam4	,;
+								uParam5	)
+
+//-------------------------------------------------------------------------------------------------
+Method DOMDelAtt( 	cAttName ,;
+					uParam1	,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMDelAtt(	cAttName ,;
+							uParam1	,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+
+
+//-------------------------------------------------------------------------------------------------
+Method DOMDelNode(	uParam1	,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMDelNode(uParam1	,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+
+//-------------------------------------------------------------------------------------------------
+Method DOMGetAtt(cAttName,;
+				uParam1	,;
+				uParam2	,;
+				uParam3	,;
+				uParam4	,;
+				uParam5	;
+					) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMGetAtt(	cAttName,;
+							uParam1	,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+
+//-------------------------------------------------------------------------------------------------
+Method DOMGetAttArray(	uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	;
+							) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMGetAttArray(uParam1	,;
+								uParam2	,;
+								uParam3	,;
+								uParam4	,;
+								uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method DOMGetChildArray(uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	;
+							) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMGetChildArray(	uParam1,;
+									uParam2	,;
+									uParam3	,;
+									uParam4	,;
+									uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method DOMGetDefNs(	uParam1	,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMGetDefNs(	uParam1	,;
+								uParam2	,;
+								uParam3	,;
+								uParam4	,;
+								uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method DOMGetNs(cAttName,;
+				uParam1	,;
+				uParam2	,;
+				uParam3	,;
+				uParam4	,;
+				uParam5	;
+					) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMGetNs(	cAttName,;
+							uParam1	,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method DOMGetNsList(uParam1	,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMGetNsList(	uParam1	,;
+								uParam2	,;
+								uParam3	,;
+								uParam4	,;
+								uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method DOMHasAtt(uParam1,;
+				uParam2	,;
+				uParam3	,;
+				uParam4	,;
+				uParam5	;
+					) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMHasAtt(	uParam1	,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method DOMHasChildNode(	uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	;
+							) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMHasChildNode(uParam1	,;
+								uParam2	,;
+								uParam3	,;
+								uParam4	,;
+								uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method DOMHasNextNode(	uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	;
+							) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMHasNextNode(uParam1	,;
+								uParam2	,;
+								uParam3	,;
+								uParam4	,;
+								uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method DOMHasParentNode(uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	;
+							) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMHasParentNode(	uParam1,;
+									uParam2	,;
+									uParam3	,;
+									uParam4	,;
+									uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method DOMHasPrevNode(	uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	;
+							) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMHasPrevNode(uParam1	,;
+								uParam2	,;
+								uParam3	,;
+								uParam4	,;
+								uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method DOMNewChildNode(	cNodeName	,;
+						cNodeValue	,;
+						uParam1		,;
+						uParam2		,;
+						uParam3		,;
+						uParam4		,;
+						uParam5		;
+							) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMNewChildNode(cNodeName	,;
+								cNodeValue	,;
+								uParam1		,;
+								uParam2		,;
+								uParam3		,;
+								uParam4		,;
+								uParam5		)
+
+//-------------------------------------------------------------------------------------------------
+Method DOMNextNode(	uParam1	,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMNextNode(uParam1,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method DOMParentNode(uParam1,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMParentNode(	uParam1	,;
+								uParam2	,;
+								uParam3	,;
+								uParam4	,;
+								uParam5	)
+
+//-------------------------------------------------------------------------------------------------
+Method DOMPrevNode(	uParam1	,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMPrevNode(uParam1,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method DOMSetAtt(cAttName,;
+				cAttValue,;
+				uParam1	,;
+				uParam2	,;
+				uParam3	,;
+				uParam4	,;
+				uParam5	;
+					) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMSetAtt(	cAttName,;
+							cAttValue,;
+							uParam1	,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+
+//-------------------------------------------------------------------------------------------------
+Method DOMSetNode(	cNodeName	,;
+					cNodeValue	,;
+					uParam1		,;
+					uParam2		,;
+					uParam3		,;
+					uParam4		,;
+					uParam5		;
+						) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMSetNode(cNodeName	,;
+							cNodeValue	,;
+							uParam1		,;
+							uParam2		,;
+							uParam3		,;
+							uParam4		,;
+							uParam5		)
+//-------------------------------------------------------------------------------------------------
+Method DOMSiblingCount(	uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	;
+							) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMSiblingCount(uParam1,;
+								uParam2	,;
+								uParam3	,;
+								uParam4	,;
+								uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method DOMSiblingCountPosition(	uParam1	,;
+								uParam2	,;
+								uParam3	,;
+								uParam4	,;
+								uParam5	;
+									) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMSiblingCountPosition(uParam1,;
+										uParam2	,;
+										uParam3	,;
+										uParam4	,;
+										uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method DOMSiblingPosition(uParam1,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	;
+							) Class tCXXMLManager
+
+Return ::oXMLMgn:DOMSiblingPosition(uParam1	,;
+									uParam2	,;
+									uParam3	,;
+									uParam4	,;
+									uParam5	)
+//-------------------------------------------------------------------------------------------------
+Method LastError(uParam1	,;
+				uParam2	,;
+				uParam3	,;
+				uParam4	,;
+				uParam5	;
+					) Class tCXXMLManager
+
+Return ::oXMLMgn:LastError(	uParam1	,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+
+
+//-------------------------------------------------------------------------------------------------
+Method ParseSchema(	cXmlSchema	,;
+					uParam1		,;
+					uParam2		,;
+					uParam3		,;
+					uParam4		,;
+					uParam5		;
+							) Class tCXXMLManager
+
+Return ::oXMLMgn:ParseSchema(cXmlSchema	,;
+							uParam1		,;
+							uParam2		,;
+							uParam3		,;
+							uParam4		,;
+							uParam5		)
+
+//-------------------------------------------------------------------------------------------------
+Method ParseSchemaFile(	cFile	,;
+						uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	;
+							) Class tCXXMLManager
+
+Return ::oXMLMgn:ParseSchemaFile(cFile	,;
+								uParam1	,;
+								uParam2	,;
+								uParam3	,;
+								uParam4	,;
+								uParam5	)
+
+//-------------------------------------------------------------------------------------------------
+Method Read(cXml 	,;
+			cURL 	,;
+			cEncoding,;
+			nOptions,;
+			uParam1	,;
+			uParam2	,;
+			uParam3	,;
+			uParam4	,;
+			uParam5	;
+				) Class tCXXMLManager
+
+Return ::oXMLMgn:Read(	cXml 	,;
+						cURL 	,;
+						cEncoding,;
+						nOptions,;
+						uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	)
+
+//-------------------------------------------------------------------------------------------------
+Method ReadFile(cXmlFile	,;
+				cEncoding	,;
+				nOptions 	,;
+				uParam1		,;
+				uParam2		,;
+				uParam3		,;
+				uParam4		,;
+				uParam5		;
+					) Class tCXXMLManager
+
+Return ::oXMLMgn:ReadFile(	cXmlFile	,;
+							cEncoding	,;
+							nOptions 	,;
+							uParam1		,;
+							uParam2		,;
+							uParam3		,;
+							uParam4		,;
+							uParam5		)
+
+//-------------------------------------------------------------------------------------------------
+Method Recovery(cXml	,;
+				uParam1	,;
+				uParam2	,;
+				uParam3	,;
+				uParam4	,;
+				uParam5	;
+					) Class tCXXMLManager
+
+Return ::oXMLMgn:Recover(cXml	,;
+						uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	)
+
+//-------------------------------------------------------------------------------------------------
+Method RecoverFile(	cXmlFile,;
+					uParam1	,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXXMLManager
+
+Return ::oXMLMgn:RecoverFile(cXmlFile,;
+							uParam1	,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+
+//-------------------------------------------------------------------------------------------------
+Method Save2File(cFile	,;
+				uParam1	,;
+				uParam2	,;
+				uParam3	,;
+				uParam4	,;
+				uParam5	;
+					) Class tCXXMLManager
+
+Return ::oXMLMgn:Save2File(	cFile	,;
+							uParam1	,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+
+//-------------------------------------------------------------------------------------------------
+Method Save2String(	uParam1	,;
+					uParam2	,;
+					uParam3	,;
+					uParam4	,;
+					uParam5	;
+						) Class tCXXMLManager
+		
+Return ::oXMLMgn:Save2String(uParam1,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	)
+
+//-------------------------------------------------------------------------------------------------
+Method SchemaValidate(	uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	;
+							) Class tCXXMLManager
+
+Return ::oXMLMgn:SchemaValidate(uParam1	,;
+								uParam2	,;
+								uParam3	,;
+								uParam4	,;
+								uParam5	)
+
+//-------------------------------------------------------------------------------------------------
+Method Warning(	uParam1	,;
+				uParam2	,;
+				uParam3	,;
+				uParam4	,;
+				uParam5	;
+					) Class tCXXMLManager
+
+Return ::oXMLMgn:Warning(uParam1,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	)
+
+//-------------------------------------------------------------------------------------------------
+Method XPathGetRootNsList(	uParam1	,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	;
+								) Class tCXXMLManager
+
+Return ::oXMLMgn:XPathGetRootNsList(uParam1	,;
+									uParam2	,;
+									uParam3	,;
+									uParam4	,;
+									uParam5	)
+
+//-------------------------------------------------------------------------------------------------
+Method XPathRegisterNs(	cNsName	,;
+						cNsValue,;
+						uParam1	,;
+						uParam2	,;
+						uParam3	,;
+						uParam4	,;
+						uParam5	;
+							) Class tCXXMLManager
+
+Return ::oXMLMgn:XPathRegisterNs(cNsName,;
+								cNsValue,;
+								uParam1	,;
+								uParam2	,;
+								uParam3	,;
+								uParam4	,;
+								uParam5	)
+
+//-------------------------------------------------------------------------------------------------
+Method XPathRegisterNsList( aNSList ,;
+							uParam1	,;
+							uParam2	,;
+							uParam3	,;
+							uParam4	,;
+							uParam5	;
+								) Class tCXXMLManager
+
+Return ::oXMLMgn:XPathRegisterNsList(aNSList ,;
+									uParam1	,;
+									uParam2	,;
+									uParam3	,;
+									uParam4	,;
+									uParam5	)

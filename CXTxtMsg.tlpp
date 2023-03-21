@@ -1,0 +1,98 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#Include "CXInclude.ch"
+
+//#############################################################################
+//##+----------+------------+-------+-------------------+------+------------+##
+//##|Programa  | CXTxtMsg   | Autor | Cirilo Rocha      | Data | 11/05/2017 |##
+//##+----------+------------+-------+-------------------+------+------------+##
+//##|Descr.    | Função genérica montar um texto para rastreio do fonte     |##
+//##|          | chamador                                                   |##
+//##|          |                                                            |##
+//##|          | Utilizada para criar mensagens customizadas e referenciar  |##
+//##|          | de qual rotina e linha esta a mensagem                     |##
+//##|          |                                                            |##
+//##|          | EXEMPLOS:                                                  |##
+//##|          |   ApMsgAlert(U_CXTxtMsg()+mensagem da rotina)              |##
+//##|          |   ApMsgAlert(U_CXTxtMSG(self)+mensegem do objeto)          |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 19/05/18 | Cirilo R. | Adicionado parâmetro do nível de retorno       |##
+//##| 08/01/19 | Cirilo R. | Revisão no fonte                               |##
+//##| 17/11/21 | Cirilo R. | Revisão no fonte                               |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+
+//+---------------------------------------------------------------------------+
+//| TEMOS DUAS PARTICULARIDADES AINDA NÃO TRATADAS NESTA FUNÇÃO:              |
+//| 1) SE CHAMAR DIRETAMENTE UMA STATIC FUNCTION USANDO STATICCALL ELA NÃO    |
+//|     ACHA O FONTE CORRETO                                                  |
+//| 2) PARA CHAMAR A PARTIR DE UM OBJETO É NECESSÁRIO PASSAR O OBJETO PARA    |
+//|      QUE ELA NA FORMA DE SELF                                             |
+//+---------------------------------------------------------------------------+
+User Function CXTxtMsg(	oObjeto		,;	//01 oObjeto
+						nNivel		,;	//02 nNivel
+						lSemTraco	);	//03 lSemTraco
+							AS Character
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cString		AS Character
+	Local cFuncao		AS Character
+	Local nX			AS Integer
+	Local aFile			AS Array
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR oObjeto 		AS Object		Optional Default NIL
+	ParamType 1		VAR nNivel  	  	AS Numeric		Optional Default 1	//Quantidade de niveis para retorceder e encontrar a funcao chamadora
+	ParamType 2		VAR lSemTraco		AS Logical		Optional Default .F.
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	cString	:= ''
+	
+	//Chamada a partir de um objeto
+	If ValType(oObjeto) == 'O'
+
+//		cString	+= GetClassName(oObjeto)+':'+ProcName(1)+'('+AllTrim(Str(ProcLine(1)))+') - '
+		cString	+= GetClassName(oObjeto)+'('+AllTrim(Str(ProcLine(1)))+') - '
+
+	//Chamada a partir de uma user function
+	Else
+		cFuncao	:= Upper(ProcName(nNivel))
+
+		If .Not. Left(cFuncao,2) == 'U_' //Funcao de usuario?
+			//Busca funcao de usuario chamadora da Static Function
+			For nX := nNivel+1 to 30
+				cFuncao	:= Upper(ProcName(nX))
+				//Busca se e' funcao customizada
+				If Left(cFuncao,2) == 'U_' .Or. ;
+					Empty(cFuncao)			//Fim da pilha
+	//				cString	:= SubStr(cString,3)
+					Exit
+				EndIf
+			Next
+		EndIf
+
+		If Empty(cFuncao)
+			cFuncao	:= 'Desconhecida'
+		Else
+			GetFuncArray( cFuncao, /*@aType*/, @aFile, /*@aLine*/, /*@aDate*/, /*@aTime*/ ) //Busca dados da funcao no RPO
+			If Len(aFile) == 0 //Erro ao localizar funcao!
+				cString	:= SubStr(cFuncao,3)
+			Else
+				cString	:= RetFileName(aFile[1])
+			EndIf
+		EndIf
+
+		cString	+= '('+AllTrim(Str(ProcLine(nNivel)))+') - '
+
+	EndIf
+	
+	If lSemTraco
+		cString	:= StrTran(cString,' - ','')
+	EndIf
+	
+Return cString

@@ -1,0 +1,48 @@
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+#INCLUDE 'CXInclude.ch'
+
+//#############################################################################
+//##+==========+==========+=======+====================+======+=============+##
+//##|Programa  | CXMascN  | Autor | Cirilo Rocha       | Data | 20/05/2022  |##
+//##+==========+==========+=======+====================+======+=============+##
+//##|Desc.     | Função para formatar uma máscara para campos numéricos ba- |##
+//##|          |  seada no tamanho e decimal do campo.                      |##
+//##+==========+==========+=================================================+##
+//##| DATA     | ANALISTA | MANUTENÇÃO EFETUADA                             |##
+//##+==========+==========+=================================================+##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+==========+==========+=================================================+##
+//#############################################################################
+User Function CXMascN(	nTamanho	,;	//01
+						nDecimal	,;	//02
+						lPontos		);	//03 Acrescenta pontos separadores de milhares (def .t.)
+								AS Character
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cMasc		AS Character
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR nTamanho		AS Numeric
+	ParamType 1		VAR nDecimal		AS Numeric 
+	ParamType 2		VAR lPontos			AS Logical				Optional Default .T.
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	If lPontos
+		cMasc	:= '999,999,999,999,999'
+	Else
+		cMasc	:= '9999999999999999999'
+	EndIf
+
+	If nDecimal > 0
+		cMasc	+= '.'+Replicate('9',nDecimal)
+	EndIf
+
+	cMasc	:= Right(cMasc,nTamanho)
+	If Left(cMasc,1) == ','	//Remove se começar por um ponto
+		cMasc	:= SubStr(cMasc,2)
+	EndIf
+
+Return ('@E '+cMasc)

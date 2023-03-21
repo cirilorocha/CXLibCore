@@ -1,0 +1,367 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+
+//#############################################################################
+//##+----------+--------------+-------+-------------------+------+----------+##
+//##|Programa  | CXMostraTipo | Autor | Cirilo Rocha      | Data |05/04/2012|##
+//##+----------+--------------+-------+-------------------+------+----------+##
+//##|Descr.    | Função genérica para exibir qualquer variável como texto.  |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 19/08/12 | Cirilo R. | Melhoria para mostrar o nome da classe         |##
+//##| 18/05/15 | Cirilo R. | Melhoria para mostrar os dados de objetos      |##
+//##| 27/11/15 | Cirilo R. | Melhoria para mostrar os atributos e métodos   |##
+//##|          |           |  dos objetos                                   |##
+//##| 19/01/17 | Cirilo R. | Adicionados novos tipos da funcao Type         |##
+//##| 07/03/17 | Cirilo R. | Pequena revisão                                |##
+//##|          |           | Ajuste na impressão de arrays                  |##
+//##| 16/03/17 | Cirilo R. | Filtro para o número de níveis de detalhamento |##
+//##| 24/04/18 | Cirilo R. | Ajustes para a rotina rodar mesmo que o ambien-|##
+//##|          |           |  te não esteja carregado                       |##
+//##| 24/07/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           | Adicionado tipo JSon                           |##
+//##| 12/11/21 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 20/05/22 | Cirilo R. | Melhoria na impressão de valores numéricos     |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXMostraTipo(	xParam		,; 	//01 Variavel que sera exibida
+							nTamanho	,; 	//02 Tamanho para impressao de campos numericos (def 16)
+							nDecimais	,; 	//03 Decimais para impressao de campos numericos (def 2)
+							lX3Combo	,; 	//04 Indica se o campo e' um combo, para obter os dados do SX3 (def .F.)
+							cCampo		,; 	//05 Campo do SX3 para referencia do combo (se o campo acima for .T.)
+							aCombo		,; 	//06 Opcoes do combo para selecao (def {} )
+							nNivel		,; 	//07 Nivel para impressao (recuo) usado as chamadas recursivas (def 0)
+							cNmVariav	,; 	//08 Nome do array usado para impressao (def 'SEM NOME')
+							lMostraTipo	,;	//09 Se deve mostrar o tipo da variavel (def .T.)
+							lNomeArr	);	//10 Se imprime este nivel do array (def se nv > 0)
+									AS Character
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local nTab			AS Numeric
+	Local nTamPad		AS Integer
+	Local cRet			AS Character
+//	Local cMascTmp		AS Character
+	Local cTipoVar		AS Character
+	Local cEspInic		AS Character
+	Local nPos			AS Integer
+	Local nTamCb		AS Integer
+	Local nX,nY	        AS Integer
+	Local cStrTmp		AS Character
+	Local cTemp			AS Character
+	Local nMaxNv		AS Integer
+	Local nTamVar		AS Integer
+
+	//Informacoes de classes
+	Local aDataClass	AS Array
+	Local aMethClass	AS Array
+	Local aParamMeth	AS Array
+
+//	Private xObj		AS Object
+
+	//Parametros da rotina-------------------------------------------------------------------------
+//	ParamType 0		VAR xParam				AS Character	//SEM TIPO DEFINIDO
+	ParamType 1		VAR nTamanho			AS Numeric					Optional Default 0
+	ParamType 2		VAR nDecimais			AS Numeric					Optional Default 0
+	ParamType 3		VAR lX3Combo			AS Logical					Optional Default .F.
+	ParamType 4		VAR cCampo				AS Character				Optional Default NIL
+	ParamType 5		VAR aCombo				AS Array					Optional Default {}
+	ParamType 6		VAR nNivel				AS Numeric					Optional Default 0
+	ParamType 7		VAR cNmVariav			AS Character				Optional Default 'SEM NOME'
+	ParamType 8		VAR lMostraTipo			AS Logical					Optional Default .T.
+	ParamType 9		VAR lNomeArr			AS Logical					Optional Default ( nNivel > 0 )
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	nTab		:= 2
+	nTamPad		:= 4
+
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+
+	//Tratamento se a empresa nao estiver carregada
+	If Select('SX6') == 0
+		nMaxNv	:= 3
+	Else
+		nMaxNv	:= FWSuperGetMV('MX_CMTMXNV',.F.,5)
+	EndIf
+
+	//Nivel maximo de busca
+	If nNivel > nMaxNv
+		Return ''
+	EndIf
+
+	cEspInic	:= Space(nNivel*nTab)
+
+	//Obtem o tipo da variavel
+	cTipoVar	:= ValType(xParam)
+	
+	cRet		:= ''
+	If .Not. Empty(cNmVariav)
+		cRet	:= cNmVariav+Space(1)
+	EndIf
+
+	If lMostraTipo
+
+		If 	cTipoVar == 'C' .Or. ;	//Char
+			cTipoVar == 'A'			//Array
+
+			nTamVar	:= Len(xParam)
+			cStrTmp	:= LTrim(Str(nTamVar))
+			nTamPad	:= Len(cStrTmp) //Tamanho do comprimento do campo
+			cStrTmp	:= ' ('+cTipoVar+cStrTmp+')'
+		Else
+			cStrTmp	:= '('+cTipoVar+')'
+		EndIf
+
+		If 	.Not. lNomeArr .And. ;
+			Len(cRet+cStrTmp) < 20 .And. ;
+			cTipoVar $ 'A/O'
+
+			cRet	:= PadR(cRet,20-Len(cStrTmp)) //Padroniza ate certo limite de tamanho, acima disto fica desalinhado mesmo
+		EndIf
+		cRet += cStrTmp
+
+		If cTipoVar <> 'A'	//Array
+			cRet	+= '-> '
+		EndIf
+
+	EndIf
+
+	//---------------------------------------------------------------------------------------------
+
+	//ComboBox padrao do sistema
+	If lX3Combo
+		If .Not. Empty(cCampo)
+			cRet	+= U_CXX3Combo(cCampo,,,,xParam)
+		Else
+			cCodErr	:= U_CXTxtMsg(,,.T.)
+			cMsgErr	:= 'Erro nos parâmetros passados, era esperado algum conteúdo no 5º parâmetro. E está vazio.'
+			cSoluc	:= 'INFORME O SETOR DE T.I.'
+			U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+		EndIf
+
+	//---------------------------------------------------------------------------------------------
+
+	//Lista do ComboBox
+	ElseIf len(aCombo) > 0
+		If 	cTipoVar == 'N' .And. ;		//Numeric
+			xParam > 0 		.And. ;
+			xParam <= len(aCombo)
+
+			cRet	+= aCombo[xParam]
+		ElseIf cTipoVar == 'C'			//Char
+			nTamCb	:= Len(xParam)
+			nPos	:= aScan(aCombo,{|X| Left(X,nTamCb) == xParam })
+			If nPos > 0
+				cRet	+= Right(aCombo[nPos],len(aCombo[nPos])-nTamCb-1) //Remove o 'X=' do texto
+			Else
+				cCodErr	:= U_CXTxtMsg(,,.T.)
+				cMsgErr	:= 'Erro no parâmetro '+xParam+' para localizar o combo.'
+				cSoluc	:= 'INFORME O SETOR DE T.I.'
+				U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+			EndIf
+		Else
+			cCodErr	:= U_CXTxtMsg(,,.T.)
+			cMsgErr	:= 'Erro nos parâmetros passados array aCombo. Tipovar '+cTipoVar
+			cSoluc	:= 'INFORME O SETOR DE T.I.'
+			U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+		EndIf
+	Else
+
+		//-----------------------------------------------------------------------------------------
+
+		//Se um Array
+		If cTipoVar == 'A'
+
+			For nX := 1 to Len(xParam)
+
+				cStrTmp	:= '['+StrZero(nX,nTamPad)+']'
+
+				If .Not. lNomeArr 	//Para nome de arrays
+					cNmVariav	:= ''
+				EndIf
+
+				If .Not. Empty(cNmVariav)
+					cStrTmp	:= cNmVariav+Space(1)+cStrTmp
+				EndIf
+
+				cStrTmp	:=	U_CXMostraTipo(	@xParam[nX]		,;	//01
+											/*nTamanho*/	,;	//02
+											/*nDecimais*/	,;	//03
+											/*lX3Combo*/	,;	//04
+											/*cCampo*/		,;	//05
+											/*aCombo*/		,;	//06
+											nNivel+1		,;	//07
+											cStrTmp 		,;	//08
+											lMostraTipo		,;	//09
+											.T.				) 	//10 - Mostra nome do array
+				If .Not. Empty(cStrTmp)
+					cRet	+= CRLF+cEspInic+Space(nTab)+cStrTmp
+				EndIf
+
+			Next
+
+		//-----------------------------------------------------------------------------------------
+
+		//Data (Date)
+		ElseIf cTipoVar == 'D'
+			If Empty(xParam)
+				cRet += '  /  /    '
+			Else
+//				cRet += GravaData(xParam,.T.,5)
+//				cRet += StrZero(Day(xParam),2)+'/'+StrZero(Month(xParam),2)+'/'+StrZero(Year(xParam),4)
+				cRet += U_CXGravaData(xParam,'/',5)
+			EndIf
+
+		//-----------------------------------------------------------------------------------------
+
+		//Numerico (Numeric)
+		ElseIf cTipoVar == 'N'
+			//cMascTmp := '@E '+Right('999,999,999,999,999',nTamanho-nDecimais-1)
+			//If nDecimais > 0
+			//	cMascTmp += '.'+Replicate('9',nDecimais)
+			//EndIf
+			//cRet += Transform(xParam,cMascTmp)
+			If nTamanho > 0
+				cRet += Transform(xParam,U_CXMascN(nTamanho,nDecimais))
+			Else
+				cTemp		:= LTrim(Str(xParam))
+				nDecimais	:= Rat('.',cTemp)
+				If nDecimais == 0
+					nDecimais	:= Len(cTemp)+1
+				EndIf
+				cStrTmp		:= SubStr(cTemp,nDecimais-1,1)
+				For nX := nDecimais-2 to 1 step -1
+					If ( ( nDecimais-1 - nX ) % 3 ) == 0
+						cStrTmp	:= '.'+cStrTmp
+					EndIf
+					cStrTmp	:= SubStr(cTemp,nX,1)+cStrTmp
+				Next
+				
+				//Alinha o campo pela vírgula
+				If Len(cStrTmp) < 14
+					cStrTmp	:= PadL(cStrTmp,14)
+				EndIf
+				cRet	+= cStrTmp
+				If '.' $ cTemp
+					cRet	+= ','+SubStr(cTemp,nDecimais+1)
+				EndIf
+				
+			EndIf
+
+		//-----------------------------------------------------------------------------------------
+
+		//Logico (Logical)
+		ElseIf cTipoVar == 'L'
+			If xParam
+				cRet 	+= 'Verdadeiro'
+			Else
+				cRet 	+= 'Falso'
+			EndIf
+
+		//-----------------------------------------------------------------------------------------
+
+		//Caracter (Character)
+		ElseIf cTipoVar == 'C'
+
+			If Empty(xParam)
+				cRet += "'"+xParam+"'"
+			Else
+				cRet	+= xParam //AllTrim(xParam)
+			EndIf
+
+		//-----------------------------------------------------------------------------------------
+
+		//Bloco de codigo (Block)
+		ElseIf cTipoVar == 'B'
+			//cRet	+= 'Bloco de Código'
+			cRet	+= GetCbSource(xParam)
+
+		//-----------------------------------------------------------------------------------------
+
+		//JSon
+		ElseIf cTipoVar == 'J'
+			cRet	+= U_CXJsonFormat(xParam:toJson())			
+
+		//-----------------------------------------------------------------------------------------
+
+		//Objeto (Object)
+		ElseIf cTipoVar == 'O'
+//			xObj	:= xParam
+			aMethClass	:= ClassMethArr( xParam , .T. )
+//			If aScan(aMethClass,{|x| x[1] == 'CLASSNAME' }) > 0
+//				cRet	+= xParam:ClassName()
+//			ElseIf Type('xObj:cClassName') == 'C'
+//				cRet	+= xParam:cClassName
+//			Else
+//				cRet	+= 'Desconhecida'
+//			EndIf
+			cRet	+= GetClassName(xParam) //Nome da Clase
+			cRet	+= CRLF
+
+			If Len(aMethClass)
+				cRet	+= cEspInic+'MÉTODOS'+CRLF
+				aSort(aMethClass,,, { |x, y| x[1] < y[1] } )	//Crescente
+				
+				For nX := 1 to Len(aMethClass)
+					
+					cStrTmp		:= ''
+					aParamMeth	:= @aMethClass[nX][2]
+					If len(aParamMeth) > 0 //Parametros
+						For nY := 1 to len(aParamMeth)
+							cStrTmp	+= 	aParamMeth[nY]+','
+						Next
+						cStrTmp	:= U_CXSubStr(cStrTmp,,-1)
+					EndIf
+					cStrTmp	:= '('+cStrTmp+')'
+					
+					cRet	+= 	cEspInic+Space(nTab)+; //+1 nivel
+								aMethClass[nX][1]+cStrTmp+;
+								CRLF
+				Next
+			EndIf
+
+			aDataClass	:= ClassDataArr( xParam , .T. ) //Obtem os dados da classe
+			If Len(aDataClass) > 0
+
+				cRet	+= cEspInic+'ATRIBUTOS'+CRLF
+				aSort(aDataClass,,, { |x, y| x[1] < y[1] } )	//Crescente
+				For nX := 1 to len(aDataClass)
+
+					cStrTmp	:=	U_CXMostraTipo(	@aDataClass[nX][2]	,;	//01 Variavel
+												/*nTamanho*/		,;	//02 
+												/*nDecimais*/		,;	//03 
+												/*lX3Combo*/		,;	//04 
+												/*cCampo*/			,;	//05 
+												/*aCombo*/			,;	//06 
+												nNivel+1			,;	//07
+												aDataClass[nX][1]	,; 	//08 Nome variavel
+												lMostraTipo			,;	//09
+												.F.					)  	//10 Nao imprime se for array
+
+					If .Not. Empty(cStrTmp)
+						cRet	+= cEspInic+Space(nTab)+cStrTmp+CRLF
+					EndIf
+
+				Next
+			EndIf
+
+//			cRet	+= VarInfo(cNmVariav,xParam,0,.F.,.F.)
+
+		//---------------------------------------------------------------------------
+
+		//Tipos nao definidos
+		Else
+			cRet	+= U_CXDescTipo(cTipoVar,.F.)
+		EndIf
+
+	EndIf
+
+Return cRet

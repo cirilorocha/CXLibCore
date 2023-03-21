@@ -1,0 +1,39 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#INCLUDE "CXInclude.ch"
+#INCLUDE "CXaCores.CH"
+#INCLUDE "CXaLegenda.CH"
+
+//#############################################################################
+//##+----------+-----------+-------+-------------------+------+-------------+##
+//##|Programa  | CXMontLeg | Autor | Cirilo Rocha      | Data | 29/10/2015  |##
+//##+----------+-----------+-------+-------------------+------+-------------+##
+//##|Descr.    | Para montar o array aLegenda baseado no array aCores       |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 23/02/23 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXMontLeg(_aCores);	//01 aCores
+							AS Array
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aLegenda		AS Array
+	Local nX			AS Integer
+	
+	//---------------------------------------------------------------------------------------------
+	If Type('_aCores') == 'U' //Parametro nao foi passado, busca a variavel privada/publica aCores
+		_aCores	:= @aCores
+	EndIf
+		
+	aLegenda	:= {}
+	For nX := 1 to len(_aCores)
+		aAdd(aLegenda,array(nLG_TAMARR))
+		aTail(aLegenda)[nLG_COR]	:= _aCores[nX][nCR_COR]
+		aTail(aLegenda)[nLG_LEGEN]	:= _aCores[nX][nCR_LEGEN]
+	Next
+
+Return aLegenda

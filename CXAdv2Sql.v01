@@ -1,0 +1,134 @@
+#INCLUDE "RWMake.ch"
+#INCLUDE "Totvs.ch"
+#INCLUDE "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+
+//#############################################################################
+//##+==========+===========+=======+===================+======+=============+##
+//##|Programa  | CXAdv2Sql | Autor | Cirilo Rocha      | Data | 15/01/2019  |##
+//##+==========+===========+=======+===================+======+=============+##
+//##|Descr.    | Função que extende a função padrão ADMParSQL, pois, a mes- |##
+//##|          | ma não trata os filtros IN corretamente.                   |##
+//##|          | Também converte expressões de bloco de código              |##
+//##+==========+==========+=================================================+##
+//##| DATA     | ANALISTA | MANUTENCAO EFETUADA                             |##
+//##+==========+==========+=================================================+##
+//##| 28/08/19 | Cirilo R.| Pequena revisão no fonte                        |##
+//##| 04/03/20 | Cirilo R.| Pequena melhoria no fonte                       |##
+//##| 12/11/21 | Cirilo R.| Pequena revisão no fonte                        |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+==========+==========+=================================================+##
+//#############################################################################
+User Function CXAdv2Sql(uFilAdv	,;	//01
+						cSep	); 	//02
+							AS Character
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cFilSQL		AS Character
+	Local cChar			AS Character
+	Local cAnt			AS Character
+	Local cMeio			AS Character
+	Local aCharSpc		AS Array
+	Local nX			AS Integer
+	Local cChAsp		AS Character
+	Local cAspAtu		AS Character
+	Local lIN			AS Logical
+	Local nPos			AS Integer
+	Local cFilAdv		AS Character
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR uFilAdv  	  	AS Character,Block
+	ParamType 1		VAR cSep	  	  	AS Character					Optional Default NIL
+	
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	cChAsp	:= '"'+"'"
+	
+	If ValType(uFilAdv) == 'B'
+		cFilAdv	:= GetCbSource(uFilAdv)
+	Else
+		cFilAdv	:= uFilAdv
+	EndIf	
+	
+	//---------------------------------------------------------------------------------------------
+	aCharSpc	:= StrTokArr(GetMV('MX_CHRESP',.F.,'32,10,13,09,160'),',') //Caracteres identificados como espaco
+	For nX := 1 to len(aCharSpc)
+		aCharSpc[nX]	:= Chr(Val(aCharSpc[nX]))
+	Next
+
+	cFilAdv	:= StrTran( cFilAdv,'$',' $ ')
+	cFilAdv	:= UpStrTran( cFilAdv,'.NOT.',' ! ')
+	cFilAdv	:= UpStrTran( cFilAdv,'DATE()'	 ," FORMAT(GETDATE(),'yyyyMMdd') ")
+	cFilAdv	:= UpStrTran( cFilAdv,'DDATABASE'," FORMAT(GETDATE(),'yyyyMMdd') ")
+	cFilAdv	:= UpStrTran( cFilAdv,'TIME()'	 ," FORMAT(GETDATE(),'T') ")
+	cFilAdv	:= U_CXRTrim(cFilAdv)	//Remove espacos
+
+	//---------------------------------------------------------------------------------------------
+	//Processa bloco de codigo, remove o {|| }
+	If 	( Left(cFilAdv,2) == '{|' .Or. Left(cFilAdv,3) == '{ |' ) .And. ;
+		Right(cFilAdv,1) == '}'
+		
+		//Busco o fechamento do pipe
+		If Left(cFilAdv,3) == '{ |'
+			nPos	:= At('|',cFilAdv,4)
+		else
+			nPos	:= At('|',cFilAdv,3)
+		EndIf
+		If nPos == 0
+			U_CXHelp(,,	'ERRO DE SINTAXE COMANDO: '+CRLF+cFilAdv,,;
+						'INFORME O SETOR DE T.I.')
+			Return
+		Else
+			cFilAdv	:= SubStr(cFilAdv,nPos+1,Len(cFilAdv)-nPos-1)
+		EndIf
+	EndIf
+	
+	//---------------------------------------------------------------------------------------------
+	//Processamento do operador $ -> IN
+	cAnt	:= ''
+	lIN		:= .F.
+	For nX := 1 to len(cFilAdv)
+		cChar	:= SubStr(cFilAdv,nX,1)
+		//Caracter aspas
+		If .Not. ( cChar $ cChAsp )
+			//Caracter $
+			If cChar == '$'
+				lIN		:= .T.
+				cChar	:= 'IN'
+			//Caracter valido
+			ElseIf aScan(aCharSpc,cChar) == 0
+				lIN	:= .F.
+			EndIf
+			cAnt	+= cChar
+		//Processa as strings
+		Else
+			cAspAtu	:= cChar
+			//Procuro o fechamento da string
+			nPos	:= At(cAspAtu,cFilAdv,nX+1)
+			If nPos == 0	//Erro de sintaxe
+				U_CXHelp(,,	'ERRO DE SINTAXE COMANDO: '+CRLF+cFilAdv,,;
+							'INFORME O SETOR DE T.I.')
+				Exit
+			Else
+				cMeio	:= SubStr(cFilAdv,nX+1,nPos-nX-1)
+				If 	lIN .And. ;
+				 	cSep <> NIL
+				 	
+				 	//cMeio	:= StrTran(cMeio,cAspAtu)
+				 	cMeio	:= FormatIN(cMeio,cSep)
+				Else
+					cMeio	:= "'"+cMeio+"'"
+				EndIf
+				
+				cAnt	+= cMeio
+				nX		:= nPos
+				lIN		:= .F.
+			EndIf
+		EndIf
+	Next
+	
+	cFilSQL	:= ADMParSQL(cAnt)
+	
+	cFilSQL	:= StrTran(cFilSQL,"FORMAT(GETDATE(),'YYYYMMDD')","FORMAT(GETDATE(),'yyyyMMdd')")	//Preciso fazer esse ajuste porque a função format é case sensitive!!!
+
+Return cFilSQL

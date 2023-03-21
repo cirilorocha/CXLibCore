@@ -1,0 +1,71 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#Include "CXInclude.ch"
+
+//#############################################################################
+//##+----------+-------------+-------+------------------+------+------------+##
+//##|Programa  | CXArrToIn   | Autor | Cirilo Rocha     | Data | 31/10/2013 |##
+//##+----------+-------------+-------+------------------+------+------------+##
+//##|Descr.    | Função para converter um array em uma clausula IN do SQL   |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção Efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 19/10/21 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXArrToIn(aArray	,;	//01
+						nPos	)	//02
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local uTemp		AS Variant
+	
+	Local nX		AS Integer
+	Local cRet		AS Character
+	Local cTipo		AS Character
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR aArray			AS Array
+	ParamType 1		VAR nPos	  	  	AS Numeric				Optional Default 0
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	cRet	:= ""
+	
+	//---------------------------------------------------------------------------------------------
+	If 	Len(aArray) > 0
+		cTipo	:= ValType(aArray[1])
+		
+		If 	(cTipo=='A') .And. ;
+			nPos == 0
+
+			ApMsgStop(	'ERRO NO SEGUNDO ARGUMENTO DA FUNÇÃO.'+CRLF+;
+						'INFORME AO SETOR DE T.I.',U_CXTxtMsg(,,.T.))
+			Return NIL
+		EndIf
+		
+		For nX := 1 to len(aArray)
+			If !Empty(cRet)
+				cRet	+= ","
+			EndIf
+			
+			If (cTipo=='L')
+				If uTemp
+					uTemp	:= 'T'
+				Else
+					uTemp	:= 'F'
+				EndIf
+			ElseIf (cTipo=='A')
+				uTemp	:= aArray[nX][nPos]
+			Else
+				uTemp	:= aArray[nX]
+			EndIf
+
+			cRet	+= ValToSQL(uTemp)
+		Next
+	EndIf
+
+	cRet	:= "("+cRet+")"
+
+Return cRet

@@ -21,7 +21,8 @@
 //##|          |          | https://centraldeatendimento.totvs.com/hc/pt-br/|##
 //##|          |          |  articles/5151712642839                         |##
 //##| 09/06/22 | Cirilo R.| Melhoria para utilizar a classe tXMLManager     |##
-//##|          |          |                                                 |##
+//##| 07/03/23 | Cirilo R.| Melhoria para utilizar a classe tCXWSDL         |##
+//##|          |          | Grande revisão no fonte                         |##
 //##|          |          |                                                 |##
 //##|          |          |                                                 |##
 //##+==========+==========+=================================================+##
@@ -35,12 +36,15 @@
 // A1_CEP  A1_BAIRRO   FwNoAccent(VAR_IXB[4])                                                  ValType(VAR_IXB)=='A'   //
 // A1_CEP  A1_MUN      FwNoAccent(VAR_IXB[2])  (PODE NÃO SER NECESSÁRIO)                       ValType(VAR_IXB)=='A'   //
 //---------------------------------------------------------------------------------------------------------------------//
+// É OPCIONAL, MAS É ALTAMENTE RECOMENDÁVEL PARA MELHOR PERFORMANCE SALVAR O ARQUIVO WSDL DO LINK NA PASTA :           //
+//  \SYSTEM\_CUSTOMIZACOES\CORREIOS\AtendeCliente.xml                                                                  //
+//---------------------------------------------------------------------------------------------------------------------//
 Static cArqWSDL	:= U_CXArqCst('AtendeCliente.xml','CORREIOS',/*cFilBsc*/)		AS Character
 Static cURL		:= GetMV('MX_URLCORR',.F.,'https://apps.correios.com.br/SigepMasterJPA/AtendeClienteService/AtendeCliente?wsdl')
 //-------------------------------------------------------------------------------------------------
-User Function CXBuscaCEP(	cCEP	,;	//01
-							lMsg	,;	//02
-							lGat	);	//03
+User Function CXBuscaCEP(	cCEP	,;	//01 cCEP
+							lMsg	,;	//02 lMsg
+							lGat	);	//03 lGat
 								AS Array
 	
 	//Declaração de Variáveis----------------------------------------------------------------------
@@ -58,13 +62,13 @@ User Function CXBuscaCEP(	cCEP	,;	//01
 	bBusca	:= {|| aRet	:= BuscaCEP(cCEP,lMsg) }
 
 	If lGat
-		VAR_IXB	:= NIL		//Reseto a variáveis compartilhada
+		VAR_IXB	:= NIL		//Reseto a variável compartilhada
 
 		If U_CXRotAuto()	//Não executa nas rotinas automáticas
 			Return NIL
 		EndIf
 
-		aFunDesc	:= StrTokArr2(FWSuperGetMV('MX_BSCCEPF',.f.,'M030APICGC,M020APICGC'),',')	//Funções desconsideradas no prcessamento
+		aFunDesc	:= StrTokArr2(FWSuperGetMV('MX_BSCCEPF',.f.,'M030APICGC,M020APICGC'),',',.F.)	//Funções desconsideradas no prcessamento por causar erros
 		For nX := 1 to Len(aFunDesc)
 			If FWIsInCallStack(aFunDesc[nX])	//Estas funções não devem executar
 				Return NIL
@@ -74,8 +78,7 @@ User Function CXBuscaCEP(	cCEP	,;	//01
 		cCEP	:= U_CXSoNumeros(cCEP)
 		If .Not. Empty(cCEP) .And. ;
 			Val(cCEP) > 0
-
-			MsgRun("Consultando CEP - Aguarde...",U_CXTxtMsg(,,.T.),bBusca)
+			FWMsgRun(/*oSay*/,bBusca,U_CXTxtMsg()+'Consultando CEP','Aguarde...')
 		EndIf
 
 		If ValType(aRet) <> 'A'
@@ -95,21 +98,15 @@ Static Function BuscaCEP(	cCEP	,;	//01
 								AS Array
 
 	//Declaração de Variáveis----------------------------------------------------------------------
-	Local oWsdl			AS Object
-	Local aOps			AS Array
-	Local aSimple		AS Array
-	Local nPos			AS Integer
-	Local nPCep			AS Integer
-
 	Local aRet			AS Array
 	Local lRet			AS Logical
-	Local oXml			AS Object
-	Local cXml			AS Character
+//	Local cXml			AS Character
 	Local cXMLRet		AS Character
 	Local cMun			AS Character
-	
 	Local oArea			AS Object
-
+	Local oXml			AS Object
+	Local oWsdl			AS Object
+	
 	//Incialização de Variáveis--------------------------------------------------------------------
 	lRet	:= .T.
 	oArea	:= tCtrlAlias():GetArea({'CC2'})
@@ -122,170 +119,66 @@ Static Function BuscaCEP(	cCEP	,;	//01
 	
 	//---------------------------------------------------------------------------------------------
 	// Cria o objeto da classe TWsdlManager
-	oWsdl 		:= TWsdlManager():New()
-	oWsdl:bNoCheckPeerCert	:= .T.	//Desabilita o check de CAs
-	oWsdl:nTimeout			:= 60	//Timeout no processo de envio
-	
+	oWsdl 		:= tCXWSDL():New()
+	oWsdl:_lMsg	:= lMsg
+	oWsdl:_oWSDL:bNoCheckPeerCert	:= .T.	//Desabilita o check de CAs
+	oWsdl:_oWSDL:nTimeout			:= 60	//Timeout no processo de envio
+    oWsdl:_oWSDL:lSSLInsecure 		:= .T.
+    oWsdl:_oWSDL:lUseNSPrefix 		:= .T.
+
 	//https://tdn.totvs.com/display/tec/Acesso+a+Web+Services+que+exigem+certificados+de+CA
-   	oWsdl:cSSLCACertFile := U_CXArqCst("CAcorreios.pem",'CORREIOS',/*cFilBsc*/)
-//  oWsdl:cSSLCertFile   := U_CXArqCst("ClientCert.pem",'CORREIOS',/*cFilBsc*/)
-//  oWsdl:cSSLKeyFile    := U_CXArqCst("ClientKey.pem",'CORREIOS',/*cFilBsc*/)
-//  oWsdl:cSSLKeyPwd     := "password" //se necessário
+// 	oWsdl:_oWSDL:cSSLCACertFile := U_CXArqCst("CAcorreios.pem",'CORREIOS',/*cFilBsc*/)
+//  oWsdl:_oWSDL:cSSLCertFile   := U_CXArqCst("ClientCert.pem",'CORREIOS',/*cFilBsc*/)
+//  oWsdl:_oWSDL:cSSLKeyFile    := U_CXArqCst("ClientKey.pem",'CORREIOS',/*cFilBsc*/)
+//  oWsdl:_oWSDL:cSSLKeyPwd     := "password" //se necessário
 
 	// Faz o parse de uma URL ou do Arquivo--------------------------------------------------------
-	If U_CXFile(cArqWSDL,.F.)
+	If U_CXFile(cArqWSDL,.F.,.T.)
 		lRet		:= oWsdl:ParseFile( cArqWSDL )
 	Else
 		lRet		:= oWsdl:ParseURL( cURL )	//Busca pela URL
 	EndIf
-
+	
+	//Erro de parser
 	If .Not. lRet
-		cCodErr	:= U_CXTxtMsg(,,.T.)
-		cMsgErr	:= "Erro ParseFile: " + oWsdl:cError
-		cSoluc	:= 'INFORME O SETOR DE T.I.'
-		cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
-		U_CXConOut('#### ERRO #### '+cMsg)	//Apresenta a mensagem de erro no console
-		
-		If lMsg
-			U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
-		EndIf
-
 		Return NIL
 	EndIf
 	
+	If .Not. oWsdl:Reset()	//Forço a limpeza das variáveis internas para utilização
+		Return NIL	//Erro no reset
+	EndIf
+
+	//Monta e envia mensagem Soap
+	cXMLRet	:= oWsdl:CXSendSimpleMsg('consultacep',{{'cep',cCEP}})
+
 	//-------------------------------------------------------------------------------------------//
 	//SÓ FUNCIONOU QUANDO SETEI AS INFORMAÇÕES ABAIXO, MESMO EU ALIMENTANDO DIRETAMENTE O XML    //
 	//-------------------------------------------------------------------------------------------//
-	aOps := oWsdl:ListOperations()
- 	If 	ValType(aOps) <> 'A' .Or. ;
-	 	Len( aOps ) == 0
+
+	////Chumbei o XML desta forma porque diretamente pela classe não funcionou
+	//cXml	:=	'<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" '+;
+	//			'xmlns:cli="http://cliente.bean.master.sigep.bsb.correios.com.br/">'+;
+	//				'<soapenv:Header/>'+;
+	//				'<soapenv:Body>'+;
+	//					'<cli:consultaCEP>'+;
+	//						'<cep>'+cCEP+'</cep>'+;
+	//					'</cli:consultaCEP>'+;
+	//				'</soapenv:Body>'+;
+	//			'</soapenv:Envelope>'
 	
-		cCodErr	:= U_CXTxtMsg(,,.T.)
-		cMsgErr	:= "Erro ListOperations: " + oWsdl:cError
-		cSoluc	:= 'INFORME O SETOR DE T.I.'
-		cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
-		U_CXConOut('#### ERRO #### '+cMsg)	//Apresenta a mensagem de erro no console
-		
-		If lMsg
-			U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
-		EndIf
-
-		Return NIL
-	Endif
- 
- 	//Busca do Método consultaCEP
-	nPos	:= aScan(aOps,{|x| Lower(x[1]) == 'consultacep' })
-	If nPos == 0
-		cCodErr	:= U_CXTxtMsg(,,.T.)
-		cMsgErr	:= 'ERRO AO LOCALIZAR MÉTODO CONSULTACEP.'
-		cSoluc	:= 'INFORME O SETOR DE T.I.'
-		cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
-		U_CXConOut('#### ERRO #### '+cMsg)	//Apresenta a mensagem de erro no console
-		U_CXConOut('LISTA DE OPERAÇÕES O WSDL')
-		VarInfo( "", aOps )	//Mostra lista de operações no console p/ Debug
-		
-		If lMsg
-			U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
-		EndIf
-
-		Return NIL
-	EndIf
-
-	// Define a operação
-	lRet := oWsdl:SetOperation( aOps[nPos][1] )
-	If .Not. lRet
-
-		cCodErr	:= U_CXTxtMsg(,,.T.)
-		cMsgErr	:= "Erro SetOperation: " + oWsdl:cError
-		cSoluc	:= 'INFORME O SETOR DE T.I.'
-		cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
-		U_CXConOut('#### ERRO #### '+cMsg)	//Apresenta a mensagem de erro no console
-		U_CXConOut('LISTA DE OPERAÇÕES O WSDL')
-		VarInfo( "", aOps )	//Mostra lista de operações no console p/ Debug
-		
-		If lMsg
-			U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
-		EndIf
-
-		Return NIL
-	endif
-	
-	//Busca os parâmetros da operação
-	aSimple := oWsdl:SimpleInput()
-	If ValType(aSimple) <> 'A'
-
-		cCodErr	:= U_CXTxtMsg(,,.T.)
-		cMsgErr	:= "Erro SimpleInput: " + oWsdl:cError
-		cSoluc	:= 'INFORME O SETOR DE T.I.'
-		cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
-		U_CXConOut('#### ERRO #### '+cMsg)	//Apresenta a mensagem de erro no console
-		U_CXConOut('LISTA DE OPERAÇÕES O WSDL')
-		VarInfo( "", aOps )	//Mostra lista de operações no console p/ Debug
-		
-		If lMsg
-			U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
-		EndIf
-
-		Return NIL
-	endif
-
-	//Parâmetros do Método consultaCEP
-	nPos	:= aScan(aSimple,{|x| Lower(x[ncSI_NmPar]) == 'cep' })
-	If nPos > 0
-		nPCep	:= aSimple[nPos][nnSI_ID]
-	Else
-		cCodErr	:= U_CXTxtMsg(,,.T.)
-		cMsgErr	:= 'ERRO AO LOCALIZAR PARÂMETRO CEP.'
-		cSoluc	:= 'INFORME O SETOR DE T.I.'
-		cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
-		U_CXConOut('#### ERRO #### '+cMsg)	//Apresenta a mensagem de erro no console
-		U_CXConOut('LISTA DE OPERAÇÕES O WSDL')
-		VarInfo( "", aOps )	//Mostra lista de operações no console p/ Debug
-		
-		If lMsg
-			U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
-		EndIf
-
-		Return NIL
-	EndIf
-
-	//Chumbei o XML desta forma porque diretamente pela classe não funcionou
-	cXml	:=	'<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" '+;
-				'xmlns:cli="http://cliente.bean.master.sigep.bsb.correios.com.br/">'+;
-					'<soapenv:Header/>'+;
-					'<soapenv:Body>'+;
-						'<cli:consultaCEP>'+;
-							'<cep>'+cCEP+'</cep>'+;
-						'</cli:consultaCEP>'+;
-					'</soapenv:Body>'+;
-				'</soapenv:Envelope>'
-	
-	// Exibe a mensagem que será enviada
-	U_CXConOut('#### MENSAGEM SOAP PARA ENVIO ####',,.T.)
-	U_CXConOut(U_CXFormatXML(cXML))
+	//// Exibe a mensagem que será enviada
+	//U_CXConOut('#### MENSAGEM SOAP PARA ENVIO ####',,.T.)
+	//U_CXConOut(U_CXFormatXML(cXML))
 
 	// Envia a mensagem SOAP ao servidor
-	lRet := oWsdl:SendSoapMsg(cXml)
+	lRet := oWsdl:SendSoapMsg()
 	If .Not. lRet
-
 		If 'CEP NAO ENCONTRADO' $ FwNoAccent(Upper(oWsdl:cError))
-			cCodErr	:= U_CXTxtMsg(,,.T.)
-			cMsgErr	:= 'CEP '+cCEP+' não encontrado nos Correios.'
-			cSoluc	:= ''
-			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
-			U_CXConOut('#### ERRO #### '+cMsg)	//Apresenta a mensagem de erro no console
+			U_CXMsgErro('CEP '+cCEP+' não encontrado nos Correios.',/*cSolucao*/,lMsg,/*oArea*/,,,,,.T.)
 		Else
-			cCodErr	:= U_CXTxtMsg(,,.T.)
-			cMsgErr	:= "Erro: " + oWsdl:cError
-			cSoluc	:= 'INFORME O SETOR DE T.I.'
-			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
-			U_CXConOut('#### ERRO #### '+cMsg)	//Apresenta a mensagem de erro no console
+			U_CXMsgErro('Erro: '+oWsdl:cError,;
+						'INFORME O SETOR DE T.I.',lMsg,/*oArea*/,,,,,.T.)
 		EndIf
-
-		If lMsg
-			U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
-		EndIf
-
 		Return NIL
 	Else	//-------------------------------------------------------------------------------------
 		cXMLRet	:= oWsdl:GetSoapResponse()
@@ -294,18 +187,8 @@ Static Function BuscaCEP(	cCEP	,;	//01
 		
 		oXml	:= tCXXMLManager():New()
 		If .Not. oXML:Parse(cXMLRet)
-		
-			cCodErr	:= U_CXTxtMsg(,,.T.)
-			cMsgErr	:= "Falha ao consultar XML de resposta : "+oXML:Error()+" / "+oXML:Warning()
-			cSoluc	:= 'INFORME O SETOR DE T.I.'
-			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
-			
-			U_CXConOut('#### ERRO #### '+cMsg)	//Apresenta a mensagem de erro no console
-			
-			If lMsg
-				U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
-			EndIf
-
+			U_CXMsgErro('Falha ao consultar XML de resposta : '+oXML:Error()+' / '+oXML:Warning(),;
+						'INFORME O SETOR DE T.I.',lMsg,/*oArea*/,,,,,.T.)
 			Return NIL
 		EndIf
 
@@ -319,17 +202,8 @@ Static Function BuscaCEP(	cCEP	,;	//01
 			If 	.Not. oXML:XPathHasNode( "/uf" ) .Or. ;
 				.Not. oXML:XPathHasNode( "/cidade" )
 
-				cCodErr	:= U_CXTxtMsg(,,.T.)
-				cMsgErr	:= "ERRO no retorno dos Correios, faltando campos de retorno."
-				cSoluc	:= 'INFORME O SETOR DE T.I.'
-				cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
-				
-				U_CXConOut('#### ERRO #### '+cMsg)	//Apresenta a mensagem de erro no console
-			
-				If lMsg
-					U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
-				EndIf
-
+				U_CXMsgErro('ERRO no retorno dos Correios, faltando campos de retorno.',;
+							'INFORME O SETOR DE T.I.',lMsg,/*oArea*/,,,,,.T.)
 				Return NIL
 			Else
 				aRet	:= Array(06)
@@ -355,31 +229,21 @@ Static Function BuscaCEP(	cCEP	,;	//01
 				cMun	:= AllTrim(aRet[2])
 				cMun	:= Upper(cMun)
 				cMun	:= FwNoAccent(cMun)
-				CC2->(U_CXSetOrd(4)) //CC2_EST+CC2_MUN
+				CC2->(dbSetOrder(4)) //CC2_EST+CC2_MUN
 				If CC2->(MsSeek(FWxFilial('CC2')+aRet[1]+cMun))
 					aRet[6]	:= CC2->CC2_CODMUN
 				Else
-					cCodErr	:= U_CXTxtMsg(,,.T.)
-					cMsgErr	:= 'ERRO ao localizar o município '+cMun+'/'+aRet[1]+' na tabela do sistema (CC2).'
-					cSoluc	:= ''
-					cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
-
-					ApMsgAlert('<b>PROBLEMA:</b>'+cMsgErr+IIf(!Empty(cSoluc),CRLF+'<b>SOLUÇÃO:</b>'+cSoluc,''),cCodErr)
+					U_CXMsgErro('ERRO ao localizar o município '+cMun+'/'+aRet[1]+' na tabela do sistema (CC2).',;
+								/*cSoluc*/,lMsg,/*oArea*/,,,.T.)	//Aviso apenas
 				EndIf
 			EndIf
 		Else
-			cCodErr	:= U_CXTxtMsg(,,.T.)
-			cMsgErr	:= 	"ERRO no XML de retorno do "+oXML:_xPath+CRLF+;
-						"VERIFIQUE SE O CEP É VÁLIDO NOS CORREIOS."
-			cSoluc	:= ''
-			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			U_CXMsgErro('ERRO no XML de retorno do '+oXML:_xPath+CRLF+;
+						'VERIFIQUE SE O CEP É VÁLIDO NOS CORREIOS.',;
+						/*cSoluc*/,lMsg,/*oArea*/,,,,,.T.)
 
-			U_CXConOut('#### ERRO #### '+cMsg)	//Apresenta a mensagem de erro no console
 			U_CXConOut('XML: ')
 			U_CXConOut(U_CXFormatXML(cXMLRet))
-			If lMsg
-				U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
-			EndIf
 
 			Return NIL
 		EndIf
@@ -393,6 +257,7 @@ Static Function BuscaCEP(	cCEP	,;	//01
 	EndIf
 
 	If ValType(oWsdl) == 'O'
+		oWsdl:Destroy()
 		FwFreeVar(oWsdl)
 		oWsdl	:= NIL
 	EndIf	

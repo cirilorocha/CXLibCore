@@ -1,0 +1,167 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#Include "CXInclude.ch"
+
+//Array de funcoes de baixo nivel (c/c++)
+Static aFuncArray	:= NIL
+
+//#############################################################################
+//##+==========+============+=======+===================+======+============+##
+//##|Programa  | CXSchVlRot | Autor | Cirilo Rocha      | Data | 03/09/2012 |##
+//##+==========+============+=======+===================+======+============+##
+//##|Descricao | Funcao para validar se uma rotina e' valida e pode ser exe-|##
+//##|          | cutada.                                                    |##
+//##|          |                                                            |##
+//##|          |                                                            |##
+//##+==========+===============+============================================+##
+//##|   DATA   | Programador   | Manutencao efetuada                        |##
+//##+==========+===============+============================================+##
+//##| 20/10/14 | Cirilo Rocha  | Adicionados alguns comandos internos       |##
+//##| 19/05/18 | Cirilo Rocha  | Adicionados comando Val                    |##
+//##| 18/10/19 | Cirilo Rocha  | Pequena revisao no fonte                   |##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+==========+===============+============================================+##
+//#############################################################################
+User Function CXSchVlRot(	cRotina		,;  //01
+							lMsg		,;  //02
+							lNaoVazio	)	//03
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local lRet		AS Logical
+	Local nPos		AS Numeric
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cRotina			AS Character	Optional Default &(ReadVar())	//Obtem a variavel em edicao
+	ParamType 1		VAR lMsg			AS Logical		Optional Default .T.
+	ParamType 2		VAR lNaoVazio		AS Logical		Optional Default .T.
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	cRotina		:= Upper(AllTrim(cRotina))
+	lUsuario	:= .F.
+	lRet		:= .F.
+
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+
+	//Recupera array com as funcoes internas (em C/C++)
+	U_CXRotInt()
+
+	//Procura se o usuario informou a rotina com parenteses
+	If Empty(cRotina)
+
+		If lNaoVazio
+
+			cCodErr	:= U_CXTxtMsg(,,.T.)
+			cMsgErr	:= 'Comando vazio.'
+			cSoluc	:= ''
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+
+			lRet	:= .F.
+		EndIf
+
+	ElseIf 	At('(',cRotina) > 0 .Or. ;
+			At(')',cRotina) > 0 .Or. ;
+			At('[',cRotina) > 0 .Or. ;
+			At(']',cRotina) > 0 .Or. ;
+			At('{',cRotina) > 0 .Or. ;
+			At('}',cRotina) > 0
+		
+		cCodErr	:= U_CXTxtMsg(,,.T.)
+		cMsgErr	:= 'Os comandos não devem ser informados com seus parametros.'
+		cSoluc	:= ''
+		cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+
+		lRet	:= .F.
+	ElseIf !U_CXVlChEsp(cRotina			,;	//01 String a ser validada (se nao informado puxa do get atual)
+						/*lSoNumeros*/	,;	//02 Se valida apenas numeros
+						/*lDigitoX*/	,;	//03 Se so numeros aceixa digito X
+						.F.				,;	//04 Se aceita espacos branco no meio do texto
+						/*cMsgErro*/	,;	//05 Mensagem de erro Customizada (opcional)
+						.F.				,;	//06 Se exibe mensagens de erro
+						'_'				)	//07 Outros caracteres alem de Letras e Numeros
+		lRet	:= .F.
+	//Rotina customizada ou padrao
+	Else
+
+		//Se forcou rotina customizada/usuario
+		If Left(cRotina,2) == 'U_'
+			cRotina	:= Right(cRotina,len(cRotina)-2) //Remove o U_
+			lUsuario	:= .T.
+		EndIf
+
+		//Localiza funcao no array de funcoes de baixo nivel (C/C++)
+		nPos	:= aScan(aFuncArray,{|X| AllTrim(Upper(X[1])) == Upper(cRotina) })
+
+		If ExistBlock(cRotina)
+			lUsuario:= .T.
+			lRet	:= .T.
+		ElseIf ( FindFunction(cRotina) .Or. nPos > 0 ) .And. ;
+				!lUsuario
+			lRet	:= .T.
+		Else
+
+			cCodErr	:= U_CXTxtMsg(,,.T.)
+			cMsgErr	:= 'Função de usuário '+AllTrim(cRotina)+' não localizada.'
+			cSoluc	:= ''
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+
+		EndIf
+
+	EndIf
+
+	If 	!lRet 
+		
+		If Empty(cMsg)
+			cMsg	:= 'ERRO DESCONHECIDO'
+		EndIf
+
+		If lMsg
+			U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+		EndIf
+
+	EndIf
+
+Return lRet
+
+//-------------------------------------------------------------------------------------------------
+User Function CXRotInt()
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aFuncTmp		AS Array
+	Local nX			AS Numeric
+	
+	//---------------------------------------------------------------------------------------------
+	If aFuncArray == NIL
+		aFuncArray	:= __funArr()
+
+		//Outras funcoes que nao estao nesse array padrao
+		aFuncTmp	:= {}
+		aAdd(aFuncTmp,{'Trim'			,'CR'})
+		aAdd(aFuncTmp,{'RTrim'			,'CR'})
+		aAdd(aFuncTmp,{'LTrim'			,'CR'})
+		aAdd(aFuncTmp,{'Len'			,'*R'})
+		aAdd(aFuncTmp,{'AllTrim'		,'CR'})
+		aAdd(aFuncTmp,{'Upper'			,'CR'})
+		aAdd(aFuncTmp,{'Lower'			,'CR'})
+		aAdd(aFuncTmp,{'Val'			,'CR'})
+		aAdd(aFuncTmp,{'StaticCall'		,'CRCR*O*O*O*O*O*O*O'})
+		aAdd(aFuncTmp,{'SubStr'			,'CRNRNO'})
+		aAdd(aFuncTmp,{'SubS'			,'CRNRNO'})
+		aAdd(aFuncTmp,{'Repli'			,'CRNR'})
+		aAdd(aFuncTmp,{'StrZero'		,'CRNR'})
+		aAdd(aFuncTmp,{'Round'			,'NRNR'})
+		aAdd(aFuncTmp,{'dbSelectArea'	,'*R'})
+
+		For nX := 1 to len(aFuncTmp)
+			If aScan(aFuncArray,{|x| Upper(x[1]) == Upper(aFuncTmp[nX][1]) } ) == 0
+				aAdd(aFuncArray,aFuncTmp[nX])
+			EndIf
+		Next
+	EndIf
+
+Return aFuncArray

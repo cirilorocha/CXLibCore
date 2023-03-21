@@ -1,0 +1,134 @@
+#INCLUDE "RWMake.ch"
+#INCLUDE "Protheus.ch"
+#INCLUDE "Totvs.ch"
+#Include "ParmType.ch"
+#Include "CXInclude.ch"
+
+//#############################################################################
+//##+----------+-------------+-------+-----------------+------+-------------+##
+//##|Programa  | CXFormatXML | Autor | Cirilo Rocha    | Data | 18/05/2018  |##
+//##+----------+-------------+-------+-----------------+------+-------------+##
+//##|Descr.    | Funcao para formatar uma string XML para ficar mais legivel|##
+//##+----------+----------+-------------------------------------------------+##
+//##| DATA     | ANALISTA | Manutenção efetuada                             |##
+//##+----------+----------+-------------------------------------------------+##
+//##| 19/05/18 | Cirilo R.| Pequena melhoria quando as Tags estao vazias    |##
+//##| 13/12/19 | Cirilo R.| Pequena revisao no fonte                        |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+----------+----------+-------------------------------------------------+##
+//#############################################################################
+User Function CXFormatXML(cXML);	//01 cXML
+						AS Character
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cRet		AS Character
+	Local cAChar    AS Character
+	Local cChar     AS Character
+	Local cNChar    AS Character
+	Local cUltTag	AS Character
+	Local nQtdEsp	AS Numeric
+	Local nTab		AS Numeric
+	Local lAberta	AS Logical
+	Local nX     	AS Numeric
+
+	//Para debugar
+//	cXML	:= '<EnviarLoteEventosResponse xmlns="http://www.esocial.gov.br/servicos/empregador/lote/eventos/envio/v1_1_0"><EnviarLoteEventosResult><eSocial xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.esocial.gov.br/schema/lote/eventos/envio/retornoEnvio/v1_1_0"><evtAfastTemp><ideVinculo><cpfTrab>46680527449</cpfTrab><nisTrab>12025204983</nisTrab><matricula>010100112820180518172938</matricula></ideVinculo><infoAfastamento><iniAfastamento><dtIniAfast>20180515</dtIniAfast><codMotAfast>03</codMotAfast><infoMesmoMtv>N</infoMesmoMtv><tpAcidTransito> </tpAcidTransito><infoAtestado><codCID></codCID><qtdDiasAfast></qtdDiasAfast><emitente><nmEmit></nmEmit><ideOC></ideOC><nrOc></nrOc><ufOC></ufOC></emitente></infoAtestado></iniAfastamento><fimAfastamento><dtTermAfast>20180519</dtTermAfast><codMotAfast>03</codMotAfast><infoMesmoMtv>N</infoMesmoMtv></fimAfastamento></infoAfastamento></evtAfastTemp></eSocial></EnviarLoteEventosResult></EnviarLoteEventosResponse>'
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cXML		AS Character
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	cRet	:= ""
+	nQtdEsp	:= 0
+	nTab	:= 3
+	lAberta	:= .F.
+
+	//Pre-processamento
+	cXML	:= StrTran(cXML,CRLF,'')
+	cXML	:= StrTran(cXML,Chr(10),'')
+	cXML	:= StrTran(cXML,Chr(13),'')
+	cXML	:= StrTran(cXML,Chr(09),'') //Tab
+
+	For nX := 1 to len(cXML)
+		//Caractere anterior
+		cAChar	:= ''
+		If nX > 1
+			cAChar	:= SubStr(cXML,nX-1,1)
+		EndIf
+
+		//Caractere Atual
+		cChar	:= SubStr(cXML,nX,1)
+
+		//Pega o proximo caractere para verificar fechamentos </
+		If nX <> len(cXML)
+			cNChar	:= SubStr(cXML,nX+1,1)
+		Else
+			cNChar	:= ''
+		EndIf
+		
+		If cChar == '<'
+			//Fechou a TAG
+			If cNChar == '/'
+				nQtdEsp	-= nTab
+				If cAChar == '>'
+					If cUltTag	<> BuscaTag(cXML,nX+1)
+						cChar	:= Space(nQtdEsp)+cChar
+					EndIf
+				EndIf
+			//Abriu a TAG
+			Else
+				cChar	:= Space(nQtdEsp)+cChar
+				nQtdEsp	+= nTab
+				cUltTag	:= BuscaTag(cXML,nX)
+			EndIf
+			lAberta	:= .T.	//Tag aberta <xxxxx>
+		ElseIf cChar == '>'
+			lAberta	:= .F.	//Tag fechada
+			If 	cNChar == '<'
+				If cUltTag	<> BuscaTag(cXML,nX+2)
+					cChar	:= cChar+CRLF
+				EndIf
+			EndIf
+		EndIf
+		
+		//Quebra linha dentro da SubTAG
+		If 	lAberta .And. ;
+			cChar == ' '
+
+			cChar	:= CRLF+Space(nQtdEsp)
+		EndIf
+
+		cRet	+= cChar
+	Next
+
+Return cRet
+
+//-------------------------------------------------------------------------------------------------
+Static Function BuscaTag(	cXML,;	//01 cXML
+							nX	);	//02 nX	
+								AS Character
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local nPos1		AS Numeric
+	Local nPos2		AS Numeric
+	Local cUltTag	AS Character
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cXML		AS Character
+	ParamType 1		VAR nX			AS Numeric
+
+	//Busca o final do texto da Tag----------------------------------------------------------------
+	nPos1	:= At('>',cXML,nX+1)
+	nPos2	:= At(' ',cXML,nX+1)
+	If nPos2 > 0
+		nPos1	:= Min(nPos1,nPos2)
+	EndIf
+
+	If nPos1 > 0
+		cUltTag	:= SubStr(cXML,nX+1,nPos1-1-nX )
+	Else
+		cUltTag	:= 'ZZZZ'
+	EndIf
+
+Return cUltTag

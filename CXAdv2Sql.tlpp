@@ -10,58 +10,119 @@
 //##|Descr.    | Função que extende a função padrão ADMParSQL, pois, a mes- |##
 //##|          | ma não trata os filtros IN corretamente.                   |##
 //##|          | Também converte expressões de bloco de código              |##
+//##|          | Ex.: "TEXTO BUSCA" $ A1_NOME  -> 'TEXTO BUSCA' IN (A1_NOME)|##
+//##|          |      {|X| RV_COD $ '013,014' }-> RV_COD IN ('013','014')   |##
 //##+==========+==========+=================================================+##
 //##| DATA     | ANALISTA | MANUTENCAO EFETUADA                             |##
 //##+==========+==========+=================================================+##
 //##| 28/08/19 | Cirilo R.| Pequena revisão no fonte                        |##
 //##| 04/03/20 | Cirilo R.| Pequena melhoria no fonte                       |##
 //##| 12/11/21 | Cirilo R.| Pequena revisão no fonte                        |##
+//##| 25/10/25 | Cirilo R.| Pequena revisão no fonte                        |##
+//##| 26/01/23 | Cirilo R.| Grande revisão no fonte                         |##
+//##|          |          | Trazidos processamentos da função ADMParSQL para|##
+//##|          |          |  este fonte porque estava causando loops        |##
+//##|          |          | Validação parse no comando ADVPL                |##
+//##| 27/01/23 | Cirilo R.| Melhoria para processar o comando contém $      |##
 //##|          |          |                                                 |##
 //##|          |          |                                                 |##
 //##+==========+==========+=================================================+##
 //#############################################################################
-User Function CXAdv2Sql(uFilAdv	,;	//01
-						cSep	); 	//02
+Static cCharSpc	:= ''			AS Character //Caracteres identificados como espaco
+Static aProcAdv	:= NIL			AS Array
+/*EXEMPLO DE TESTE MAIS COMPLEXO QUE ELA PODE PROCESSAR
+bTeste	:= {||	RV_CODFOL $	'0040,0407,1338,1339' .Or. ;
+	RV_CODFOL $;
+ "0040,0407,1338,1339" .Or. ;
+RV_INCCP == '51' .Or. ;
+Alltrim(RV_DESC) == 'ANUENIO' .Or. ;
+RV_INCCP <> '11' .And. ;
+RV_INCCP != '12' .And. ;
+.Not. RV_INCCP == '22' .Or. ;
+! RV_INCCP == "23" .Or. ;
+RV_CADMIN == Date() .Or. ;
+RV_CADMIN == Time() .Or. ;
+RV_CADMIN == DtoS(RV_COD) .Or. ;
+"INSS" $ RV_DESC;
+}
+*/
+//-------------------------------------------------------------------------------------------------
+User Function CXAdv2Sql(uFilAdv	,;	//01 uFilAdv
+						cSep	); 	//02 cSep
 							AS Character
 	
 	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aCharSpc		AS Array
 	Local cFilSQL		AS Character
-	Local cChar			AS Character
+	Local cTrecho		AS Character
+	Local cTrecho2		AS Character
 	Local cAnt			AS Character
 	Local cMeio			AS Character
-	Local aCharSpc		AS Array
-	Local nX			AS Integer
 	Local cChAsp		AS Character
 	Local cAspAtu		AS Character
-	Local lIN			AS Logical
-	Local nPos			AS Integer
 	Local cFilAdv		AS Character
+	Local nX,nY,nZ		AS Integer
+	Local nPos			AS Integer
+	Local nTamStr		AS Integer
+	Local nPosStr		AS Integer
+	Local lIN			AS Logical
+	Local lAbriuPar		AS Logical
+	Local lLetraAntes	AS Logical
+	Local lStringAntes	AS Logical
+
+	//Posicoes do array aProcAdv
+	Local cORG			:= 01	AS Integer
+	Local cDST			:= 02	AS Integer
+	Local lFUN			:= 03	AS Integer
+	Local lPAR			:= 04	AS Integer
+	Local nTAM			:= 05	AS Integer
 
 	//Parametros da rotina-------------------------------------------------------------------------
 	ParamType 0		VAR uFilAdv  	  	AS Character,Block
 	ParamType 1		VAR cSep	  	  	AS Character					Optional Default NIL
 	
 	//Inicializa Variaveis-------------------------------------------------------------------------
-	cChAsp	:= '"'+"'"
+	cChAsp		:= '"'+"'"	//Aspas
 	
 	If ValType(uFilAdv) == 'B'
 		cFilAdv	:= GetCbSource(uFilAdv)
 	Else
+		&('{|| '+uFilAdv+'}')	//Força validar a estrutura ADVPL!!! Parse!
 		cFilAdv	:= uFilAdv
 	EndIf	
 	
 	//---------------------------------------------------------------------------------------------
-	aCharSpc	:= StrTokArr(GetMV('MX_CHRESP',.F.,'32,10,13,09,160'),',') //Caracteres identificados como espaco
-	For nX := 1 to len(aCharSpc)
-		aCharSpc[nX]	:= Chr(Val(aCharSpc[nX]))
-	Next
+	If Len(cCharSpc) == 0 //Vazio
+		aCharSpc	:= StrTokArr2(GetMV('MX_CHRESP',.F.,'32,10,13,09,160'),',',.F.) //Caracteres identificados como espaco
+		For nX := 1 to len(aCharSpc)
+			cCharSpc	+= Chr(Val(aCharSpc[nX]))
+		Next
+	EndIf
 
-	cFilAdv	:= StrTran( cFilAdv,'$',' $ ')
-	cFilAdv	:= UpStrTran( cFilAdv,'.NOT.',' ! ')
-	cFilAdv	:= UpStrTran( cFilAdv,'DATE()'	 ," FORMAT(GETDATE(),'yyyyMMdd') ")
-	cFilAdv	:= UpStrTran( cFilAdv,'DDATABASE'," FORMAT(GETDATE(),'yyyyMMdd') ")
-	cFilAdv	:= UpStrTran( cFilAdv,'TIME()'	 ," FORMAT(GETDATE(),'T') ")
-	cFilAdv	:= U_CXRTrim(cFilAdv)	//Remove espacos
+	//Expressões para conversão--------------------------------------------------------------------
+	If ValType(aProcAdv) <> 'A'
+		aProcAdv	:= {}
+		//              origem        destino							funcao()?	com_par?
+		aAdd(aProcAdv,{'.AND.'		,' AND '							, .F. 		, .F. 	, 0 })
+		aAdd(aProcAdv,{'.OR.'		,' OR '								, .F. 		, .F. 	, 0 })
+		aAdd(aProcAdv,{'.NOT.'		,' NOT '							, .F. 		, .F. 	, 0 })
+		aAdd(aProcAdv,{'=='			,' = '								, .F. 		, .F. 	, 0 })
+		aAdd(aProcAdv,{'$'			,' IN '								, .F. 		, .F. 	, 0 })
+		aAdd(aProcAdv,{'!='			,' <> '								, .F. 		, .F. 	, 0 })
+		aAdd(aProcAdv,{'!'			,' NOT '							, .F. 		, .F. 	, 0 })	//Precisa estar aqui por causa do "!="
+		
+		aAdd(aProcAdv,{'DTOS'		,''									, .T. 		, .T. 	, 0 })	//Só funciona com campos data no banco!
+		aAdd(aProcAdv,{'ALLTRIM'	,'RTRIM'							, .T. 		, .T. 	, 0 })	//Não pode ter letras após o comando!
+		
+		aAdd(aProcAdv,{'MSDATE'		,"FORMAT(GETDATE(),'yyyyMMdd')"		, .T. 		, .F. 	, 0 })	//Não pode ter lentras dentro do parênteses
+		aAdd(aProcAdv,{"DATE"		,"FORMAT(GETDATE(),'yyyyMMdd')"		, .T. 		, .F. 	, 0 })
+		aAdd(aProcAdv,{"TIME"		,"FORMAT(GETDATE(),'T')"			, .T. 		, .F. 	, 0 })
+
+		//Pré-Processa array para simplificar abaixo
+		For nX := 1 to Len(aProcAdv)
+			aProcAdv[nX][nTAM]	:= Len(aProcAdv[nX][cORG])
+		Next
+	EndIf
 
 	//---------------------------------------------------------------------------------------------
 	//Processa bloco de codigo, remove o {|| }
@@ -84,25 +145,20 @@ User Function CXAdv2Sql(uFilAdv	,;	//01
 	EndIf
 	
 	//---------------------------------------------------------------------------------------------
-	//Processamento do operador $ -> IN
-	cAnt	:= ''
-	lIN		:= .F.
-	For nX := 1 to len(cFilAdv)
-		cChar	:= SubStr(cFilAdv,nX,1)
-		//Caracter aspas
-		If .Not. ( cChar $ cChAsp )
-			//Caracter $
-			If cChar == '$'
-				lIN		:= .T.
-				cChar	:= 'IN'
-			//Caracter valido
-			ElseIf aScan(aCharSpc,cChar) == 0
-				lIN	:= .F.
-			EndIf
-			cAnt	+= cChar
-		//Processa as strings
-		Else
-			cAspAtu	:= cChar
+	//Pós-Processamento do operador $ -> IN
+	cAnt		:= ''
+	lIN			:= .F.
+	lLetraAntes	:= .F.
+	lStringAntes:= .F.
+	cFilAdv		:= U_CXRTrim(cFilAdv)	//Remove espacos no final da string
+	nTamStr		:= Len(cFilAdv)
+	For nX := 1 to nTamStr
+		cTrecho	:= SubStr(cFilAdv,nX,1)
+		//Processa as strings----------------------------------------------------------------------
+		If ( cTrecho $ cChAsp )	//Caracter aspas
+			cAspAtu		:= cTrecho
+			lStringAntes:= .T.
+
 			//Procuro o fechamento da string
 			nPos	:= At(cAspAtu,cFilAdv,nX+1)
 			If nPos == 0	//Erro de sintaxe
@@ -110,25 +166,124 @@ User Function CXAdv2Sql(uFilAdv	,;	//01
 							'INFORME O SETOR DE T.I.')
 				Exit
 			Else
-				cMeio	:= SubStr(cFilAdv,nX+1,nPos-nX-1)
-				If 	lIN .And. ;
-				 	cSep <> NIL
-				 	
-				 	//cMeio	:= StrTran(cMeio,cAspAtu)
-				 	cMeio	:= FormatIN(cMeio,cSep)
+				If 	lIN
+					cMeio	:= SubStr(cFilAdv,nX+1,nPos-nX-1)
+				 	If ValType(cSep) == 'C'
+						//cMeio	:= StrTran(cMeio,cAspAtu)
+						cMeio	:= FormatIN(cMeio,cSep)
+						//cMeio	:= U_CXSubStr(cMeio,2,-1)	//Remove o primeiro e último parênteses
+					Else
+						cMeio	:= "('"+cMeio+"')"
+					EndIf
 				Else
-					cMeio	:= "'"+cMeio+"'"
+					cMeio	:= "'"+SubStr(cFilAdv,nX+1,nPos-nX-1)+"'"	//Forço a troca de aspas duplas para simples!
 				EndIf
-				
+
+				nPosStr	:= Len(cAnt)	//Guardo a posição da string para o operador Contém
+				nX		:= nPos			//Posiciona no final da String localizada
+				lIN		:= .F.			//Já processou o IN desmarca
 				cAnt	+= cMeio
-				nX		:= nPos
-				lIN		:= .F.
 			EndIf
+		//Trecho de comandos ADVPL-----------------------------------------------------------------
+		ElseIf .Not. ( cTrecho $ cCharSpc )	//Não são espaços
+			If cTrecho $ '[]'	//Erro de sintaxe, no SQL não existe colchetes, no ADVPL deve ser referir a array
+				U_CXHelp(,,	'ERRO DE SINTAXE COMANDO: '+CRLF+cFilAdv,,;
+							'INFORME O SETOR DE T.I.')
+				Exit
+			EndIf
+
+			//Processa operador contém-------------------------------------------------------------
+			If 	lStringAntes .And. ;
+				cTrecho == '$'
+
+				//Busca o final do comando
+				lLetraAntes	:= .F.
+				For nY := nX+1 to nTamStr
+					cTrecho2	:= SubStr(cFilAdv,nY,1)
+					//AQUI NÃO FIZ NENHUM TRATAMENTO PARA CONTATENÇÃO (+) E NEM FUNÇÕES ANINHADAS (...)
+					//Busca o campo
+					If IsAlpha(cTrecho2)
+						lLetraAntes	:= .T.
+					//Busca o fim do campo
+					ElseIf 	lLetraAntes .And. ;
+							( cTrecho2 $ cCharSpc )	//Espaços
+						Exit
+					EndIf
+				Next
+				
+				cTrecho	:= ''	//Limpo o trecho atual porque já processei completo o comando
+				//PODERIA USAR CHARINDEX('MUCURI',CC2_MUN)>0 MAS ACHEI MAIS SIMPLES COM O LIKE MESMO,
+				// A PERFORMANCE PELO QUE TESTEI É MELHOR USANDO LIKE 
+				//cAnt	:= Left(cAnt,nPosStr-1)+' ( CHARINDEX('+cMeio+','+U_CXSubStr(cFilAdv,nX+1,nY-1)+')>0 )'
+				cAnt	:= Left(cAnt,nPosStr-1)+' '+U_CXSubStr(cFilAdv,nX+1,nY-1)+" LIKE '%"+U_CXSubStr(cMeio,2,-1)+"%' "
+				nX		:= nY	//Posiciono no final do trecho atual
+
+			//Processa outras operações
+			Else
+				If nX > 1
+					lLetraAntes	:= IsAlpha(SubStr(cFilAdv,nX-1,1))
+				EndIf
+
+				//Busca substituição de códigos--------------------------------------------------------
+				For nY := 1 to Len(aProcAdv)
+					If (nTamStr-nX) >= aProcAdv[nY][nTAM]+1	//Verifico o final da string se ainda é possível processar
+						If Upper(SubStr(cFilAdv,nX,aProcAdv[nY][nTAM])) == aProcAdv[nY][cORG]
+							//Funções para processamento-----------------------------------------------
+							If aProcAdv[nY][lFUN]
+								//Se função preciso verificar os parênteses----------------------------
+								If 	.Not. lLetraAntes .And. ;								//Não pode ter letras antes
+									.Not. IsAlpha(SubStr(cFilAdv,nX+aProcAdv[nY][nTAM],1))	//Não pode ter letras depois
+
+									//Busco a abertura do parênteses-----------------------------------
+									lAbriuPar	:= .F.
+									For nZ := nX+aProcAdv[nY][nTAM] to nTamStr
+										cTrecho2	:= SubStr(cFilAdv,nZ,1)
+										//Abre o parênteses
+										If cTrecho2 == '('
+											//Ex.: DTOS (...), ALLTRIM ( ... )
+											If aProcAdv[nY][lPAR]	//Função com parâmetros não preciso validar mais nada
+												cTrecho	:= aProcAdv[nY][cDST]
+												nX		:= nZ-1	//Avança cursor atual
+												nY		:= 999	//Força sair do laço superior também!
+												Exit
+											EndIf
+											lAbriuPar	:= .T.
+										//Não são espaços
+										ElseIf .Not. ( cTrecho2 $ cCharSpc )
+											//AQUI NÃO EXISTEM ERROS NA ESTRUTURA DE CÓDIGO, COMO PARÊNTESES FORA DE ORDEM
+											//PORQUE JÁ FORCEI UM PARSE ANTES PARA ESSA VERIFICAÇÃO.
+											If lAbriuPar
+												//SE CHEGOU AQUI É PORQUE É UMA FUNÇÃO SEM PARÂMETROS!!!
+												If cTrecho2 == ')'
+													cTrecho	:= aProcAdv[nY][cDST]
+													nX		:= nZ	//Avança cursor atual
+													nY		:= 999	//Força sair do laço superior também!
+													Exit
+												EndIf
+											//Se encontrar qualquer outro caractere aqui é porque não deve processar, pula
+											Else
+												Exit
+											EndIf
+										EndIf
+									Next
+								EndIf
+							//Comando direto-----------------------------------------------------------
+							Else
+								lIN		:= ( aProcAdv[nY][cORG] == '$' )
+								cTrecho	:= aProcAdv[nY][cDST]
+								nX		+= ( aProcAdv[nY][nTam]-1 )
+								nY		:= 999	//Força sair do laço superior também!
+								Exit
+							EndIf
+						EndIf
+					EndIf
+				Next
+			EndIf
+			cAnt	+= cTrecho
+			lStringAntes:= .F.
 		EndIf
 	Next
 	
-	cFilSQL	:= ADMParSQL(cAnt)
-	
-	cFilSQL	:= StrTran(cFilSQL,"FORMAT(GETDATE(),'YYYYMMDD')","FORMAT(GETDATE(),'yyyyMMdd')")	//Preciso fazer esse ajuste porque a função format é case sensitive!!!
+	cFilSQL	:= StrTran(cAnt,"FORMAT(GETDATE(),'YYYYMMDD')","FORMAT(GETDATE(),'yyyyMMdd')")	//Preciso fazer esse ajuste porque a função format é case sensitive!!!
 
 Return cFilSQL

@@ -1,0 +1,84 @@
+#INCLUDE "RWMake.ch"
+#INCLUDE "Protheus.ch"
+#INCLUDE "Totvs.ch"
+#Include "ParmType.ch"
+#Include "CXInclude.ch"
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXGetCpo | Autor | Cirilo Rocha       | Data | 15/12/2017  |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descr.    | Função genérica para retornar campos ou variáveis de memó- |##
+//##|          | ria de acordo com os parâmetros passados.                  |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 19/05/18 | Cirilo R. | Tratamento para grid                           |##
+//##| 20/11/18 | Cirilo R. | Revisão no fonte                               |##
+//##| 04/11/19 | Cirilo R. | Adicionada posição do aCols                    |##
+//##| 10/06/21 | Cirilo R. | Tratamento para objetos MVC                    |##
+//##| 13/10/21 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 14/10/21 | Cirilo R. | Correção no tratamento MVC!                    |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXGetCpo(	cCampo	,;	//01 Campo para leitura
+						lMem	,;	//02 Busca dados da Memoria
+						cAlias	,;	//03 Alias para leitura (def busca do cCampo)
+						lGrid	,;	//04 Busca dados da Grid (def .F.)
+						nPos	,;	//05 Posicao do aCols (def N)
+						lMVC	);	//06 Usa componente MVC?
+							AS Variant
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local uRet		AS Variant
+	Local oModel	AS Object
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cCampo	  		AS Character
+	ParamType 1		VAR lMem	 	  	AS Logical					Optional Default .F.
+	ParamType 2		VAR cAlias	  		AS Character				Optional Default FwTabPref(cCampo)
+	ParamType 3		VAR lGrid	 	  	AS Logical					Optional Default .F.
+	ParamType 4		VAR nPos	 	  	AS Numeric					Optional Default If(Type('n')=='N',n,0)
+	ParamType 5		VAR lMVC	 	  	AS Logical					Optional Default NIL
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	cCampo	:= StrTran(cCampo,'M->')
+	If lMVC == NIL
+		oModel	:= fwModelActive()
+		lMVC	:= ( ValType(oModel) == 'O' .And. oModel:IsActive() )
+	EndIf
+
+	If lGrid
+		//If fwModelActive() <> NIL
+		If lMVC
+			uRet	:= FWFldGet(cCampo,nPos,/*oModel*/) //Obtem valor do MVC
+		EndIf
+		
+		If ValType(uRet) == 'U'	//Tenta corrigir tratamento do MVC
+			If 	Type('aCols') == 'A' .And. ;
+				Type('aHeader') == 'A' .And. ;
+				GdFieldPos(cCampo) > 0
+
+				uRet	:= GdFieldGet(cCampo,nPos)
+			Else
+				ApMsgStop('ERRO: Não foi possível localizar o aCols e aHeader para com o campo '+cCampo,U_CXTxtMsg(,,.T.))
+			EndIf
+		EndIf
+	ElseIf 	cAlias == 'M->' .Or. ;
+			lMem
+		
+		//If fwModelActive() <> NIL
+		If lMVC
+			uRet	:= FWFldGet(cCampo,/*nLin*/,/*oModel*/) //Obtem valor do MVC
+		EndIf
+		
+		If ValType(uRet) == 'U'	//Tenta corrigir tratamento do MVC
+			uRet	:= &('M->'+cCampo)
+		EndIf
+	Else
+		uRet	:= U_CxFieldGet(cCampo,cAlias)
+	EndIf
+
+Return uRet

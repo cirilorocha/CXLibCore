@@ -1,0 +1,72 @@
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+#INCLUDE 'CXInclude.ch'
+
+//#############################################################################
+//##+==========+===========+=======+===================+======+=============+##
+//##|Programa  | CXMsgErro | Autor | Cirilo Rocha      | Data | 15/06/2022  |##
+//##+==========+===========+=======+===================+======+=============+##
+//##|Desc.     | Função genérica para mostrar mensagens de erro, preenchendo|##
+//##|          |  as variávies compartilhadas com a mensagem                |##
+//##+==========+==========+=================================================+##
+//##| DATA     | ANALISTA | MANUTENÇÃO EFETUADA                             |##
+//##+==========+==========+=================================================+##
+//##| 20/06/22 | Cirilo R.| Acrescentado parâmetro para exibir no console   |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+==========+==========+=================================================+##
+//#############################################################################
+User Function CXMsgErro(cMensagem,;	//01 Mensagem de erro
+						cSolucao,;	//02 Solução
+						lMsg	,;	//03 Mostra mensagem ao usuário (Def .T.)
+						oArea	,;	//04 Area salva para restaurar (Def NIL)
+						nNivel	,;	//05 Nível do ProcName() (Def 1)
+						oObj	,;	//06 Objeto para mensagem
+						lAviso	,;	//07 Apenas aviso (Def .F.)
+						lHelp	,;	//08 Forçar Help p/ MVC (Def .T.)
+						lConsole)	//09 Mostra erro no console (Def .F.)
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cMensagem	AS Character
+	ParamType 1		VAR cSolucao	AS Character			Optional Default ''
+	ParamType 2		VAR lMsg		AS Logical				Optional Default .T.
+	ParamType 3		VAR oArea		AS Object				Optional Default NIL
+	ParamType 4		VAR nNivel		AS Numeric				Optional Default 1
+	ParamType 5		VAR oObj		AS Object				Optional Default NIL
+	ParamType 6		VAR lAviso		AS Logical				Optional Default .F.
+	ParamType 7		VAR lHelp		AS Logical				Optional Default .F.
+	ParamType 8		VAR lConsole	AS Logical				Optional Default .F.
+	
+	//---------------------------------------------------------------------------------------------
+	//Variaveis compartilhadas de mensagens de erro
+	cCodErr	:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cMsgErr	:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cSoluc	:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg	:= IIf(Type('cMsg')<>'C','',cMsg)
+	
+	If ValType(oArea) == 'O'
+		oArea:RestArea(.T.)		//Restaura area
+		oArea:Destroy()
+		FWFreeVar(oArea)
+	EndIf
+	
+	cCodErr	:= U_CXTxtMsg(oObj,nNivel+1,.T.)
+	cMsgErr	:= cMensagem
+	cSoluc	:= cSolucao
+	cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+	If lMsg
+		U_CXHelp(cCodErr,,cMsgErr,,cSoluc,lAviso,lHelp)
+	EndIf
+	
+	If 	lConsole .Or. ;
+		U_CXRotAuto(.T.)	//Se rotina via Job
+
+		If lAviso
+			U_CXConOut('#### ALERTA #### '+cMsg)	//Apresenta a mensagem de aviso no console
+		Else
+			U_CXConOut('#### ERRO #### '+cMsg)	//Apresenta a mensagem de erro no console
+		EndIf
+	EndIf
+
+Return

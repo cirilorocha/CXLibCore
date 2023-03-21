@@ -1,0 +1,4983 @@
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+#INCLUDE 'CXInclude.ch'
+#INCLUDE "CXDigCpo.CH"
+#INCLUDE "FwGetSX5.ch"
+
+//##################################################################################################
+//##+========+=================================+=======+====================+======+=============+##
+//##|Programa| CXLibVld                        | Autor | Cirilo Rocha       | Data | 01/03/2023  |##
+//##+========+=================================+=======+====================+======+=============+##
+//##|Desc.   | Conjunto de funções para validação de campos e dados, estende algumas funções pa- |##
+//##|        |  drão, mostrando qual campo refere-se                                             |##
+//##+========+==========+========================================================================+##
+//##|  DATA  | ANALISTA | MANUTENÇÃO EFETUADA                                                    |##
+//##+========+==========+========================================================================+##
+//##|06/03/23| Cirilo R.| Unificação das funções neste mesmo fonte                               |##
+//##|        |          | Centralização das validações comuns em uma única função                |##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##+========+==========+========================================================================+##
+//##################################################################################################
+
+Static cVar				AS Character
+Static cDescCpo			AS Character
+
+//##################################################################################################
+//##+========+=================================+=======+====================+======+=============+##
+//##|Programa| CXVldGen                        | Autor | Cirilo Rocha       | Data | 01/03/2023  |##
+//##+========+=================================+=======+====================+======+=============+##
+//##|Desc.   | Pré-Validação dos dados, são condições comuns a todas as funções usadas aqui      |##
+//##+========+==========+========================================================================+##
+//##|  DATA  | ANALISTA | MANUTENÇÃO EFETUADA                                                    |##
+//##+========+==========+========================================================================+##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##+========+==========+========================================================================+##
+//##################################################################################################
+User Function CXVldGen(	uConteudo	,;	//01 @uConteudo
+						lMsg		,;	//02 Mostra avisos (def .T.)
+						cCdErr		,;	//03 Mensagem de erro Customizada (opcional)
+						lNaoVazio	,;	//04 NAO aceita vazios (def .T.)
+						nTamMin		,;	//05 nTamMin (def 0)
+						nTamMax		,;	//06 nTamMax (def 99999)
+						cReadVar	,;	//07 cVar (def ReadVar())
+						cDscCpo		,;	//08 cDscCpo
+						lNaoZero	,;	//09 lNaoZero (def .F.)
+						lSoNum		,;	//10 lSoNum	(def .F.)
+						lDigitoX	,;	//11 lDigitoX (usado em conjunto com lSoNum, def .F.)
+						cDscCpoDef	);	//12 cDscCpoDef descrição default quando não usar readvar
+							AS Logical
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local nTamVld						AS Integer
+	Local lAuto		:= U_CXRotAuto()	AS Logical
+	Local lRet		:= .T.				AS Logical
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR uConteudo	AS Character,Numeric,Date	Optional Default NIL	//Por referência
+	ParamType 1		VAR lMsg		AS Logical					Optional Default .Not. lAuto
+	ParamType 2		VAR cCdErr		AS Character				Optional Default 'CXVldGen-'
+	ParamType 3		VAR lNaoVazio	AS Logical					Optional Default .T.
+	ParamType 4		VAR nTamMin		AS Numeric					Optional Default 0
+	ParamType 5		VAR nTamMax		AS Numeric					Optional Default 99999
+	ParamType 6		VAR cReadVar 	AS Character				Optional Default ReadVar()
+	ParamType 7		VAR cDscCpo 	AS Character				Optional Default ''
+	ParamType 8		VAR lNaoZero	AS Logical					Optional Default .F.
+	ParamType 9		VAR lSoNum		AS Logical					Optional Default .F.
+	ParamType 10	VAR lDigitoX	AS Logical					Optional Default .F.
+	ParamType 11	VAR cDscCpoDef	AS Character				Optional Default ''
+
+	//---------------------------------------------------------------------------------------------
+	//Variaveis compartilhadas de mensagens de erro
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+
+	//Limpa as variáveis estáticas do programa antes de iniciar uma nova validação
+	cVar		:= cReadVar
+	cDescCpo	:= cDscCpo
+
+	//---------------------------------------------------------------------------------------------
+	If uConteudo == NIL //String nao informada
+		cVar	:= ReadVar()
+		If .Not. Empty(cVar)
+			uConteudo	:= &(cVar)
+		Else
+			cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			cMsgErr	:= 	'String não informada nos parâmetros da função.'+CRLF+;
+						'Campo: '+cDescCpo
+			cSoluc	:= 'INFORME O SETOR DE T.I.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			//If lMsg
+			//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+			//EndIf
+			lRet	:= .F.
+		EndIf
+	EndIf
+
+	If lRet
+		If Empty(cVar)
+			If 	Empty(cDescCpo)		//Descrição default se não vincular com campos
+				cDescCpo	:= cDscCpoDef+' '
+			EndIf
+		Else
+			cVar		:= StrTran(cVar,'M->','')
+			If Empty(cDescCpo)
+				cDescCpo	:= FWSX3Util():GetDescription(cVar) //FwX3Titulo(cVar)
+			EndIf
+			If At(cVar,cDescCpo,/*nPosIni*/) == 0 // buscar texto da esquerda para a direita
+				cDescCpo	:= LTrim(cDescCpo+' ('+cVar+') ')
+			EndIf
+		EndIf
+	EndIf
+
+	//---------------------------------------------------------------------------------------------
+	If 	lRet .And. ;
+		Empty(uConteudo)
+
+		If lNaoVazio
+			cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			cMsgErr	:= 'Campo '+cDescCpo+'NÃO informado é de preenchimento obrigatório.'
+			cSoluc	:= 'INFORME O CAMPO.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			//If lMsg
+			//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+			//EndIf
+			lRet	:= .F.
+		Else
+			Return .T.	//Precisa retornar aqui porque a string esta vazia
+		EndIf
+	EndIf
+
+	//Verifica tamanho-----------------------------------------------------------------------------
+	If 	lRet .And. ;
+		ValType(uConteudo) == 'C'
+		uConteudo	:= RTrim(uConteudo)
+		nTamVld		:= Len(uConteudo)
+		If nTamVld > nTamMax
+
+			cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			cMsgErr	:= 	'Tamanho do campo '+cDescCpo+'MAIOR que o limite permitido de '+;
+						LTrim(Transform(nTamMax,'@E 999'))
+			cSoluc	:= 'DIMINUA OS DADOS OU ABREVIE SE POSSÍVEL.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			//If lMsg
+			//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+			//EndIf
+
+			lRet	:= .F.
+		ElseIf nTamVld < nTamMin
+		
+			cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			cMsgErr	:= 	'Tamanho do campo '+cDescCpo+'MENOR que o limite permitido de '+;
+						LTrim(Transform(nTamMin,'@E 999'))
+			cSoluc	:= 'SE O CAMPO FOR NUMÉRICO, COMPLETE COM ZEROS A ESQUERDA.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			//If lMsg
+			//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+			//EndIf
+
+			lRet	:= .F.
+		EndIf
+	EndIf
+
+	//Valida numero zerado-------------------------------------------------------------------------
+	If 	lRet .And. ;
+		lNaoZero
+
+		If uConteudo == Replicate('0',Len(uConteudo))
+		
+			cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			cMsgErr	:= 	'Campo '+cDescCpo+'inválido. Está zerado.'
+			cSoluc	:= 'INFORME UM VALOR VÁLIDO.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			//If lMsg
+			//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+			//EndIf
+
+			lRet	:= .F.
+		EndIf
+	EndIf
+	
+	//Valida ch especiais--------------------------------------------------------------------------
+	If 	lRet .And. ;
+		lSoNum
+
+		If Len(uConteudo) <> Len(U_CXSoNumeros(uConteudo,lDigitoX))
+		
+			cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			cMsgErr	:= 	'Campo '+cDescCpo+'inválido.'+CRLF+;
+						'Existem caracteres que não são números.'
+			cSoluc	:= 'INFORME APENAS NÚMEROS.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			//If lMsg
+			//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+			//EndIf
+
+			lRet	:= .F.
+		EndIf
+	EndIf
+
+	//Tela de verificação de permissão do Admin----------------------------------------------------
+	lRet	:= VrfAdmin(lRet,lMsg,lAuto)
+
+Return lRet
+
+//#############################################################################
+//##+----------+------------------------------------------------------------+##
+//##|Funcao    | CXPertence                                                 |##
+//##+----------+---------------------------------------+------+-------------+##
+//##|Autor     | Cirilo Rocha                          | Data | 15/06/2011  |##
+//##+----------+---------------------------------------+------+-------------+##
+//##|Descr.    | Funcao pertence customizada semelhante a funcao padrao.    |##
+//##|          | A customizacao exibe uma mensagem de erro.                 |##
+//##+----------+------------------------------------------------------------+##
+//##|Parametros| cOpcoes = Lista de opcoes a ser validaca. Ex.: 'SN'        |##
+//##|          | cMsg    = Mensagem a ser exibida quando a validacao for    |##
+//##|          |           falsa                                            |##
+//##+----------+------------------------------------------------------------|##
+//##|Retorno   | .T. se pertence ao intevalo passado                        |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 21/11/22 | Cirilo R. | Grande revisão no fonte                        |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXPertence(	cOpcoes		,;	//01 cOpcoes
+							cMsgTmp		,;	//02 cMsg
+							cConteudo	,;	//03 cConteudo
+							lMsg		,;	//04 lMsg
+							lNaoVazio	);	//05 lNaoVazio
+								AS Logical
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cDscOpc							AS Character
+	Local cCdErr	:= 'CXPertence-'		AS Character
+	Local nTamCpo	:= 0					AS Integer
+	Local nX								AS Integer
+	Local lAuto		:= U_CXRotAuto()		AS Logical
+	Local lRet		:= .T.					AS Logical
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cOpcoes		AS Character
+	ParamType 1		VAR cMsgTmp		AS Character	Optional Default NIL
+	ParamType 2		VAR cConteudo  	AS Character	Optional Default NIL
+	ParamType 3		VAR lMsg	  	AS Logical		Optional Default .Not. lAuto
+	ParamType 4		VAR lNaoVazio  	AS Logical		Optional Default .T.
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+
+	//Variaveis compartilhadas de mensagens de erro------------------------------------------------
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+
+	//Pré-Validação dos Dados----------------------------------------------------------------------
+	lRet	:= U_CXVldGen(	@cConteudo		,;	//01 @cConteudo
+							.F.				,;	//02 Mostra avisos (def .T.)
+							cCdErr			,;	//03 Mensagem de erro Customizada (opcional)
+							lNaoVazio		,;	//04 NAO aceita vazios (def .T.)
+							/*nTamMin*/		,;	//05 nTamMin (def 0)
+							/*nTamMax*/		,;	//06 nTamMax (def 99999)
+							/*cReadVar*/	,;	//07 cVar (def ReadVar())
+							/*cDscCpo*/		,;	//08 cDscCpo
+							/*lNaoZero*/	,;	//09 lNaoZero (def .F.)
+							/*lSoNum*/		,;	//10 lSoNum	(def .F.)
+							/*lDigitoX*/	,;	//11 lDigitoX (usado em conjunto com lSoNum, def .F.)
+							/*cDscCpoDef*/	)	//12 cDscCpoDef descrição default quando não usar readvar
+	
+	//Ignora vazios?
+	If .Not. lNaoVazio .And. ;
+		Empty(cConteudo)
+
+		Return .T.
+	EndIf
+
+	If .Not. Empty(cVar)
+		nTamCpo		:= FwTamSX3(cVar)[1]
+	EndIf
+
+	If 	lRet .And. ;
+		cMsgTmp == NIL
+
+		cDscOpc	:= cOpcoes
+		If nTamCpo == 0
+			nTamCpo	:= Len(cConteudo)
+		EndIf
+		If nTamCpo > 0
+			cDscOpc	:= ''
+			For nX := 1 to Len(cOpcoes) Step nTamCpo
+				cDscOpc	+= SubStr(cOpcoes,nX,nTamCpo)+','
+			Next
+			cDscOpc	:= U_CXSubStr(cDscOpc,,-1)	//Remove a última vírgula
+		EndIf
+		
+		cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+		cMsgTmp	:= 'Campo '+cDescCpo+'Opção inválida. Deveria estar contida em '+cDscOpc
+	EndIf
+
+	If lRet
+		//lRet		:= Pertence(cOpcoes)
+		lRet	:= ( cConteudo $ cDscOpc )
+
+		If 	.Not. lRet
+			If Empty(cCodErr)
+				cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			EndIf
+			cSoluc	:= 'INFORME UMA OPÇÃO VÁLIDA.'
+			cMsgErr	:= cMsgTmp
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+		EndIf
+	EndIf
+
+	//Tela de verificação de permissão do Admin----------------------------------------------------
+	lRet	:= VrfAdmin(lRet,lMsg,lAuto)
+
+Return lRet
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXEntre  | Autor | Cirilo Rocha       | Data | 08/01/2019  |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descricao | Funcao para validacao de campos por intevalos              |##
+//##|          | Feita em substituicao a funcao padrao Entre que nao diz    |##
+//##|          | exatamente o erro e o campo                                |##
+//##+----------+----------+-------------------------------------------------+##
+//##| DATA     | ANALISTA | MANUTENCAO EFETUADA                             |##
+//##+----------+----------+-------------------------------------------------+##
+//##| 16/01/19 | Cirilo R.| Melhoria nas mensagens de Help                  |##
+//##| 14/12/21 | Cirilo R.| Pequena revisão (release 33)                    |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+----------+----------+-------------------------------------------------+##
+//#############################################################################
+User Function CXEntre(	uVal		,;	//01 Valor a ser validado (def ReadVar )
+						uVlMin		,;	//02 Valor minimo
+						uVlMax		,;	//03 Valor maximo
+						lMsg		,;	//04 Mostra avisos (def .T.)
+						cCdErr		,;	//05 Mensagem de erro Customizada (opc)
+						lNaoVazio	,;	//06 NAO aceita vazios (def .T.)
+						cReadVar	);	//07 Campo para descricao do erro (opc)
+							AS Logical
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cVlMin						AS Character
+	Local cVlMax						AS Character
+	Local lAuto		:= U_CXRotAuto()	AS Logical
+	Local lRet		:= .T.				AS Logical
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR uVal			AS Numeric,Character,Date		Optional Default NIL
+	ParamType 1		VAR uVlMin  	  	AS Numeric,Character,Date
+	ParamType 2		VAR uVlMax		  	AS Numeric,Character,Date
+	ParamType 3		VAR lMsg			AS Logical						Optional Default .Not. lAuto
+	ParamType 4		VAR cCdErr		 	AS Character					Optional Default 'CXEntre-'
+	ParamType 5		VAR lNaoVazio		AS Logical						Optional Default .T.
+	ParamType 6		VAR cReadVar 		AS Character					Optional Default ReadVar()
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	lRet		:= .T.
+
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+	
+	//Se chamada a partir dos Mashups ignora esta validacao neste momento, sera validado depois
+	If EH_MVC
+		Return .T.
+	EndIf
+
+	If 	lMsg .And. ;
+		lAuto
+		
+		lMsg	:= .F. 
+	EndIf
+
+	//Se a faixa eh entre negativo e positivo entao o zero eh um valor valido nao posso validar vazio 
+	If 	ValType(uVlMin) == 'N' .And. ;
+		uVlMin < 0 .And. ;
+		uVlMax > 0 
+		
+		lNaoVazio	:= .F.
+	EndIf
+
+	//Pré-Validação dos Dados----------------------------------------------------------------------
+	lRet	:= U_CXVldGen(	@uVal			,;	//01 @cConteudo
+							.F.				,;	//02 Mostra avisos (def .T.)
+							cCdErr			,;	//03 Mensagem de erro Customizada (opcional)
+							lNaoVazio		,;	//04 NAO aceita vazios (def .T.)
+							/*nTamMin*/		,;	//05 nTamMin (def 0)
+							/*nTamMax*/		,;	//06 nTamMax (def 99999)
+							cReadVar		,;	//07 cVar (def ReadVar())
+							/*cDscCpo*/		,;	//08 cDscCpo
+							/*lNaoZero*/	,;	//09 lNaoZero (def .F.)
+							/*lSoNum*/		,;	//10 lSoNum	(def .F.)
+							/*lDigitoX*/	,;	//11 lDigitoX (usado em conjunto com lSoNum, def .F.)
+							/*cDscCpoDef*/	)	//12 cDscCpoDef descrição default quando não usar readvar
+
+	//Ignora vazios?
+	If .Not. lNaoVazio .And. ;
+		Empty(uVal)
+
+		Return .T.
+	EndIf
+
+	//---------------------------------------------------------------------------------------------
+	//Ajusta os tamanhos das strings para a correta validacao
+	If lRet
+		If ValType(uVal) == 'C'
+			cVlMin	:= uVlMin
+			cVlMax	:= uVlMax
+
+			If len(uVlMin) > len(uVlMax)
+				uVlMax	:= PadL(uVlMax,len(uVlMin),'0')
+			ElseIf len(uVlMin) < len(uVlMax)
+				uVlMin	:= PadL(uVlMin,len(uVlMax),'0')
+			EndIf
+		ElseIf ValType(uVal) == 'N'
+			cVlMin	:= LTrim(Str(uVlMin))
+			cVlMax	:= LTrim(Str(uVlMax))
+		ElseIf ValType(uVal) == 'D'
+			cVlMin	:= DtoC(uVlMin)
+			cVlMax	:= DtoC(uVlMax)
+		EndIf
+	EndIf
+
+	//---------------------------------------------------------------------------------------------
+	If lRet
+		If uVal < uVlMin
+			cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			cMsgErr	:= 'Campo '+cDescCpo+'está ABAIXO do valor mínimo permitido ('+cVlMin+').'
+			cSoluc	:= 'INFORME UM VALOR ENTRE '+cVlMin+' E '+cVlMax+'.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			//If lMsg
+			//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+			//EndIf
+			lRet	:= .F.
+		ElseIf uVal > uVlMax
+			cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			cMsgErr	:= 'Campo '+cDescCpo+'está ACIMA do valor máximo permitido ('+cVlMax+').'
+			cSoluc	:= 'INFORME UM VALOR ENTRE '+cVlMin+' E '+cVlMax+'.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			//If lMsg
+			//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+			//EndIf
+			lRet	:= .F.
+		EndIf
+	EndIf
+
+	//Tela de verificação de permissão do Admin----------------------------------------------------
+	lRet	:= VrfAdmin(lRet,lMsg,lAuto)
+
+Return lRet
+
+//#############################################################################
+//##+----------+------------+-------+---------------------+------+----------+##
+//##|Programa  | CXNaoVazio | Autor | Cirilo Rocha 		  | Data | 15/08/12 |##
+//##+----------+------------+-------+---------------------+------+----------+##
+//##|Descr.    | Funcao para validar se um campo esta vazio.                |##
+//##|          | Pode ser usada em console ou execauto sem problemas.       |##
+//##+----------+----------+-------------------------------------------------+##
+//##| DATA     | ANALISTA | Manutenção efetuada                             |##
+//##+----------+----------+-------------------------------------------------+##
+//##| 28/08/19 | Cirilo R.| Pequena revisao no fonte                        |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+----------+----------+-------------------------------------------------+##
+//#############################################################################
+User Function CXNaoVazio(	uVal		,;	//01 Valor a ser validado (def ReadVar )
+							cDscCpo		,;	//02 Nome do campo validado (def readvar)
+							lMsg		,;	//03 Mostra avisos (def .T.)
+							cCdErr		,;	//04 Mensagem de erro Customizada (opc)
+							cReadVar	);	//05 Campo para descricao do erro (opc)
+									AS Logical
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local lAuto		:= U_CXRotAuto()	AS Logical
+	Local lRet		:= .T.				AS Logical
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR uVal			AS Numeric,Character,Date	Optional Default NIL
+	ParamType 1		VAR cDscCpo			AS Character				Optional Default NIL
+	ParamType 2		VAR lMsg			AS Logical					Optional Default .Not. lAuto
+	ParamType 3		VAR cCdErr		 	AS Character				Optional Default 'CXVazio-'
+	ParamType 4		VAR cReadVar 		AS Character				Optional Default ReadVar()
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+	
+	//Se chamada a partir dos Mashups ignora esta validacao neste momento, sera validado depois
+	If EH_MVC
+		Return .T.
+	EndIf
+
+	If 	lMsg .And. ;
+		lAuto
+		
+		lMsg	:= .F. 
+	EndIf
+
+	//Pré-Validação dos Dados----------------------------------------------------------------------
+	lRet	:= U_CXVldGen(	@uVal			,;	//01 @cConteudo
+							.F.				,;	//02 Mostra avisos (def .T.)
+							cCdErr			,;	//03 Mensagem de erro Customizada (opcional)
+							/*lNaoVazio*/	,;	//04 NAO aceita vazios (def .T.)
+							/*nTamMin*/		,;	//05 nTamMin (def 0)
+							/*nTamMax*/		,;	//06 nTamMax (def 99999)
+							cReadVar		,;	//07 cVar (def ReadVar())
+							cDscCpo			,;	//08 cDscCpo
+							/*lNaoZero*/	,;	//09 lNaoZero (def .F.)
+							/*lSoNum*/		,;	//10 lSoNum	(def .F.)
+							/*lDigitoX*/	,;	//11 lDigitoX (usado em conjunto com lSoNum, def .F.)
+							/*cDscCpoDef*/	)	//12 cDscCpoDef descrição default quando não usar readvar
+
+	//Tela de verificação de permissão do Admin----------------------------------------------------
+	lRet	:= VrfAdmin(lRet,lMsg,lAuto)
+
+Return lRet
+
+//#############################################################################
+//##+----------+-------------+-------+--------------------+------+----------+##
+//##|Programa  | Obrigatorio | Autor | Cirilo Rocha       | Data |24/07/2011|##
+//##+----------+-------------+-------+--------------------+------+----------+##
+//##|Descr.    | Funcao para validar a Enchoice se os campos obrigatorios   |##
+//##|          | estao preenchidos.                                         |##
+//##|          | Em substituicao a funcao que foi customizada pela microsiga|##
+//##|          | Natal.                                                     |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function Obrigatorio(	aGets	,; //aGets
+							aTela	,; //aTela
+							tObg	,; //tObg
+							lShow	); //lShow
+								AS Logical
+
+Return Obrigatorio(	aGets	,;
+					aTela	,;
+					tObg	,;
+					lShow	)
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXObrig  | Autor | Cirilo Rocha       | Data | 17/10/2013  |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descr.    | Valida se os campos obrigatórios foram preenchidos         |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 13/01/14 | Cirilo R. | Ajuste para receber a posição da linha         |##
+//##| 29/01/14 | Cirilo R. | Corrigido erro log no default nLin             |##
+//##| 07/03/14 | Cirilo R. | Alterada a função para exibição das mensagens  |##
+//##| 28/08/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 16/11/22 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXObrig(	aCampos	,;	//01 aCampos	
+						nTipo	,;	//02 nTipo	
+						nLin	); 	//03 nLin	
+							AS Logical
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local lGrid			AS Logical
+	Local lRet			AS Logical
+	Local nX			AS Numeric
+	Local xConteudo		AS Variant
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR aCampos			AS Array
+	ParamType 1		VAR nTipo			AS Numeric
+	ParamType 2		VAR nLin			AS Numeric				Optional Default NIL
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	lRet	:= .T.
+	lGrid	:= ( nTipo == nTp_GetD )
+	
+	//Dados do aCols?
+	If lGrid
+		If Type('n') == 'N'
+			nLin	:= n
+		EndIf
+		//Revalido a variavel
+		ParamType 2		VAR nLin			AS Numeric
+		
+		If GDDeleted(nLin)	//Se deletado ignora validação
+			Return .T.
+		EndIf
+	EndIf
+	
+	For nX := 1 to len(aCampos)
+		xConteudo	:= U_CXGetCpo(	aCampos[nX]	,;	//01 Campo para leitura
+									.T.			,;	//02 Busca dados da Memoria
+									/*cAlias*/	,;	//03 Alias para leitura (def busca do cCampo)
+									lGrid		,;	//04 Busca dados da Grid (def .F.)
+									nLin		)	//05 Posicao do aCols (def N)
+		If Empty(xConteudo)
+			lRet	:= .F.
+			U_CXHelp(,,'O campo '+FwX3Titulo(aCampos[nX])+' ('+aCampos[nX]+') é obrigatório e não está preenchido.')
+			Exit
+		EndIf
+	Next
+	
+Return lRet
+
+//#############################################################################
+//##+----------+------------+-------+------------------+------+-------------+##
+//##|Programa  | CXVlChEsp  | Autor | Cirilo Rocha     | Data | 29/06/2012  |##
+//##+----------+------------+-------+------------------+------+-------------+##
+//##|Descr.    | Valida campos, quanto a possuirem caracteres especiais (co-|##
+//##|          |  mo aspas). Aceita somente letras ou números               |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 26/03/18 | Cirilo R. | Ajuste para nao validar dentro do mashup       |##
+//##| 06/04/18 | Cirilo R. | Melhoria para validar dois espacos             |##
+//##|          |           | Melhoria para permitir outros caracteres       |##
+//##| 11/04/18 | Cirilo R. | Pequena revisao no fonte                       |##
+//##| 27/08/19 | Cirilo R. | Pequena revisao no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXVlChEsp(cString		,;	//01 String a ser validada (se nao informado puxa do get atual)
+						lSoNumeros	,;	//02 Se valida apenas numeros
+						lDigitoX	,;	//03 Se so numeros aceixa digito X
+						lVldEsp		,;	//04 Se aceita espacos branco no meio do texto
+						cCdErr		,;	//05 Mensagem de erro Customizada (opcional)
+						lMsg		,;	//06 Se exibe mensagens de erro
+						cChLib		,;	//07 Outros caracteres alem de Letras e Numeros
+						cDscCpo		);	//08 cDscCpo Descricao do campo para Help
+								AS Logical
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cCh							AS Character
+	Local cChErro   					AS Character
+	Local lAuto		:= U_CXRotAuto()	AS Logical
+	Local lRet		:= .T.				AS Logical
+	Local lNaoVazio	:= .F.				AS Logical
+	Local nX							AS Numeric
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cString			AS Character					Optional Default NIL
+	ParamType 1		VAR lSoNumeros		AS Logical						Optional Default .F.
+	ParamType 2		VAR lDigitoX		AS Logical						Optional Default .F.
+	ParamType 3		VAR lVldEsp			AS Logical						Optional Default .F.
+	ParamType 4		VAR cCdErr			AS Character					Optional Default 'CXVlChEsp-'
+	ParamType 5		VAR lMsg			AS Logical						Optional Default .Not. lAuto
+	ParamType 6		VAR cChLib			AS Character					Optional Default ''
+	ParamType 7		VAR cDscCpo			AS Character					Optional Default NIL
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+	
+	//---------------------------------------------------------------------------------------------
+	
+	//Se chamada a partir dos Mashups ignora esta validacao neste momento, sera validado depois
+	If EH_MVC
+		Return .T.
+	EndIf
+	
+	If 	lMsg .And. ;
+		lAuto
+		
+		lMsg	:= .F. 
+	EndIf
+
+	//Pré-Validação dos Dados----------------------------------------------------------------------
+	lRet	:= U_CXVldGen(	@cString		,;	//01 @cConteudo
+							.F.				,;	//02 Mostra avisos (def .T.)
+							cCdErr			,;	//03 Mensagem de erro Customizada (opcional)
+							lNaoVazio		,;	//04 NAO aceita vazios (def .T.)
+							/*nTamMin*/		,;	//05 nTamMin (def 0)
+							/*nTamMax*/		,;	//06 nTamMax (def 99999)
+							/*cReadVar*/	,;	//07 cVar (def ReadVar())
+							cDscCpo			,;	//08 cDscCpo
+							/*lNaoZero*/	,;	//09 lNaoZero (def .F.)
+							/*lSoNum*/		,;	//10 lSoNum	(def .F.)
+							/*lDigitoX*/	,;	//11 lDigitoX (usado em conjunto com lSoNum, def .F.)
+							/*cDscCpoDef*/	)	//12 cDscCpoDef descrição default quando não usar readvar
+
+	//Ignora vazios?
+	If .Not. lNaoVazio .And. ;
+		Empty(cString)
+
+		Return .T.
+	EndIf
+
+	//---------------------------------------------------------------------------------------------
+	If lRet
+		cString	:= RTrim(cString)
+		If .Not. Empty(cString)
+			If Left(cString,1) == Space(1)
+				cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+				cMsgErr	:= 'O campo '+cDescCpo+'contém espaços no início.'
+				cSoluc	:= 'REMOVA OS ESPAÇOS NO ÍNICIO'
+				cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+				//If lMsg
+				//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+				//EndIf
+				lRet	:= .F.
+			ElseIf lSoNumeros
+				//Se o tamanho for diferente significa que contem caracteres invalidos
+				If Len(cString) > Len(U_CXSoNumeros(cString,lDigitoX))
+					cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+					cMsgErr	:= 'O campo '+cDescCpo+'deveria conter só números, '+;
+								'mas, contém caracteres inválidos.'
+					cSoluc	:= 'REMOVA OS CARACTERES QUE NÃO SÃO NÚMEROS.'
+					cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+					//If lMsg
+					//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+					//EndIf
+					lRet	:= .F.
+				EndIf
+			Else //Campo alfa numerico
+				For nX := 1 to len(cString)
+					cCh	:= SubStr(cString,nX,1)
+					If 	.Not. LetterOrNum(cCh) .And. ;
+						.Not. ( cCh $ cChLib )
+
+						If 	.Not. cCh == ' ' .Or. ;
+							.Not. lVldEsp
+
+							cChErro	:= cCh
+							If cCh == ' '
+								cChErro	:= 'espaço em branco'
+							ElseIf cCh $ '()'
+								cChErro	:= 'parenteses'
+							ElseIf cCh == Char(009)
+								cChErro	:= 'tabulação'
+							ElseIf cCh == Char(175) .Or. ;
+								cCh == Char(150) .Or. ;
+								cCh == Char(151)
+
+								cChErro	:= 'travessão'
+							EndIf
+							lRet	:= .F.
+							Exit
+						Endif
+					EndIf
+				Next
+
+				If 	lRet .And. ;
+					At(space(2),Alltrim(cString)) > 0 //Contem dois espacos no meio da string, tambem nao pode
+
+					cChErro	:= 'dois espaços em branco consecutivos'
+					lRet	:= .F.
+				EndIf
+
+				If .Not. lRet
+					cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+					cMsgErr	:= 'O campo '+cDescCpo+'contém caracteres inválidos ('+cChErro+').'
+					cSoluc	:= 'REMOVA OS CARACTERES QUE INVÁLIDOS.'
+					cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+					//If lMsg
+					//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+					//EndIf
+				EndIf
+			EndIf
+		EndIf
+	EndIf
+
+	//Tela de verificação de permissão do Admin----------------------------------------------------
+	lRet	:= VrfAdmin(lRet,lMsg,lAuto)
+
+Return lRet
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXVld    | Autor | Cirilo Rocha       | Data | 26/09/2012  |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descr.    | Funcao generica para validacao de campos, onde pode ser    |##
+//##|          | colocado uma validacao e a mensagem para ser exibida para  |##
+//##|          | o usuario.                                                 |##
+//##|          |                                                            |##
+//##|          | U_CXVld(M->E1_EMISSAO<dDataBase,'Dada de emissão inválida')|##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 28/08/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXVld(lValido	,;	//01 lValido
+					cMsg	,;	//02 cMsg
+					cHelp	);	//03 cHelp
+						As Logical
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR lValido			AS Logical
+	ParamType 1		VAR cMsg			AS Character		Optional Default NIL
+	ParamType 2		VAR cHelp			AS Character		Optional Default U_CXTxtMsg(,,.T.)
+	
+	//---------------------------------------------------------------------------------------------
+	If cMsg <> NIL
+		cMsg	:= OemToAnsi(cMsg)
+	EndIf
+	
+	U_CXHelp(cHelp,,cMsg)
+
+Return lValido
+
+//#############################################################################
+//##+----------+---------------+-------+----------------+------+------------+##
+//##|Programa  | CXVldAnoMes   | Autor | Cirilo Rocha   | Data | 15/02/2016 |##
+//##+----------+---------------+-------+----------------+------+------------+##
+//##|Descr.    | Validar ano/mês futuras e retroativas                      |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 15/07/16 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 11/09/17 | Cirilo R. | Ajuste para utilizar a funcao CXFolMes no lugar|##
+//##|          |           |  do parâmetro MV_FOLMES (P12)                  |##
+//##| 11/09/19 | Cirilo R. | Melhoria nas mensagens de erro                 |##
+//##|          |           | Ajuste para validar dados informados           |##
+//##| 18/11/21 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXVldAnoMes(	nMesFut		,;	//01 Numero de meses para avancar (def 0)
+							nMesRet		,;	//02 Numero de meses para retroceder (def 0)
+							lDataBase	,;	//03 Usa database como padrao (def .F.)
+							lVazio		,;	//04 Aceita vazio (def .F.)
+							cAMBase		,;	//05 Ano/Mes que serve como base (def AnoMes Date())
+							lFolMes		,;	//06 Se utiliza o FolMes do GPE (def .F.)
+							lMesAno		,;	//07 Se a informacao esta no formato Mes/Ano (def .F.)
+							l13			,; 	//08 Se aceita o mes 13 (def .F.)
+							lMsg		,;	//09 Mostra mensagens de erro (def .T.)
+							cAnoMesVld	,;	//10 Ano/Mes a ser utilizado para validacao (def Readvar())
+							lAviso		);	//11 Força exibição como aviso (def .F.) ao invés de Help
+									AS Logical
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+//	Local cAnoMesVld					AS Character
+	Local cAnoMesOrg					AS Character
+	Local cLimFut						AS Character
+	Local cLimRet						AS Character
+	Local cMes							AS Character
+	Local cAno							AS Character
+	Local cCdErr	:= 'CXVldAnoMes-'	AS Character
+	Local lAuto		:= U_CXRotAuto()	AS Logical
+	Local lRet		:= .T.				AS Logical
+	Local lNaoVazio						AS Logical
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR nMesFut			AS Numeric			Optional Default 0
+	ParamType 1		VAR nMesRet			AS Numeric			Optional Default 0
+	ParamType 2		VAR lDataBase		AS Logical			Optional Default .F.
+	ParamType 3		VAR lVazio			AS Logical			Optional Default .F.  //Aceita data vazia?
+	ParamType 4		VAR cAMBase			AS Character		Optional Default NIL
+	ParamType 5		VAR lFolMes			AS Logical			Optional Default .F.
+	ParamType 6		VAR lMesAno			AS Logical			Optional Default .F.
+	ParamType 7		VAR l13				AS Logical			Optional Default .F.  //Aceita 13 como mes  valido (folha por exemplo)
+	ParamType 8		VAR lMsg			AS Logical			Optional Default .Not. lAuto
+	ParamType 9		VAR cAnoMesVld		AS Character		Optional Default NIL
+	ParamType 10	VAR lAviso			AS Logical			Optional Default .F.
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	lNaoVazio	:= (.Not. lVazio)
+
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+		
+	//---------------------------------------------------------------------------------------------
+
+	//Se chamada a partir dos Mashups ignora esta validacao neste momento, sera validado depois
+	If EH_MVC
+		Return .T.
+	EndIf
+
+	If 	lMsg .And. ;
+		lAuto
+		
+		lMsg	:= .F. 
+	EndIf
+
+	//Pré-Validação dos Dados----------------------------------------------------------------------
+	lRet	:= U_CXVldGen(	@cAnoMesVld		,;	//01 @cConteudo
+							.F.				,;	//02 Mostra avisos (def .T.)
+							cCdErr			,;	//03 Mensagem de erro Customizada (opcional)
+							lNaoVazio		,;	//04 NAO aceita vazios (def .T.)
+							/*nTamMin*/		,;	//05 nTamMin (def 0)
+							/*nTamMax*/		,;	//06 nTamMax (def 99999)
+							/*cReadVar*/	,;	//07 cVar (def ReadVar())
+							/*cDscCpo*/		,;	//08 cDscCpo
+							/*lNaoZero*/	,;	//09 lNaoZero (def .F.)
+							/*lSoNum*/		,;	//10 lSoNum	(def .F.)
+							/*lDigitoX*/	,;	//11 lDigitoX (usado em conjunto com lSoNum, def .F.)
+							'Ano/Mês'		)	//12 cDscCpoDef descrição default quando não usar readvar
+	//Ignora vazios?
+	If .Not. lNaoVazio .And. ;
+		Empty(cAnoMesVld)
+
+		Return .T.
+	EndIf
+
+	If lRet
+		cAnoMesOrg	:= cAnoMesVld
+
+		//Inverte campos para validar usando MesAno
+		If lMesAno
+			cAnoMesVld	:= SubStr(cAnoMesVld,3,4)+Left(cAnoMesVld,2)
+		EndIf
+	Else
+		lAviso	:= .F.	//Erro Crítico não pode ignorar!
+	EndIf
+
+	//Valida estrutura do campo informado
+//	If !fVldMesAno(cAnoMesVld,2)
+//		Return .F.
+//	EndIf
+	//DESATIVADO PORQUE O PADRAO NAO MOSTRA MENSAGENS CORRETAMENTE
+	
+	If lRet
+		cMes	:= SubStr(cAnoMesVld,5,2)
+		If .Not. IsNumeric(cMes) .Or. ;
+			cMes < '01' .Or. ;
+			( cMes == '13' .And. .Not. l13 ) .Or. ;
+			cMes > '13'
+
+			cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			cMsgErr	:= 'Mês '+cMes+' do campo '+cDescCpo+'informado é inválido. ('+cAnoMesOrg+')'
+			cSoluc	:= 'INFORME UM MÊS VÁLIDO.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			//If lMsg
+			//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc,lAviso)
+			//EndIf
+
+			lRet	:= .F.
+			lAviso	:= .F.	//Erro Crítico não pode ignorar!
+		EndIf
+	EndIf
+
+	If lRet
+		cAno	:= Left(cAnoMesVld,4)
+		If .Not. IsNumeric(cAno)
+
+			cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			cMsgErr	:= 	'Ano '+cAno+' do campo '+cDescCpo+'informado é inválido. ('+cAnoMesOrg+')'
+			cSoluc	:= 'INFORME UM ANO VÁLIDO.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			//If lMsg
+			//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc,lAviso)
+			//EndIf
+
+			lRet	:= .F.
+			lAviso	:= .F.	//Erro Crítico não pode ignorar!
+		EndIf
+	EndIf
+
+	//Monta Ano/Mes base---------------------------------------------------------------------------
+	If lRet
+		If lFolMes
+			cAMBase	:= U_CXFolMes() //FwSuperGetMV('MV_FOLMES')
+		EndIf
+
+		If cAMBase == NIL
+			If lDataBase
+				cAMBase	:= AnoMes(dDataBase)
+			Else
+				cAMBase	:= AnoMes(Date())
+			EndIf
+		EndIf
+	EndIf
+
+	//Ignora se negativo---------------------------------------------------------------------------
+	If 	lRet .And. ;
+		nMesFut >= 0
+
+		//Valida data futura
+		cLimFut	:= MonthSum(StoD(cAMBase+'01'),nMesFut)
+		cLimFut	:= AnoMes(cLimFut)
+		If cAnoMesVld > cLimFut
+		
+			cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			cMsgErr	:= 	'Não é possível lançar datas posteriores a '+Transform(cLimFut,'@R 9999 / 99')+CRLF+;
+						'Campo: '+cDescCpo
+			cSoluc	:= 'INFORME UM ANO/MÊS ANTERIOR AO LIMITE.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			//If lMsg
+			//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc,lAviso)
+			//EndIf
+
+			lRet	:= .F.
+		EndIf
+	EndIf
+
+	//Ignora se negativo---------------------------------------------------------------------------
+	If 	lRet .And. ;
+		nMesRet >= 0
+
+		//Valida data futura
+		cLimRet	:= MonthSub(StoD(cAMBase+'01'),nMesRet)
+		cLimRet	:= AnoMes(cLimRet)
+		If cAnoMesVld < cLimRet
+		
+			cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			cMsgErr	:= 	'Não é possível lançar datas anteriores a '+Transform(cLimRet,'@R 9999 / 99')+CRLF+;
+						'Campo: '+cDescCpo
+			cSoluc	:= 'INFORME UM ANO/MÊS POSTERIOR AO LIMITE.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			//If lMsg
+			//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc,lAviso)
+			//EndIf
+
+			lRet	:= .F.
+		EndIf
+	EndIf
+	
+	//Tela de verificação de permissão do Admin----------------------------------------------------
+	lRet	:= VrfAdmin(lRet,lMsg,lAuto,lAviso)
+
+	//Se é para mostrar apenas como aviso deixa passar
+	If lAviso
+		lRet	:= .T.
+	EndIf
+
+Return lRet
+
+//#############################################################################
+//##+----------+------------+-------+---------------------+------+----------+##
+//##|Funcao	   | CXVldBair  | Autor | Cirilo Rocha        | Data | 09/04/18 |##
+//##+----------+------------+-------+---------------------+------+----------+##
+//##|Descr.    | Validar os campo bairro                                    |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 11/04/18 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 28/08/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 16/03/20 | Cirilo R. | Adicionada validação para o tamanho            |##
+//##| 12/11/21 | Cirilo R. | Adicionado parênteses como válido              |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+Static cChEspEnd	:= GetMV('MS_CHVDBAI',.F.,".-'ºª()")	AS Character
+//-------------------------------------------------------------------------------------------------
+User Function CXVldBair(cBairro		,;	//01 Numero Nome/Razão Social para validar
+						lMsg		,;	//02 Mostra avisos (def .T.)
+						cCdErr		,;	//03 Mensagem de erro Customizada (opcional)
+						lNaoVazio	,;	//04 NAO aceita vazios (def .T.)
+						nTamMin 	,;	//07 Tamanho minimo do campo (def 5)
+						nTamMax		);	//08 Tamanho maximo do campo (def 60)
+							AS Logical
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local lAuto		:= U_CXRotAuto()	AS Logical
+	Local lRet		:= .T.				AS Logical
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cBairro			AS Character			Optional Default NIL
+	ParamType 1		VAR lMsg			AS Logical				Optional Default .Not. lAuto
+	ParamType 2		VAR cCdErr			AS Character			Optional Default 'CXVldBair-'
+	ParamType 3		VAR lNaoVazio		AS Logical				Optional Default .T.
+	ParamType 4		VAR nTamMin  		AS Numeric				Optional Default 02 //Tamanho minimo segundo NF-e,CT-e
+	ParamType 5		VAR nTamMax  		AS Numeric				Optional Default 60	//Tamanho maximo segundo NF-e,CT-e, 90 e-Social
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	lRet		:= .T.
+
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+	
+	//---------------------------------------------------------------------------------------------
+	
+	//Se chamada a partir dos Mashups ignora esta validacao neste momento, sera validado depois
+	If EH_MVC
+		Return .T.
+	EndIf
+
+	If 	lMsg .And. ;
+		lAuto
+		
+		lMsg	:= .F. 
+	EndIf
+
+	//Pré-Validação dos Dados----------------------------------------------------------------------
+	lRet	:= U_CXVldGen(	@cBairro		,;	//01 @cConteudo
+							.F.				,;	//02 Mostra avisos (def .T.)
+							cCdErr			,;	//03 Mensagem de erro Customizada (opcional)
+							lNaoVazio		,;	//04 NAO aceita vazios (def .T.)
+							nTamMin			,;	//05 nTamMin (def 0)
+							nTamMax			,;	//06 nTamMax (def 99999)
+							/*cReadVar*/	,;	//07 cVar (def ReadVar())
+							/*cDscCpo*/		,;	//08 cDscCpo
+							/*lNaoZero*/	,;	//09 lNaoZero (def .F.)
+							/*lSoNum*/		,;	//10 lSoNum	(def .F.)
+							/*lDigitoX*/	,;	//11 lDigitoX (usado em conjunto com lSoNum, def .F.)
+							'Bairro'		)	//12 cDscCpoDef descrição default quando não usar readvar
+
+	//Ignora vazios?
+	If .Not. lNaoVazio .And. ;
+		Empty(cBairro)
+
+		Return .T.
+	EndIf
+
+	//Valida ch especiais--------------------------------------------------------------------------
+	If lRet
+		If .Not. U_CXVlChEsp(cBairro			,;	//01 String a ser validada (se nao informado puxa do get atual)
+							/*lSoNumeros*/		,;	//02 Se valida apenas numeros
+							/*lDigitoX*/		,;	//03 Se so numeros aceixa digito X
+							.T.					,;	//04 Se aceita espacos branco no meio do texto
+							cCdErr+'CXVlChEsp-'	,;	//05 Mensagem de erro Customizada (opcional)
+							.F.					,;	//06 Se exibe mensagens de erro
+							cChEspEnd			,;	//07 Outros caracteres alem de Letras e Numeros
+							cDescCpo			)	//08 cDscCpo Descricao do campo para Help
+			
+			//nPos	:= Rat(CRLF+'SOLUÇÃO: ',cMsg)// buscar texto da direita para a esquerda
+			//If nPos > 0
+			//	cSoluc	:= SubStr(cMsg,nPos+11)
+			//	cMsg	:= Left(cMsg,nPos)
+			//EndIf
+			//
+			//cCodErr	:= cMsgErro+LTrim(Str(ProcLine()))
+			//cMsgErr	:= 'Campo '+cDescCpo+'.'+CRLF+;
+			//			space(2)+cMsg
+
+			//cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			//If lMsg
+			//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+			//EndIf
+
+			lRet	:= .F.
+		EndIf
+	EndIf
+
+	//Tela de verificação de permissão do Admin----------------------------------------------------
+	lRet	:= VrfAdmin(lRet,lMsg,lAuto)
+
+Return lRet
+
+//#############################################################################
+//##+----------+----------+-------+-----------------------+------+----------+##
+//##|Funcao	   | CXVldCNH | Autor | Cirilo Rocha          | Data | 01/04/18 |##
+//##+----------+----------+-------+-----------------------+------+----------+##
+//##|Descr.    | Validar o número de registro e número do formulário da CNH |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 11/04/18 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 28/08/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 12/11/21 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+//Se o tamanho do registro mudar precisa observar o algoritmo ainda vale
+Static nTamCNHR	:= GetMV('MX_TAMCNHR',.F.,11) 	AS Integer	//Tamanho minimo para o numero de registro
+Static nTamCNHC	:= GetMV('MX_TAMCNHC',.F.,09)	AS Integer	//Tamanho minimo para o numero da CNH (formulario)
+//-----------------------------------------------------------------------------
+User Function CXVldCNH(	cNum		,;	//01 Numero CNH para validar
+						lNumReg		,;	//02 Valida o Numero de Registro
+						lMsg		,;	//03 Mostra avisos (default .T.)
+						cCdErr		,;	//04 Mensagem de erro Customizada (opcional)
+						lNaoVazio	);	//05 NAO aceita vazios (default .T.)
+								AS Logical
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cSubNum						AS Character
+	Local nX							AS Integer
+	Local nTamCNH						AS Integer
+
+	Local lAuto		:= U_CXRotAuto()	AS Logical
+	Local lRet		:= .T.				AS Logical
+
+	Local nDV1							AS Numeric
+	Local nDV2		    				AS Numeric
+	Local nDVC1		    				AS Numeric
+	Local nDVC2		    				AS Numeric
+
+	Local nResto						AS Numeric
+	Local nSoma		    				AS Numeric
+	Local nMult		    				AS Numeric
+	Local nIncDV2						AS Numeric
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cNum			AS Character				Optional Default NIL
+	ParamType 1		VAR lNumReg			AS Logical					Optional Default .T.
+	ParamType 2		VAR lMsg			AS Logical					Optional Default .Not. lAuto
+	ParamType 3		VAR cCdErr			AS Character				Optional Default 'CXVldCNH-'
+	ParamType 4		VAR lNaoVazio		AS Logical					Optional Default .T.
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+
+	//---------------------------------------------------------------------------------------------
+	
+	//Se chamada a partir dos Mashups ignora esta validacao neste momento, sera validado depois
+	If 	EH_MVC
+		Return .T.
+	EndIf
+
+	If 	lMsg .And. ;
+		lAuto
+		
+		lMsg	:= .F. 
+	EndIf
+
+	If lNumReg
+		nTamCNH	:= nTamCNHR
+	Else
+		nTamCNH	:= nTamCNHC
+	EndIf
+	
+	//Pré-Validação dos Dados----------------------------------------------------------------------
+	lRet	:= U_CXVldGen(	@cNum			,;	//01 @cConteudo
+							.F.				,;	//02 Mostra avisos (def .T.)
+							cCdErr			,;	//03 Mensagem de erro Customizada (opcional)
+							lNaoVazio		,;	//04 NAO aceita vazios (def .T.)
+							nTamCNH			,;	//05 nTamMin (def 0)
+							/*nTamMax*/		,;	//06 nTamMax (def 99999)
+							/*cReadVar*/	,;	//07 cVar (def ReadVar())
+							/*cDscCpo*/		,;	//08 cDscCpo
+							.T.				,;	//09 lNaoZero (def .F.)
+							.T.				,;	//10 lSoNum	(def .F.)
+							/*lDigitoX*/	,;	//11 lDigitoX (usado em conjunto com lSoNum, def .F.)
+							'CNH'			)	//12 cDscCpoDef descrição default quando não usar readvar
+
+	//Ignora vazios?
+	If .Not. lNaoVazio .And. ;
+		Empty(cNum)
+
+		Return .T.
+	EndIf
+
+	//Valida digitos verificadores-----------------------------------------------------------------
+	If lRet
+		If lNumReg //Valida Numero de registro da CNH
+			cSubNum	:= Left(cNum,len(cNum)-2)
+			nDV1	:= Val(SubStr(cNum,len(cNum)-1,1))
+			nDV2	:= Val(SubStr(cNum,len(cNum)  ,1))
+
+			//---------------------------------------------------------------------------
+			nMult	:= 9
+			nSoma	:= 0
+			For nX := 1 to len(cSubNum)
+				nSoma += Val(SubStr(cSubNum,nX,1)) * nMult
+				nMult--
+				If nMult == 0
+					nMult := 9
+				EndIf
+			Next
+			nDVC1	:= Mod(nSoma,11)
+
+			nIncDV2	:= 0
+			If nDVC1 == 10
+				nIncDV2 := - 2
+			EndIf
+
+			If nDVC1 > 9
+				nDVC1 := 0
+			EndIf
+
+			//-------------------------------------------------------------------------------------
+			nMult	:= 1
+			nSoma	:= 0
+			For nX := 1 to len(cSubNum)
+				nSoma += Val(SubStr(cSubNum,nX,1)) * nMult
+				nMult++
+				If nMult == 10
+					nMult := 1
+				EndIf
+			Next
+			nDVC2	:= Mod(nSoma,11)
+			nDVC2	+= nIncDV2
+
+			If nDVC2 < 0
+				nDVC2 += 11
+			EndIf
+
+			If nDVC2 > 9
+				nDVC2 := 0
+			EndIf
+
+			If 	nDVC1 <> nDV1 .Or. ;
+				nDVC2 <> nDV2
+
+				cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+				cMsgErr	:= 	'Dígito verificador ou Número do Registro da '+cDescCpo+'inválido.'
+				cSoluc	:= 	'VERIFIQUE E CORRIJA O NÚMERO DO REGISTRO DA CNH DIGITADO.'
+				cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+				//If lMsg
+				//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+				//EndIf
+				lRet	:= .F.
+			EndIf
+		Else
+			cSubNum	:= Left(cNum,len(cNum)-1)
+			nDV1	:= Val(Right(cNum,1))
+
+			//Calculo DV usando o algoritmo Modulo 11 DSR
+			nResto	:= Mod(Val(cSubNum),11)
+			nDVC1	:= 11-nResto
+			If 	nDVC1 == 10 .Or. ;
+				nDVC1 == 11
+				nDVC1	:= 0
+			EndIf
+
+			If nDVC1 <> nDV1
+				cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+				cMsgErr	:= 	'Dígito verificador ou número da '+cDescCpo+'inválido.'
+				cSoluc	:= 	'VERIFIQUE E CORRIJA O NÚMERO DA CNH DIGITADO.'
+				cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+				//If lMsg
+				//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+				//EndIf
+
+				lRet	:= .F.
+			EndIf
+
+		EndIf
+	EndIf
+
+	//Tela de verificação de permissão do Admin----------------------------------------------------
+	lRet	:= VrfAdmin(lRet,lMsg,lAuto)
+
+Return lRet
+
+//#############################################################################
+//##+----------+---------------+-------+----------------+------+------------+##
+//##|Programa  | CXVldData     | Autor | Cirilo Rocha   | Data | 20/05/2014 |##
+//##+----------+---------------+-------+----------------+------+------------+##
+//##|Descr.    | Vlidar datas futuras e retroativas                         |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 11/09/15 | Cirilo R. | Adicionado tratamento para desconsiderar a data|##
+//##|          |           |  vazia                                         |##
+//##| 01/12/15 | Cirilo R. | Adicionada validação para dias uteis           |##
+//##| 22/08/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 20/01/22 | Cirilo R. | Tratamento para deixar o admin prosseguir      |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXVldData(nDiasFut	,;	//01 nDiasFut
+						nDiasRet	,;	//02 nDiasRet
+						lDataBase	,;	//03 lDataBase
+						lNaoVazio	,;	//04 lNaoVazio
+						dDtBase		,;	//05 dDtBase
+						lDiaUtil	,; 	//06 lDiaUtil
+						dDtVld		,;	//07 dDtVld
+						lMsg		);	//08 lMsg
+							AS Logical
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cCdErr	:= 'CXVldData-'		AS Character
+	Local dDtBs		    				AS Date
+	Local dLimFut						AS Date
+	Local dLimRet						AS Date
+	Local lAuto		:= U_CXRotAuto()	AS Logical
+	Local lRet		:= .T.				AS Logical
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR nDiasFut			AS Numeric				Optional Default 0
+	ParamType 1		VAR nDiasRet			AS Numeric				Optional Default 0
+	ParamType 2		VAR lDataBase			AS Logical				Optional Default .F.
+	ParamType 3		VAR lNaoVazio			AS Logical				Optional Default .F. //Aceita data vazia?
+	ParamType 4		VAR dDtBase				AS Date					Optional Default NIL
+	ParamType 5		VAR lDiaUtil			AS Logical				Optional Default .F.
+	ParamType 6		VAR dDtVld				AS Date					Optional Default NIL
+	ParamType 7		VAR lMsg				AS Logical				Optional Default .Not. lAuto
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+	
+	//---------------------------------------------------------------------------------------------
+	
+	//Se chamada a partir dos Mashups ignora esta validacao neste momento, sera validado depois
+	If 	EH_MVC
+		Return .T.
+	EndIf
+	
+	If 	lMsg .And. ;
+		lAuto
+		
+		lMsg	:= .F. 
+	EndIf
+
+	//Pré-Validação dos Dados----------------------------------------------------------------------
+	lRet	:= U_CXVldGen(	@dDtVld			,;	//01 @cConteudo
+							.F.				,;	//02 Mostra avisos (def .T.)
+							cCdErr			,;	//03 Mensagem de erro Customizada (opcional)
+							lNaoVazio		,;	//04 NAO aceita vazios (def .T.)
+							/*nTamMin*/		,;	//05 nTamMin (def 0)
+							/*nTamMax*/		,;	//06 nTamMax (def 99999)
+							/*cReadVar*/	,;	//07 cVar (def ReadVar())
+							/*cDscCpo*/		,;	//08 cDscCpo
+							/*lNaoZero*/	,;	//09 lNaoZero (def .F.)
+							/*lSoNum*/		,;	//10 lSoNum	(def .F.)
+							/*lDigitoX*/	,;	//11 lDigitoX (usado em conjunto com lSoNum, def .F.)
+							'Data'			)	//12 cDscCpoDef descrição default quando não usar readvar
+
+	//Ignora vazios?
+	If .Not. lNaoVazio .And. ;
+		Empty(dDtVld)
+
+		Return .T.
+	EndIf
+
+	//Monta data base------------------------------------------------------------------------------
+	If ValType(dDtBase) == 'D'
+		dDtBs	:= dDtBase
+	Else
+		If lDataBase
+			dDtBs	:= dDataBase
+		Else
+			dDtBs	:= Date()
+		EndIf
+	EndIf		
+	
+	//Ignora se negativo---------------------------------------------------------------------------
+	If 	lRet .And. ;
+		nDiasFut >= 0
+
+		//Valida data futura
+		dLimFut	:= ( dDtBs + nDiasFut )
+		If dDtVld > dLimFut
+
+			cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			cMsgErr	:= 	'Não é possível lançar datas posteriores a '+DtoC(dLimFut)+CRLF+;
+						'Campo: '+cDescCpo
+			cSoluc	:= 'INFORME UMA DATA IGUAL OU ANTERIOR A '+DtoC(dLimFut)+'.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+//			If lMsg
+//				U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+//			EndIf
+
+			lRet	:= .F.
+		EndIf
+	EndIf
+
+	//Ignora se negativo---------------------------------------------------------------------------
+	If 	lRet .And. ;
+		nDiasRet >= 0
+
+		//Valida data futura
+		dLimRet	:= ( dDtBs - nDiasRet )
+		If dDtVld < dLimRet
+
+			cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			cMsgErr	:= 	'Não é possível lançar datas anteriores a '+DtoC(dLimRet)+CRLF+;
+						'Campo: '+cDescCpo
+			cSoluc	:= 'INFORME UMA DATA IGUAL OU POSTERIOR A '+DtoC(dLimRet)+'.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+//			If lMsg
+//				U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+//			EndIf
+
+			lRet	:= .F.
+		EndIf
+	EndIf
+	
+	//Apenas dias uteis?---------------------------------------------------------------------------
+	If  lRet .And. ;
+		lDiaUtil
+
+		If dDtVld <> DataValida(dDtVld,.T.)
+		
+			cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			cMsgErr	:= 	'A data informada não é um dia útil.'+CRLF+;
+						'Campo: '+cDescCpo
+			cSoluc	:= 'INFORME APENAS DIAS ÚTEIS.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+//			If lMsg
+//				U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+//			EndIf
+
+			lRet	:= .F.
+		EndIf
+	EndIf
+	
+	//Tela de verificação de permissão do Admin----------------------------------------------------
+	lRet	:= VrfAdmin(lRet,lMsg,lAuto)
+
+Return lRet
+
+//#############################################################################
+//##+----------+----------+-------+-----------------------+------+----------+##
+//##|Função	   | CXVldDDD | Autor | Cirilo Rocha          | Data | 01/04/18 |##
+//##+----------+----------+-------+-----------------------+------+----------+##
+//##|Descr.    | Validar o DDD dos números de telefone                      |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 03/04/18 | Cirilo R. | Ajuste para extrangeiros                       |##
+//##| 11/04/18 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 29/11/18 | Cirilo R. | Revisão do fonte                               |##
+//##| 26/06/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 28/08/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 12/11/21 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+Static aDDDAux		AS Array
+Static aDDD			AS Array
+//-------------------------------------------------------------------------------------------------
+User Function CXVldDDD(	cNum		,;	//01 Numero DDD para validar (def ReadVar)
+						cUF			,;	//02 Estado para validar (opc)
+						nTamDDD		,;	//03 Tamanho do campo (def 3)
+						lMsg		,;	//04 Mostra avisos (def .T.)
+						cCdErr		,;	//05 Mensagem de erro Customizada (opc)
+						lNaoVazio	,;	//06 NAO aceita vazios (def .T.)
+						lAvisoUF	,;	//07 Emite apenas aviso na validacao do Estado
+						cDscCpo		);	//08 cDescCpo Descrição do campo
+								AS Logical
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aDDDTmp						AS Array
+	Local aDDDTmp2						AS Array
+	Local cDDDAdic						AS Character
+	Local cUFTmp						AS Character
+	Local nX,nY							AS Integer
+	Local nPos							AS Integer
+	Local lAuto		:= U_CXRotAuto()	AS Logical
+	Local lRet		:= .T.				AS Logical
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cNum		 		AS Character			Optional Default NIL
+	ParamType 1		VAR cUF				  	AS Character			Optional Default ''
+	ParamType 2		VAR nTamDDD		 		AS Numeric				Optional Default 3 //Tamanho padrao do DDD
+	ParamType 3		VAR lMsg			  	AS Logical				Optional Default .Not. lAuto
+	ParamType 4		VAR cCdErr		 		AS Character			Optional Default 'CXVldDDD-'
+	ParamType 5		VAR lNaoVazio		  	AS Logical				Optional Default .T.
+	ParamType 6		VAR lAvisoUF	 		AS Logical				Optional Default .T.
+	ParamType 7		VAR cDscCpo		 		AS Character			Optional Default NIL
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+	
+	//---------------------------------------------------------------------------------------------
+	//Se chamada a partir dos Mashups ignora esta validacao neste momento, sera validado depois
+	If 	EH_MVC
+		Return .T.
+	EndIf
+
+	If .Not. Empty(cUF) .And. ;
+		( cUF == 'EX' )
+
+		Return .T.
+	EndIf
+
+	If 	lMsg .And. ;
+		lAuto
+		
+		lMsg	:= .F. 
+	EndIf
+
+	//Pré-Validação dos Dados----------------------------------------------------------------------
+	lRet	:= U_CXVldGen(	@cNum			,;	//01 @cConteudo
+							.F.				,;	//02 Mostra avisos (def .T.)
+							cCdErr			,;	//03 Mensagem de erro Customizada (opcional)
+							lNaoVazio		,;	//04 NAO aceita vazios (def .T.)
+							nTamDDD			,;	//05 nTamMin (def 0)
+							nTamDDD			,;	//06 nTamMax (def 99999)
+							/*cReadVar*/	,;	//07 cVar (def ReadVar())
+							cDscCpo			,;	//08 cDscCpo
+							.T.				,;	//09 lNaoZero (def .F.)
+							.T.				,;	//10 lSoNum	(def .F.)
+							/*lDigitoX*/	,;	//11 lDigitoX (usado em conjunto com lSoNum, def .F.)
+							'DDD'			)	//12 cDscCpoDef descrição default quando não usar readvar
+
+	//Ignora vazios?
+	If .Not. lNaoVazio .And. ;
+		Empty(cNum)
+
+		Return .T.
+	EndIf
+
+	//Verifica tamanho minimo para validacao-------------------------------------------------------
+	If 	lRet .And. ;
+		nTamDDD < 2
+
+		cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+		cMsgErr	:= 'Tamanho '+LTrim(Str(nTamDDD))+' para validação do '+cDescCpo+'inválido.'
+		cSoluc	:= 'INFORME O SETOR DE T.I.'
+		lRet	:= .F.
+		//If lMsg
+		//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+		//EndIf
+	EndIf
+
+	//Inicializa array interno---------------------------------------------------------------------
+	If ValType(aDDDAux) <> 'A'
+		aDDD		:= GetDDD()
+		cDDDAdic	:= FwSuperGetMV('MX_DDDADIC',.F.,'')	//Formato UF-dd,dd,dd;UF
+		If .Not. Empty(cDDDAdic)
+			aDDDTmp	:= StrTokArr2(cDDDAdic,';',.f.)
+			For nX := 1 to len(aDDDTmp)
+				cUFTmp		:= Left(aDDDTmp[nX],2)
+				aDDDTmp2	:= StrTokArr2(SubStr(aDDDTmp[nX],4),',',.f.)
+				nPos		:= aScan(aDDD,{|x| x[1] == cUFTmp })
+				If nPos == 0
+					cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+					cMsgErr	:= 	'Parâmetro MX_DDDADIC configurado errado.'+CRLF+;
+								'Estado '+cUFTmp+' não localizado.'+CRLF+;
+								'Formato válido: UF-DD,DD,DD;UF-DD,DD'+CRLF+;
+								'Conteúdo Parâmetro: '+cDDDAdic+CRLF+;
+								'Campo: '+cDescCpo
+					cSoluc	:= 'INFORME O SETOR DE T.I.'
+					cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+					//If lMsg
+					//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+					//EndIf
+
+					lRet	:= .F.
+					Exit
+				EndIf
+				For nY := 1 to len(aDDDTmp2)
+					aAdd(aDDD[nPos][2],aDDDTmp2[nY])
+				Next
+			Next
+		EndIf
+
+		aDDDAux	:= {}
+		For nX := 1 to len(aDDD)
+			For nY := 1 to len(aDDD[nX][2])
+				aAdd(aDDDAux,aDDD[nX][2][nY])
+			Next
+		Next
+
+	EndIf
+	
+	//---------------------------------------------------------------------------------------------
+	//Verifica valores validos
+	If lRet
+		If aScan(aDDDAux,{|x| PadL(x,nTamDDD,'0') == cNum }) == 0
+		
+			cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			cMsgErr	:= 	'Número '+cNum+' do campo '+cDescCpo+'é inválido.'
+			cSoluc	:= 'INFORME UM DDD VÁLIDO.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			//If lMsg
+			//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+			//EndIf
+
+			lRet	:= .F.
+		EndIf
+	EndIf
+	
+	//---------------------------------------------------------------------------------------------
+	If lRet
+		If .Not. Empty(cUF)
+			nPos	:= aScan(aDDD,{|x| x[1] == cUF })
+			If nPos == 0
+			
+				cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+				cMsgErr	:= 	'Erro ao localizar o estado '+cUF+' na lista de estados.'+CRLF+;
+							'Campo: '+cDescCpo
+				cSoluc	:= 'INFORME UM ESTADO VÁLIDO.'
+				cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+				//If lMsg
+				//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+				//EndIf
+
+				lRet	:= .F.
+			ElseIf aScan(aDDD[nPos][2],{|x| PadL(x,nTamDDD,'0') == cNum } ) == 0
+			
+				cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+				cMsgErr	:= 	'O '+cNum+' no campo '+cDescCpo+'não é válido para o estado '+cUF+'.'
+				cSoluc	:= 'INFORME UM DDD VÁLIDO PARA O ESTADO '+cUF+'.'
+				cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+				
+				If .Not. lAvisoUF
+					lRet	:= .F.
+				EndIf
+				
+				If lMsg
+					If 	lAvisoUF
+						If .Not. lAuto
+	//						.Not. ( FWIsInCallStack('MSExecAuto') .Or. ;	//Rotina automatica?
+	//								FWIsInCallStack('FWMVCRotAuto') )
+
+							lRet	:= ApMsgYesNo(	cMsgErr+CRLF+;
+													'Confirma que este DDD ('+cNum+') está correto '+cDescCpo+' ?',cCodErr)
+						EndIf
+					//Else
+					//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+					EndIf
+				EndIf
+			EndIf
+		EndIf
+	EndIf
+
+	//Tela de verificação de permissão do Admin----------------------------------------------------
+	lRet	:= VrfAdmin(lRet,lMsg,lAuto)
+
+Return lRet
+//-------------------------------------------------------------------------------------------------
+Static Function GetDDD();
+					AS Array
+
+Return 	{;
+			{'SP',{'11','12','13','14','15','16','17','18','19'}},;
+			{'RJ',{'21','22','24'}},;
+			{'ES',{'27','28'}},;
+			{'MG',{'31','32','33','34','35','37','38'}},;
+			{'PR',{'41','42','43','44','45','46'}},;
+			{'SC',{'47','48','49'}},;
+			{'RS',{'51','53','54','55'}},;
+			{'DF',{'61'}},;
+			{'GO',{'62','64'}},;
+			{'TO',{'63'}},;
+			{'MT',{'65','66'}},;
+			{'MS',{'67'}},;
+			{'AC',{'68'}},;
+			{'RO',{'69'}},;
+			{'BA',{'71','73','74','75','77'}},;
+			{'SE',{'79'}},;
+			{'PE',{'81','87'}},;
+			{'AL',{'82'}},;
+			{'PB',{'83'}},;
+			{'RN',{'84'}},;
+			{'CE',{'85','88'}},;
+			{'PI',{'86','89'}},;
+			{'PA',{'91','93','94'}},;
+			{'AM',{'92','97'}},;
+			{'RR',{'95'}},;
+			{'AP',{'96'}},;
+			{'MA',{'98','99'}} ;
+		}
+
+//#############################################################################
+//##+----------+----------+-------+-----------------------+------+----------+##
+//##|Função	   | CXVldCEP | Autor | Cirilo Rocha          | Data | 01/04/18 |##
+//##+----------+----------+-------+-----------------------+------+----------+##
+//##|Descr.    | Função genérica para validar o CEP                         |##
+//##|          | Valida CEPs genéricos e alguns inválidos                   |##
+//##|          | Tambem pode validar de acordo com as faixas de cada estado |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 03/04/18 | Cirilo R. | Ajuste para extrangeiros                       |##
+//##| 06/04/18 | Cirilo R. | Ajustes nas faixas de CEP de DF e GO           |##
+//##| 11/04/18 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 20/11/18 | Cirilo R. | Revisão no fonte                               |##
+//##| 28/08/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 15/10/21 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 12/11/21 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+Static nTamCEP	:= GetMV('MX_TAMCEP',.F.,8)		AS Numeric
+Static aCepVal	AS Array
+Static aCepInv	AS Array
+Static aCepUF	AS Array
+//-----------------------------------------------------------------------------
+User Function CXVldCEP(	cCep		,;	//01 Numero DDD para validar
+						cUF			,;	//02 Estado para validar (opcional)
+						lMsg		,;	//03 Mostra avisos (def .T.)
+						cCdErr		,;	//04 Mensagem de erro Customizada (opcional)
+						lNaoVazio	);	//05 NAO aceita vazios (def .T.)
+								AS Logical
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cPref		    				AS Character
+	Local cSufix						AS Character
+	Local cTemp		    				AS Character
+	Local nX							AS Integer
+	Local nPos   						AS Integer
+	Local lRet		:= .T.				AS Logical
+	Local lAuto		:= U_CXRotAuto()	AS Logical
+	Local lValido						AS Logical
+	Local lMsgUsr	:= .T.				AS Logical
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cCep	  		AS Character			Optional Default NIL
+	ParamType 1		VAR cUF		  		AS Character			Optional Default ''
+	ParamType 2		VAR lMsg	  		AS Logical				Optional Default .T.
+	ParamType 3		VAR cCdErr  		AS Character			Optional Default 'CXVldCEP-'
+	ParamType 4		VAR lNaoVazio  		AS Logical				Optional Default .T.
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+		
+	//---------------------------------------------------------------------------------------------
+
+	//Se chamada a partir dos Mashups ignora esta validacao neste momento, sera validado depois
+	If EH_MVC
+		Return .T.
+	EndIf
+
+	If 	.Not. Empty(cUF) .And. ;
+		( cUF == 'EX' )
+
+		Return .T.
+	EndIf
+
+	If 	lMsg .And. ;
+		lAuto
+		
+		lMsg	:= .F. 
+	EndIf
+
+	//Pré-Validação dos Dados----------------------------------------------------------------------
+	lRet	:= U_CXVldGen(	@cCep			,;	//01 @cConteudo
+							.F.				,;	//02 Mostra avisos (def .T.)
+							cCdErr			,;	//03 Mensagem de erro Customizada (opcional)
+							lNaoVazio		,;	//04 NAO aceita vazios (def .T.)
+							nTamCEP			,;	//05 nTamMin (def 0)
+							nTamCEP			,;	//06 nTamMax (def 99999)
+							/*cReadVar*/	,;	//07 cVar (def ReadVar())
+							/*cDscCpo*/		,;	//08 cDscCpo
+							.T.				,;	//09 lNaoZero (def .F.)
+							.T.				,;	//10 lSoNum	(def .F.)
+							/*lDigitoX*/	,;	//11 lDigitoX (usado em conjunto com lSoNum, def .F.)
+							'CEP'			)	//12 cDscCpoDef descrição default quando não usar readvar
+
+	//Ignora vazios?
+	If .Not. lNaoVazio .And. ;
+		Empty(cCep)
+
+		Return .T.
+	EndIf
+
+	//---------------------------------------------------------------------------------------------
+	
+	If lRet
+		cPref	:= Left(cCep,5)
+		cSufix	:= Right(cCep,3)
+
+		//Inicializa lista de CEPs---------------------------------------------------------------------
+		If ValType(aCepInv) <> 'A'
+			CarregaCEP()
+		EndIf
+
+		If aScan(aCepInv,cCep) > 0	//CEPs invalidos
+			cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			cMsgErr	:= 	'Número do campo '+cDescCpo+'inválido. CEP genérico.'
+			cSoluc	:= 'INFORME UM CEP VÁLIDO.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			//If lMsg
+			//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+			//EndIf
+			lRet	:= .F.
+		ElseIf 	cSufix >= '960' .And. ; 	//Sufixos para promocoes comerciais
+				cSufix <= '969'
+
+			cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			cMsgErr	:= 	'Número do campo '+cDescCpo+'inválido. '+CRLF+;
+						'CEP reservados para promoções comerciais.'
+			cSoluc	:= 'INFORME UM CEP VÁLIDO.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			//If lMsg
+			//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+			//EndIf
+			lRet	:= .F.
+		ElseIf cSufix == '999'	//CEP interno dos correios
+
+			cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			cMsgErr	:= 	'Número do campo '+cDescCpo+'inválido.'+CRLF+;
+						'CEP reservados para uso interno dos correios.'
+			cSoluc	:= 'INFORME UM CEP VÁLIDO.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			//If lMsg
+			//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+			//EndIf
+			lRet	:= .F.
+		Else
+			//Valida o CEP pela faixa do estado
+			If .Not. Empty(cUF)
+				nPos	:= aScan(aCepUF,{|x| x[1] == cUF })
+				If nPos == 0
+					cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+					cMsgErr	:= 	'Estado ('+cUF+') não localizado para validação.'+CRLF+;
+								'Campo: '+cDescCpo
+					lRet	:= .F.
+					//If lMsg
+					//	U_CXHelp(,,cMsg)
+					//EndIf
+				Else
+					cTemp	:= ''
+					lValido	:= .F.
+					For nX := 1 to len(aCepUF[nPos][2])
+						cTemp	:= U_CXConcTxt(cTemp,aCepUF[nPos][2][nX][1]+' a '+aCepUF[nPos][2][nX][2],CRLF)
+						If 	cPref >= aCepUF[nPos][2][nX][1] .And. ; //Faixa de CEP valida para o estado
+							cPref <= aCepUF[nPos][2][nX][2]
+
+							lValido	:= .T.
+							Exit
+						EndIf
+					Next
+
+					If .Not. lValido
+						cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+						cMsgErr	:= 	'O CEP ('+cCEP+') informado no campo '+cDescCpo+'está fora da(s) '+;
+									'faixa(s) válidas para o estado '+cUF+'.'+CRLF+;
+									'FAIXA(S) VALIDA(S):'+CRLF+;
+									cTemp
+						cSoluc	:= 'INFORME UM CEP VÁLIDO.'
+						cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+						//If lMsg
+						//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+						//EndIf
+						lRet	:= .F.
+					EndIf
+				EndIf
+			EndIf
+
+			If 	lRet .And. ;
+				aScan(aCepVal,cCep) == 0 .And. ; //Nao esta na lista de CEPs validos
+				( cSufix $ '000' .Or. SubStr(cCep,3,6) = '000000' )//Ceps genericos
+
+				If 	lMsg .And. ;
+					.Not.  lAuto .And. ; //Nao pode ser execuauto, precisa ser via usuario mesmo
+					.Not.  ApMsgYesNo(	'O CEP informado no campo '+cDescCpo+'informado é genérico.'+CRLF+;
+										'CONFIRMA QUE ESTA INFORMAÇÃO ESTÁ CORRETA ?',cCdErr+LTrim(Str(ProcLine())))
+					lRet	:= .F.
+					lMsgUsr	:= .F.
+				EndIf
+			EndIf
+			//-----------------------------------------------------------------//
+			// OUTRAS FAIXAS DE SUFIXOS QUE PODEM SER VALIDADAS POSTERIORMENTE //
+			//  970-989: CAIXAS POSTAIS                                        //
+			//  990-998: ZONA RURAL (CAIXA POSTAL COMUNITARIA)                 //
+			//-----------------------------------------------------------------//
+		EndIf
+	EndIf
+
+	//Tela de verificação de permissão do Admin----------------------------------------------------
+	If lMsgUsr
+		lRet	:= VrfAdmin(lRet,lMsg,lAuto)
+	EndIf
+
+Return lRet
+//-------------------------------------------------------------------------------------------------
+Static Function CarregaCEP()
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local nX		AS Numeric
+	Local aTemp		AS Array
+	
+	Local cCepInf	:= GetMV('MX_CEPINV',.F.,'') 	AS Character	//CEPs adicionais que sao invalidos
+	Local cCepVal	:= GetMV('MX_CEPVLD',.F.,'') 	AS Character	//CEPs adicionais que sao validos
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	//Lista de CEPs invalidos verificado em 01/04/18
+	aCepInv	:= {;
+				'15500000',;
+				'28060000',;
+				'29140000',;
+				'29900000',;
+				'35100000',;
+				'36500000',;
+				'38700000',;
+				'49500000',;
+				'58100000',;
+				'59600000',;
+				'59600001',;
+				'75500000',;
+				'75900000',;
+				'78700000',;
+				'78995000',;
+				'88350000',;
+				'88700000',;
+				'89160000',;
+				'89250000',;
+				'89700000',;
+				'59600798',;
+				'59618010',;
+				'59605560',;
+				'59605256',;
+				'59600505',;
+				'59611300',;
+				'59631030',;
+				'59607169',;
+				'59214210',;
+				'59600508',;
+				'59603290',;
+				'59631030',;
+				'59618250',;
+				'59605350',;
+				'60351100',;
+				'29612078',;	//Verificados em 03/04/18
+				'53622111',;
+				'54500175',;
+				'56546416',;
+				'59000000',;
+				'59605290',;
+				'59605450',;
+				'59605580',;
+				'59610000',;
+				'59610050',;
+				'59611160',;
+				'59618000',;
+				'59618250',;
+				'59618270',;
+				'59619142',;
+				'59631550',;
+				'59633350',;
+				'59640200',;
+				'69611010',;
+				'90268300';
+				}
+
+	If .Not. Empty(cCepInf)
+		aTemp	:= StrTokArr2(cCepInf,',',.f.)
+		For nX := 1 to len(aTemp)
+			aAdd(aCepInv,aTemp[nX])
+		Next
+	EndIf
+
+	//Lista de CEPs validos verificado em 01/04/18-------------------------------------------------
+	aCepVal	:= {;
+				'16700000',;
+				'29240000',;
+				'36520000',;
+				'36700000',;
+				'36900000',;
+				'37975000',;
+				'38610000',;
+				'39400000',;
+				'49400000',;
+				'55870000',;
+				'58884000',;
+				'59655000',;
+				'59663000',;
+				'59668000',;
+				'59675000',;
+				'59678000',;
+				'59700000',;
+				'59900000',;
+				'76550000',;
+				'78110000',;
+				'78550000',;
+				'85415000',;
+				'88750000',;
+				'88820000',;
+				'88870000',;
+				'88880000',;
+				'89270000',;
+				'89560000',;
+				'89820000',;
+				'89825000',;
+				'89887000',;
+				'95720000',;
+				'78850000',;
+				'59625000',;	//Verificados em 03/04/18
+				'59650000',;
+				'61760000',;
+				'62580000';
+				}
+
+	If .Not. Empty(cCepVal)
+		aTemp	:= StrTokArr2(cCepVal,',',.f.)
+		For nX := 1 to len(aTemp)
+			aAdd(aCepVal,aTemp[nX])
+		Next
+	EndIf
+
+	//---------------------------------------------------------------------------------------------
+	aCepUF	:= {;
+					{'SP',{	{'01000','19999'} 	}	},;
+					{'RJ',{	{'20000','28999'}	}	},;
+					{'ES',{	{'29000','29999'}	}	},;
+					{'MG',{	{'30000','39999'}	}	},;
+					{'BA',{	{'40000','48999'}	}	},;
+					{'SE',{	{'49000','49999'}	}	},;
+					{'PE',{	{'50000','56999'}	}	},;
+					{'AL',{	{'57000','57999'}	}	},;
+					{'PB',{	{'58000','58999'}	}	},;
+					{'RN',{	{'59000','59999'}	}	},;
+					{'CE',{	{'60000','63999'}	}	},;
+					{'PI',{	{'64000','64999'}	}	},;
+					{'MA',{	{'65000','65999'}	}	},;
+					{'PA',{	{'66000','68899'}	}	},;
+					{'AP',{	{'68900','68999'}	}	},;
+					{'AM',{	{'69000','69299'}	,{'69400','69899'}	}	},;
+					{'RR',{	{'69300','69399'}	}	},;
+					{'AC',{	{'69900','69999'}	}	},;
+					{'DF',{	{'70000','72799'}	,{'73000','73699'}	}	},;
+					{'GO',{	{'73700','76799'}	,{'72800','72999'}	}	},;
+					{'RO',{	{'76800','76999'}	}	},;
+					{'TO',{	{'77000','77999'}	}	},;
+					{'MT',{	{'78000','78899'}	}	},;
+					{'MS',{	{'79000','79999'}	}	},;
+					{'PR',{	{'80000','87999'}	}	},;
+					{'SC',{	{'88000','89999'}	}	},;
+					{'RS',{	{'90000','99999'}	}	} ;
+				}
+
+Return
+
+//#############################################################################
+//##+----------+-------------+-------+-----------------+------+-------------+##
+//##|Programa  | CXVldChvNFe | Autor | Cirilo Rocha    | Data | 16/04/2012  |##
+//##+----------+-------------+-------+-----------------+------+-------------+##
+//##|Descr.    | Validar a chave da NF-e ou CT-e                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 02/05/13 | Cirilo R. | Ajuste nas funcoes de mensagens para utilizar  |##
+//##|          |           |  Help para mostrar os erros nos ExecAutos      |##
+//##| 19/10/18 | Amauri F. | Tratamento para nota fiscal avulsa (serie      |##
+//##|          |           | 890 a 899).                                    |##
+//##| 14/01/19 | Cirilo R. | Pequena revisao no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXVldChvNFe(	cChave	,;	//01 cChave
+							cEst	,;	//02 cEst
+							dEmissao,;	//03 dEmissao
+							cCNPJ	,;	//04 cCNPJ
+							cModelo	,;	//05 cModelo
+							cSerie	,;	//06 cSerie
+							cNumDoc	,;	//07 cNumDoc
+							cTpEmis	,;	//08 cTpEmis
+							lMsg	); 	//09 lMsg
+								AS Logical
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local lRet			AS Logical
+	Local nTamChv		AS Numeric
+	
+	Local cCodUf  		AS Character
+	Local cAnoMes		AS Character
+	Local cDigito		AS Character
+	Local cEstChv		AS Character
+
+	Local cCodUfChv		AS Character
+	Local cAnoMesChv	AS Character
+	Local cCNPJChv		AS Character
+	Local cModChv		AS Character
+	Local cSerChv		AS Character
+	Local cDocChv		AS Character
+	Local cDigChv		AS Character
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cChave  		AS Character
+	ParamType 1		VAR cEst  	  		AS Character
+	ParamType 2		VAR dEmissao  		AS Date		
+	ParamType 3		VAR cCNPJ  	  		AS Character
+	ParamType 4		VAR cModelo  		AS Character
+	ParamType 5		VAR cSerie  	  	AS Character
+	ParamType 6		VAR cNumDoc  		AS Character
+	ParamType 7		VAR cTpEmis  	  	AS Character
+	ParamType 8		VAR lMsg  			AS Logical					Optional Default .T.
+
+	//+----------------------------------------------------------+
+	//| UF-AAMM-CNPJ EMITENTE------MD-SER-NUMERO----SEQUENCIA-DV |
+	//| 24-1204-08.348.609/0001-68-57-002-000001015-999998984-0  |
+	//| 24120408348609000168570020000010159999989840             |
+	//+----------------------------------------------------------+
+	
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	lRet	:= .T.
+
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr	:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr	:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc	:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg	:= IIf(Type('cMsg')<>'C','',cMsg)
+	
+	//Limpa caracteres especiais da chave
+	cChave	:= U_CXSoNumeros(cChave)
+	nTamChv	:= Len(cChave)
+	
+	//Chave vazia
+	If nTamChv == 0
+		U_CXMsgErro('Chave vazia.','INFORME A CHAVE DO DOCUMENTO.',lMsg,/*oArea*/)
+		lRet	:= .F.
+	//Tamanho da chave
+	ElseIf nTamChv <> 44
+		U_CXMsgErro('Tamanho inválido de chave '+AllTrim(Str(nTamChv))+' digitos, o correto é 44 digitos.',;
+					'VERIFIQUE E CORRIJA A CHAVE DIGITADA.',lMsg,/*oArea*/)
+		lRet	:= .F.
+	//Valida dados da chave
+	Else
+		cCodUf  	:= U_CXCodUF(cEst)
+		cAnoMes		:= Right(MesAno(dEmissao),4)
+		cDigito		:= Modulo11(Left(cChave,43))
+	
+		cNumDoc		:= StrZero(Val(cNumDoc),9)
+		cSerie		:= StrZero(Val(cSerie),3)
+	
+		//Preenche variaveis da chave
+		cCodUfChv	:= SubStr(cChave,01,02)
+		cAnoMesChv	:= SubStr(cChave,03,04)
+		cCNPJChv	:= SubStr(cChave,07,14)
+		cModChv		:= SubStr(cChave,21,02)
+		cSerChv		:= SubStr(cChave,23,03)
+		cDocChv		:= SubStr(cChave,26,09)
+		cDigChv		:= SubStr(cChave,44,01)
+
+		cEstChv		:= U_CXCodUF(cCodUfChv,.T.)
+		
+		//Campo estado
+		If .Not. ( cCodUfChv == cCodUf )
+			U_CXMsgErro('Código de estado incorreto, esperado '+cCodUf+' ('+cEst+') '+;
+						'e na chave está '+cCodUfChv+' ('+cEstChv+').',;
+						'VERIFIQUE E CORRIJA A CHAVE DIGITADA.',lMsg,/*oArea*/)
+			lRet	:= .F.
+		EndIf
+		
+		//dia e mes de emissao
+		If 	.Not. ( cAnoMesChv == cAnoMes )
+			U_CXMsgErro('Data não confere, esperado '+cAnoMes+' e está '+cAnoMesChv+' na chave.',;
+						'VERIFIQUE E CORRIJA A CHAVE DIGITADA.',lMsg,/*oArea*/)
+			lRet	:= .F.
+		EndIf
+		
+		//CNPJ
+		If 	.Not. ( cCNPJChv == cCNPJ ) .And.  ;
+			cSerChv < '890'
+
+			U_CXMsgErro('CNPJ da chave inválido, esperado '+cCNPJ+' e localizado '+cCNPJChv+' na chave.',;
+						'VERIFIQUE E CORRIJA A CHAVE DIGITADA.',lMsg,/*oArea*/)
+			lRet	:= .F.
+		EndIf
+		
+		//Modelo do documento
+		If 	.Not. ( cModChv == cModelo )
+			U_CXMsgErro('Modelo inválido, esperado '+cModelo+' e foi localizado'+cModChv+' na chave.',;
+						'VERIFIQUE E CORRIJA A CHAVE DIGITADA.',lMsg,/*oArea*/)
+			lRet	:= .F.
+		EndIf
+		
+		//Serie
+		If .Not. ( cSerChv == cSerie )
+			U_CXMsgErro('Série inválida, esperado '+cSerie+' e localizada '+cSerChv+' na chave.',;
+						'VERIFIQUE E CORRIJA A CHAVE DIGITADA.',lMsg,/*oArea*/)
+			lRet	:= .F.
+		EndIf
+		
+		//Numero documento
+		If 	.Not. ( cDocChv == cNumDoc )
+			U_CXMsgErro('Número do documento inválido, esperado '+cNumDoc+'.',;
+						'VERIFIQUE E CORRIJA A CHAVE DIGITADA.',lMsg,/*oArea*/)
+			lRet	:= .F.
+		EndIf
+		
+		//Digito verificador
+		If 	.Not. ( cDigChv == cDigito )
+			U_CXMsgErro('Dígito verificador da chave inválido.',;
+						'VERIFIQUE E CORRIJA A CHAVE DIGITADA.',lMsg,/*oArea*/)
+			lRet	:= .F.
+		EndIf
+	EndIf
+
+Return lRet
+
+//#############################################################################
+//##+----------+-------------+-------+------------------+------+------------+##
+//##|Programa  | CXVldEmails | Autor | Cirilo Rocha     | Data | 30/03/2012 |##
+//##+----------+-------------+-------+------------------+------+------------+##
+//##|Desc.     | Função para validar uma lista de emails se é válida        |##
+//##|          | Deve ser não vazio e passar pela função padrão IsEmail     |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção Efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 05/04/12 | Cirilo R. | Pequena melhoria nas validações para ser utili-|##
+//##|          |           |  zado também em campos                         |##
+//##| 15/05/12 | Cirilo R. | Correção na validação de emails vazios         |##
+//##|          |           | Adaptacao para aceitar ExecAuto                |##
+//##| 25/08/12 | Cirilo R. | Melhoria para considerar os emails cadastados  |##
+//##|          |           |  pelo usuário                                  |##
+//##| 15/12/15 | Cirilo R. | Ajuste para obter os emails do get ativo       |##
+//##| 17/02/17 | Cirilo R. | Tratamento para emails no formado Nome <       |##
+//##|          |           | endereco@provedor.com.br>                      |##
+//##| 10/04/18 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 16/04/18 | Cirilo R. | Ajustes para validar caracteres especias       |##
+//##| 12/11/21 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+Static cChEsp	:= GetMV('MX_CHVDMAI',.F.,'@.-_;')		AS Character
+//-----------------------------------------------------------------------------
+User Function CXVldEmails(	cEmails		,;	//01 Conjunto de enderecos para validacao (def Get atual)
+							lMsg		,;	//02 Mostra mensagens (def .T.)
+							cCdErr		,;	//03 Mensagem de erro customizada
+							lNaoVazio	,;	//04 NAO aceita enderecos vazios (def .T.)
+							lVldNome	,;	//05 Aceita formato NOME <ENDERECO> (def .F.)
+							lProsseg	,;	//06 Prossegue se nao validos (def .F.)
+							lMailGroup	);	//07 Processar usando a funcao MailGroup (def .F.)
+									AS Logical
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aEmails						AS Array
+	Local cEmail						AS Character
+	Local cEndMail	    				AS Character
+	Local cEmailsBak					AS Character
+	Local nX							AS Integer
+	Local nTamCpo						AS Integer
+	//Local nPos							AS Integer
+	Local lRet		:= .T.				AS Logical
+	Local lAuto		:= U_CXRotAuto()	AS Logical
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cEmails				AS Character			Optional Default NIL
+	ParamType 1		VAR lMsg				AS Logical				Optional Default .Not. lAuto
+	ParamType 2		VAR cCdErr				AS Character			Optional Default 'CXVldEmails-'
+	ParamType 3		VAR lNaoVazio			AS Logical				Optional Default .T.
+	ParamType 4		VAR lVldNome			AS Logical				Optional Default .F.  //Valida no formaco NOME <ENDERECO>
+	ParamType 5		VAR lProsseg			AS Logical				Optional Default .F.  //Processegue a validacao apos erros
+	ParamType 6		VAR lMailGroup			AS Logical				Optional Default .F.
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+
+	//Se chamada a partir dos Mashups ignora esta validacao neste momento, sera validado depois
+	If EH_MVC
+		Return .T.
+	EndIf
+
+	If 	lMsg .And. ;
+		lAuto
+		
+		lMsg	:= .F. 
+	EndIf
+
+	//Pré-Validação dos Dados----------------------------------------------------------------------
+	lRet	:= U_CXVldGen(	@cEmails		,;	//01 @cConteudo
+							.F.				,;	//02 Mostra avisos (def .T.)
+							cCdErr			,;	//03 Mensagem de erro Customizada (opcional)
+							lNaoVazio		,;	//04 NAO aceita vazios (def .T.)
+							/*nTamMin*/		,;	//05 nTamMin (def 0)
+							/*nTamMax*/		,;	//06 nTamMax (def 99999)
+							/*cReadVar*/	,;	//07 cVar (def ReadVar())
+							/*cDscCpo*/		,;	//08 cDscCpo
+							/*lNaoZero*/	,;	//09 lNaoZero (def .F.)
+							/*lSoNum*/		,;	//10 lSoNum	(def .F.)
+							/*lDigitoX*/	,;	//11 lDigitoX (usado em conjunto com lSoNum, def .F.)
+							'Email'			)	//12 cDscCpoDef descrição default quando não usar readvar
+	
+	//Ignora vazios?
+	If .Not. lNaoVazio .And. ;
+		Empty(cEmails)
+
+		Return .T.
+	EndIf
+
+	If lRet
+		nTamCpo		:= Len(cEmails)
+		cEmailsBak	:= cEmails
+		cEmails		:= AllTrim(cEmails)
+
+		If Empty(cEmails)
+			If lNaoVazio
+			
+				cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+				cMsgErr	:= 'Nenhum '+cDescCpo+'informado. Campo obrigatório.'
+
+				lRet	:= .F.
+			Else
+				lRet	:= .T.
+			EndIf
+		ElseIf .Not. U_CXVlChEsp(	cEmails				,;	//01 String a ser validada (se nao informado puxa do get atual)
+									.F.					,;	//02 Se valida apenas numeros
+									/*lDigitoX*/		,;	//03 Se so numeros aceixa digito X
+									.T.					,;	//04 Se aceita espacos branco no meio do texto
+									cCdErr+'CXVlChEsp-'	,;	//05 Mensagem de erro Customizada (opcional)
+									.F.					,;	//06 Se exibe mensagens de erro
+									cChEsp				,;	//07 Outros caracteres alem de Letras e Numeros
+									cDescCpo			)	//08 cDscCpo Descricao do campo para Help
+		
+			//nPos	:= Rat(CRLF+'SOLUÇÃO: ',cMsg)// buscar texto da direita para a esquerda
+			//If nPos > 0
+			//	cSoluc	:= SubStr(cMsg,nPos+11)
+			//	cMsg	:= Left(cMsg,nPos)
+			//EndIf
+			//
+			//cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			//cMsgErr	:= 'Problema no endereço de email '+cDescCpo+'informado.'+CRLF+;
+			//			cMsg
+
+			lRet	:= .F.
+		Else
+			cSoluc	:= ''
+			cMsgErr	:= ''
+			aEmails	:= StrTokArr2(cEmails,';',.f.)
+			cEmails	:= "" //Limpa string para remontar apenas com enderecos validos
+			lRet	:= .T.
+			For nX := 1 to len(aEmails)
+				cEmail	:= AllTrim(aEmails[nX])
+				If .Not. Empty(cEmail)
+					If	lMailGroup .And. ;			//Processa usando MAILGROUP
+						At('<',cEmail) == 0 .And. ;	//NAO esta no formato NOME <ENDERECO>
+						At('@',cEmail) == 0			//NAO tem o @
+
+						cEmail	:= MailGroup(aEmails[nX]) //Compatiliza com os emails cadastrados pelo usuario
+						If Empty(cEmail)
+							cEmail	:= aEmails[nX]
+						EndIf
+					EndIf
+				EndIf
+
+				If Empty(cEmail)
+					cMsgErr	+= LTrim(Str(ProcLine()))+': Endereço de email vazio. Campo obrigatório.'+CRLF
+					lRet	:= .F.
+					If .Not. lProsseg
+						Exit
+					EndIf
+				Else
+					cEndMail	:= cEmail
+					If lVldNome //Valida no formaco NOME <ENDERECO>
+						U_CXSepEmail(@cEndMail)
+					EndIf
+
+					If .Not. IsEmail(cEndMail)
+						cMsgErr	+= LTrim(Str(ProcLine()))+': Endereço de email: "'+cEmail+'" é inválido.'+CRLF
+
+						lRet	:= .F.
+						If .Not. lProsseg
+							Exit
+						EndIf
+					ElseIf 	At('NAOPOSSUI',cEndMail) > 0 .Or. ;
+							At('NAOTEM',cEndMail) > 0
+
+						cMsgErr	+= LTrim(Str(ProcLine()))+': Endereço de email: "'+cEmail+'" é inválido.'+CRLF
+
+						lRet	:= .F.
+						If .Not. lProsseg
+							Exit
+						EndIf
+					Else
+						//Remonta string apenas com os enderecos validos e processados
+						cEmails	:= U_CXConcTxt(cEmails,cEmail,';')
+					EndIf
+
+				EndIf
+
+			Next
+		EndIf
+	EndIf
+
+	If .Not. lRet
+		cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+		If .Not. Empty(cDescCpo) .And. ;
+			cDescCpo <> 'Email'
+			
+			cMsgErr	+= 'Campo: '+cDescCpo
+		EndIf
+		cSoluc	:= 'INFORME UM ENDEREÇO DE EMAIL VÁLIDO.'
+		cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+	
+		//If lMsg
+		//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+		//EndIf
+	EndIf
+
+	//Tela de verificação de permissão do Admin----------------------------------------------------
+	lRet	:= VrfAdmin(lRet,lMsg,lAuto)
+
+	If .Not. lRet
+		cEmails	:= cEmailsBak //Restaura a variavel
+	Else
+		cEmails	:= PadR(cEmails,nTamCpo) //Compatibiliza o tamanho do campo
+	EndIf
+
+Return lRet
+
+//#############################################################################
+//##+----------+------------+-------+---------------------+------+----------+##
+//##|Funcao	   | CXVldEnd   | Autor | Cirilo Rocha        | Data | 09/04/18 |##
+//##+----------+------------+-------+---------------------+------+----------+##
+//##|Descricao | Funcao generica para validar os campos de endereco e com-  |##
+//##|          | plemento de endereco                                       |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutencao efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 11/04/18 | Cirilo R. | Pequena revisao no fonte                       |##
+//##| 28/08/19 | Cirilo R. | Pequena revisao no fonte                       |##
+//##| 16/03/20 | Cirilo R. | Adicionada validacao para o tamanho            |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+Static cChEspEnd	:= GetMV('MS_CHVDEND',.F.,".,/'ºª-")			AS Character
+//-------------------------------------------------------------------------------------------------
+User Function CXVldEnd(	cEnd		,;	//01 Numero Nome/Razão Social para validar
+						lMsg		,;	//02 Mostra avisos (def .T.)
+						cCdErr		,;	//03 Mensagem de erro Customizada (opcional)
+						lNaoVazio	,;	//04 NAO aceita vazios (def .T.)
+						nTamMin 	,;	//07 Tamanho minimo do campo (def 5)
+						nTamMax		);	//08 Tamanho maximo do campo (def 60)
+								AS Logical
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	//Local nPos							AS Integer
+	Local lRet		:= .T.				AS Logical
+	Local lAuto		:= U_CXRotAuto()	AS Logical
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cEnd	  		AS Character			Optional Default NIL
+	ParamType 1		VAR lMsg	  		AS Logical				Optional Default .Not. lAuto
+	ParamType 2		VAR cCdErr  		AS Character			Optional Default 'CXVldEnd-'
+	ParamType 3		VAR lNaoVazio  		AS Logical				Optional Default .T.
+	ParamType 4		VAR nTamMin  		AS Numeric				Optional Default 05 //Tamanho minimo segundo NF-e,CT-e
+	ParamType 5		VAR nTamMax  		AS Numeric				Optional Default 60	//Tamanho maximo segundo NF-e,CT-e, 100 e-Social
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+
+	//---------------------------------------------------------------------------------------------
+	//Se chamada a partir dos Mashups ignora esta validacao neste momento, sera validado depois
+	If 	EH_MVC
+		Return .T.
+	EndIf
+
+	If 	lMsg .And. ;
+		lAuto
+		
+		lMsg	:= .F. 
+	EndIf
+
+	//Pré-Validação dos Dados----------------------------------------------------------------------
+	lRet	:= U_CXVldGen(	@cEnd			,;	//01 @cConteudo
+							.F.				,;	//02 Mostra avisos (def .T.)
+							cCdErr			,;	//03 Mensagem de erro Customizada (opcional)
+							lNaoVazio		,;	//04 NAO aceita vazios (def .T.)
+							nTamMin			,;	//05 nTamMin (def 0)
+							nTamMax			,;	//06 nTamMax (def 99999)
+							/*cReadVar*/	,;	//07 cVar (def ReadVar())
+							/*cDscCpo*/		,;	//08 cDscCpo
+							/*lNaoZero*/	,;	//09 lNaoZero (def .F.)
+							/*lSoNum*/		,;	//10 lSoNum	(def .F.)
+							/*lDigitoX*/	,;	//11 lDigitoX (usado em conjunto com lSoNum, def .F.)
+							'Endereço'		)	//12 cDscCpoDef descrição default quando não usar readvar
+
+	//Ignora vazios?
+	If .Not. lNaoVazio .And. ;
+		Empty(cEnd)
+
+		Return .T.
+	EndIf
+
+	//Valida ch especiais--------------------------------------------------------------------------
+	If lRet
+		If .Not. U_CXVlChEsp(cEnd				,;	//01 String a ser validada (se nao informado puxa do get atual)
+							/*lSoNumeros*/		,;	//02 Se valida apenas numeros
+							/*lDigitoX*/		,;	//03 Se so numeros aceixa digito X
+							.T.					,;	//04 Se aceita espacos branco no meio do texto
+							cCdErr+'CXVlChEsp-'	,;	//05 Mensagem de erro Customizada (opcional)
+							.F.					,;	//06 Se exibe mensagens de erro
+							cChEspEnd			,;	//07 Outros caracteres alem de Letras e Numeros
+							cDescCpo			)	//08 cDscCpo Descricao do campo para Help
+
+			//nPos	:= Rat(CRLF+'SOLUÇÃO: ',cMsg)// buscar texto da direita para a esquerda
+			//If nPos > 0
+			//	cSoluc	:= SubStr(cMsg,nPos+11)
+			//	cMsg	:= Left(cMsg,nPos)
+			//EndIf
+			//
+			//cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			//cMsgErr	:= 'Campo '+cDescCpo+'.'+CRLF+;
+			//			space(2)+cMsg
+			//
+			//cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			//If lMsg
+			//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+			//EndIf
+
+			lRet	:= .F.
+		EndIf
+	EndIf
+
+	//Tela de verificação de permissão do Admin----------------------------------------------------
+	lRet	:= VrfAdmin(lRet,lMsg,lAuto)
+
+Return lRet
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXVldExc | Autor | Cirilo Rocha       | Data | 02/10/2013  |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descr.    | Função genérica para validar vínculos entre tabelas.       |##
+//##|          | Usada na validação da exclusão de registros                |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção Efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 22/11/13 | Cirilo R. | Adicionada validação se a tabela existe no BD  |##
+//##| 11/03/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 03/09/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 12/10/21 | Cirilo R. | Pequena revisão (release 33)                   |##
+//##| 14/03/22 | Cirilo R. | Otimização para usar bind param                |##
+//##| 02/12/12 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXVldExc(	cChave		,;	//01 cChave
+						aChaves		,;	//02 aChaves
+						lExclusiva	,;	//03 lExclusiva
+						lMsg		); 	//04 lMsg
+								AS Logical
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local bValid						AS CodeBlock
+	Local lAuto		:= U_CXRotAuto()	AS Logical
+	Local lRet		:= .T.				AS Logical
+	Local nTpRegua						AS Numeric
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cChave  	  		AS Character
+	ParamType 1		VAR aChaves  		 	AS Array
+	ParamType 2		VAR lExclusiva    		AS Logical			Optional Default NIL
+	ParamType 3		VAR lMsg	 	  		AS Logical			Optional Default .Not. lAuto
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	nTpRegua	:= U_CXGetRegua()
+	
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+
+	//---------------------------------------------------------------------------------------------
+	bValid	:= {|| VldExc(	cChave		,;	//01
+							aChaves		,;	//02
+							lExclusiva	,;	//03
+							lMsg		,;	//04
+							nTpRegua	)} 	//05
+	
+	If nTpRegua	== nRG_SEMREGUA
+		Processa({|| lRet	:= Eval(bValid,cChave,aChaves,lExclusiva,lMsg,nRG_PROCESSA) },'Validando dados...','Aguarde...')
+	Else
+		lRet	:= Eval(bValid,cChave,aChaves,lExclusiva,lMsg,nTpRegua)
+	EndIf
+
+	//Tela de verificação de permissão do Admin----------------------------------------------------
+	lRet	:= VrfAdmin(lRet,lMsg,lAuto)
+
+Return lRet
+
+//-------------------------------------------------------------------------------------------------
+Static Function VldExc(cChave		,;	//01
+                       aChaves		,;	//02
+                       lExclusiva	,;	//03
+                       lMsg			,; 	//04
+					   nTpRegua		);	//05
+							AS Logical
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local lGravaQuery	AS Logical
+	Local lRet			AS Logical
+	Local aBindParam	AS Array
+	Local cTabelas		AS Character
+	Local cQuery	    AS Character
+//	Local cQry			AS Character
+	Local cAlias		AS Character
+	Local cPref			AS Character
+	Local nX			AS Numeric
+	Local nQtdReg		AS Numeric
+	
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	lRet		:= .T.
+	lGravaQuery	:= .F.
+	cTabelas	:= ""
+	
+	If ValType(lExclusiva) <> 'L'
+		If Type('cString') == 'C'
+			lExclusiva	:= (FWModeAccess(cString)<>'C')
+		Else
+			lExclusiva	:= .T.
+		EndIf
+	EndIf
+
+	U_CXSetRegua(	nTpRegua,;	//01
+					0		)	//02
+	
+	For nX := 1 to len(aChaves)
+		cAlias	:= FwTabPref(aChaves[nX])
+		cPref	:= FwPrefixoCpo(cAlias) //Prefixo
+		
+		//verifica se a tabela existe no sql
+		If .Not. TCCanOpen(FWSX2Util():GetFile(cAlias))
+			Loop
+		EndIf
+		
+		aBindParam	:= {}
+		cQuery	:= ""
+		cQuery	+= "SELECT COUNT(1) NCONT "+CRLF
+		cQuery	+= "FROM "+FWSX2Util():GetFile(cAlias)+" "+CRLF
+		cQuery	+= "WHERE D_E_L_E_T_='' "+CRLF
+		If lExclusiva
+			cQuery	+= "AND "+cPref+"_FILIAL = ? "+CRLF
+			aAdd(aBindParam,FWxFilial(cAlias))
+		EndIf
+		cQuery	+= "AND "+aChaves[nX]+" = ? "+CRLF
+		aAdd(aBindParam,cChave)
+		
+		nQtdReg	:= MpSysExecScalar(cQuery,'NCONT',aBindParam)	//Executa uma consulta e retorna a primeira linha no conjunto de resultados retornados pela consulta
+		//U_CXExecQuery(@cQry,cQuery,lGravaQuery) //Executa a query
+	   
+		//Existem registros na tabela?
+		//If (cQry)->NCONT > 0
+		If nQtdReg > 0
+			lRet		:= .F.
+			cTabelas	+= cAlias+' - '+Upper(FwSX2Util():GetX2Name(cAlias))+" - "+Transform(nQtdReg,"@E 999,999")+' registros'+CRLF
+		EndIf
+		
+//		(cQry)->(dbCloseArea()) //Fecha a query	
+	Next
+	
+	If .Not. lRet 
+		If .Not. Empty(FWxFilial(cAlias))
+			cChave	:= FWxFilial(cAlias)+'-'+cChave
+		EndIf
+
+		cCodErr	:= U_CXTxtMsg(,,.T.)
+		cMsgErr	:= 'Foram encontrados vínculos com a chave '+cChave+' as seguintes tabelas:' +CRLF+;
+					cTabelas+CRLF+;
+					'A exclusão pode não pode ser efetuada.'
+		cSoluc	:= 'APAGUE PRIMEIRO OS REGISTROS VINCULADOS'
+		cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+	EndIf
+
+Return lRet
+
+//#############################################################################
+//##+==========+=============+=======+=================+======+=============+##
+//##|Programa  | CXVldGrpCpo | Autor | Cirilo Rocha    | Data | 27/07/2021  |##
+//##+==========+=============+=======+=================+======+=============+##
+//##|Desc.     | Função para validar grupos de campos que precisam ser      |##
+//##|          | preenchidos todos juntos                                   |##
+//##+==========+==========+=================================================+##
+//##| DATA     | ANALISTA | MANUTENÇÃO EFETUADA                             |##
+//##+==========+==========+=================================================+##
+//##| 12/10/21 | Cirilo R.| Pequena revisão (release 33)                    |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+==========+==========+=================================================+##
+//#############################################################################
+User Function CXVldGrpCpo(	aGrpCpos,;	//01 Grupos de Campos {{'TÍTULO',{CAMPO1,CAMPO2}}}
+							aRet	,;	//02 @Array de mensagens de retorno (CXeSocial ou validações complexas)
+							lMem	,;	//03 Dados em memória? (def .T.)
+							cAlias	,;	//04 Alias da tabela para busca (se necessário e não memória) (def Alias do Campo)
+							lMsg	,;	//05 Mostra mensagens de erro (def .T.)
+							cCdErr	);	//06 Mensagem de erro Customizada (def CXVldGrpCpo)
+								AS Logical
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cTemp							AS Character
+	Local cCampo						AS Character
+	Local nX,nY							AS Integer
+	Local lTemVazio						AS Logical
+	Local lNaoTemVz						AS Logical
+	Local lRet		:= .T.				AS Logical
+	Local lAuto		:= U_CXRotAuto()	AS Logical
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR aGrpCpos		AS Array
+	ParamType 1		VAR aRet			AS Array				Optional Default {}
+	ParamType 2		VAR lMem			AS Logical				Optional Default .T.
+	ParamType 3		VAR cAlias			AS Character			Optional Default NIL
+	ParamType 4		VAR lMsg			AS Logical				Optional Default .Not. lAuto
+	ParamType 3		VAR cCdErr  		AS Character			Optional Default 'CXVldGrpCpo-'
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+
+	//---------------------------------------------------------------------------------------------
+	For nX := 1 to len(aGrpCpos)
+		lTemVazio	:= .F.
+		lNaoTemVz	:= .F.
+		cTemp		:= ''
+		For nY := 1 to len(aGrpCpos[nX][2])
+			cCampo	:= aGrpCpos[nX][2][nY]
+			If Empty(U_CXGetCpo(cCampo,lMem,cAlias))
+				lTemVazio	:= .T.
+				cTemp		:= U_CXConcTxt(cTemp,FwX3Titulo(cCampo)+' ('+cCampo+')',', ')
+			Else
+				lNaoTemVz	:= .T.
+			EndIf
+		Next
+
+		//Existem alguns campos informados e outros vazios
+		If	lTemVazio .And. ;
+			lNaoTemVz
+			
+			cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			cMsgErr	:= 	'O grupo de campos '+aGrpCpos[nX][1]+' possui campos preenchidos e outros vazios.#'+CRLF+;
+						'- CAMPOS VAZIOS: '+cTemp+'. '
+			cSoluc	:= 	'INFORME TODOS OS CAMPOS, OU, NÃO INFORME NENHUM.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			
+			//If lMsg
+			//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+			//EndIf
+
+			lRet	:= .F.
+		EndIf
+	Next
+
+	//Tela de verificação de permissão do Admin----------------------------------------------------
+	lRet	:= VrfAdmin(lRet,lMsg,lAuto)
+
+	//------------------------------------------------------------------------------------
+	If .Not. lRet
+		aAdd(aRet, cMsg )
+	EndIf
+
+Return lRet
+
+//#############################################################################
+//##+==========+===========+=======+===================+======+=============+##
+//##|Programa  | CXVldHora | Autor | Cirilo Rocha      | Data | 07/04/2020  |##
+//##+==========+===========+=======+===================+======+=============+##
+//##|Descr.    | Validar campos de hora, pode validar vários formatos:      |##
+//##|          | 1-> hh:mm                                                  |##
+//##|          | 2-> mm:ss                                                  |##
+//##|          | 3-> ##:mm                                                  |##
+//##|          | 4-> hh:mm:ss                                               |##
+//##|          | 5-> ##:mm:ss                                               |##
+//##+==========+==========+=================================================+##
+//##+ DATA     | ANALISTA | MANUTENÇÃO EFETUADA                             |##
+//##+==========+==========+=================================================+##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+==========+==========+=================================================+##
+//#############################################################################
+User Function CXVldHora(cHora       ,;  //01
+                        nTipo       ,;  //02
+                        cCdErr	    ,;  //03 Mensagem de erro Customizada (opcional)
+                        lMsg		,;	//04 Mostra avisos (def .T.)
+						lNaoVazio	);	//05 NAO aceita vazios (def .T.)
+							AS Logical
+
+    //Declaracao de variaveis----------------------------------------------------------------------
+    Local aDados						AS Array
+    Local cFormato						AS Character
+    Local lRet		:= .T.				AS Logical
+	Local lAuto		:= U_CXRotAuto()	AS Logical
+    Local nQtdEle						AS Numeric
+    Local nMin							AS Numeric
+    Local unSeg							AS Variant /* Numeric */
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cHora		AS Character			Optional Default NIL
+	ParamType 1		VAR nTipo		AS Numeric				Optional Default 1
+	ParamType 2		VAR cCdErr		AS Character			Optional Default 'CXVldHora-'
+	ParamType 3		VAR lMsg		AS Logical				Optional Default .Not. lAuto
+	ParamType 4		VAR lNaoVazio	AS Logical				Optional Default .T.
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+
+	//Se chamada a partir dos Mashups ignora esta validacao neste momento, sera validado depois
+	If 	EH_MVC
+		Return .T.
+	EndIf
+	
+	If 	lMsg .And. ;
+		lAuto
+		
+		lMsg	:= .F. 
+	EndIf
+
+	//Pré-Validação dos Dados----------------------------------------------------------------------
+	lRet	:= U_CXVldGen(	@cHora			,;	//01 @cConteudo
+							.F.				,;	//02 Mostra avisos (def .T.)
+							cCdErr			,;	//03 Mensagem de erro Customizada (opcional)
+							lNaoVazio		,;	//04 NAO aceita vazios (def .T.)
+							/*nTamMin*/		,;	//05 nTamMin (def 0)
+							/*nTamMax*/		,;	//06 nTamMax (def 99999)
+							/*cReadVar*/	,;	//07 cVar (def ReadVar())
+							/*cDscCpo*/		,;	//08 cDscCpo
+							/*lNaoZero*/	,;	//09 lNaoZero (def .F.)
+							/*lSoNum*/		,;	//10 lSoNum	(def .F.)
+							/*lDigitoX*/	,;	//11 lDigitoX (usado em conjunto com lSoNum, def .F.)
+							'Hora'			)	//12 cDscCpoDef descrição default quando não usar readvar
+
+	//Ignora vazios?
+	If .Not. lNaoVazio .And. ;
+		Empty(cHora)
+
+		Return .T.
+	EndIf
+
+	//---------------------------------------------------------------------------------------------
+    If nTipo <= 3
+        cFormato    := '99:99'
+        nQtdEle     := 2
+    Else
+        cFormato    := '99:99:99'
+        nQtdEle     := 3
+    EndIf    
+    aDados  := StrTokArr2(cHora,':',.F.)
+
+    If  At(':',cHora) == 0 .Or. ;   //Nao tem o : separador
+        U_CXSoNumeros(cHora) <> StrTran(cHora,':') .Or. ;
+        Len(aDados) <> nQtdEle
+
+        cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+        cMsgErr	:= 'Campo '+cDescCpo+'com formato inválido. Precisar estar no formato '+cFormato
+        cSoluc	:= 'INFORME O CAMPO NO FORMATO VÁLIDO.'
+        cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+        //If lMsg
+        //    U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+        //EndIf
+
+        lRet    := .F.
+    EndIf
+
+    //---------------------------------------------------------------------------------------------
+    If lRet
+        If  nTipo == 1 .Or. ;
+            nTipo == 4
+
+            If Val(aDados[1]) > 24
+
+                cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+                cMsgErr	:= 'Campo '+cDescCpo+'está inválido. Informado mais que 23hs no dia.'
+                cSoluc	:= 'INFORME O CAMPO NO FORMATO VÁLIDO.'
+                cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+                //If lMsg
+                //    U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+                //EndIf
+
+                lRet    := .F.
+            EndIf
+        EndIf
+    EndIf
+
+    //---------------------------------------------------------------------------------------------
+    If lRet
+        If nTipo == 2
+            nMin    := Val(aDados[1])
+        Else
+            nMin    := Val(aDados[2])
+        EndIf
+
+        If nMin > 59
+            cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+            cMsgErr	:= 'Campo '+cDescCpo+'está inválido. Informado mais que 59 minutos.'
+            cSoluc	:= 'INFORME O CAMPO NO FORMATO VÁLIDO.'
+            cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+            //If lMsg
+            //    U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+            //EndIf
+
+            lRet    := .F.
+        EndIf
+    EndIf
+
+    //---------------------------------------------------------------------------------------------
+    If lRet
+        If  nTipo == 4 .Or. ;
+            nTipo == 5
+
+            unSeg    := Val(aDados[3])
+        ElseIf nTipo == 2
+            unSeg    := Val(aDados[2])
+        EndIf
+
+        If  unSeg <> NIL
+            If unSeg > 59
+                cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+                cMsgErr	:= 'Campo '+cDescCpo+'está inválido. Informado mais que 59 segundos.'
+                cSoluc	:= 'INFORME O CAMPO NO FORMATO VÁLIDO.'
+                cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+                //If lMsg
+                //    U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+                //EndIf
+
+                lRet    := .F.
+            EndIf
+        EndIf
+    EndIf
+
+	//Tela de verificação de permissão do Admin----------------------------------------------------
+	lRet	:= VrfAdmin(lRet,lMsg,lAuto)
+
+Return lRet
+
+//#############################################################################
+//##+----------+------------+-------+---------------------+------+----------+##
+//##|Função	   | CXVldNome  | Autor | Cirilo Rocha        | Data | 06/04/18 |##
+//##+----------+------------+-------+---------------------+------+----------+##
+//##|Descr.    | Função genérica para validar os nomes de pessoas físicas e |##
+//##|          | razão social de pessoas jurídicas                          |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 11/04/18 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 26/06/19 | Cirilo R. | Modernização do fonte                          |##
+//##| 28/08/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 27/11/20 | Cirilo R. | Ajuste nas mensagens                           |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+Static cChEspPJ	:= GetMV('MX_CHESPPJ',.F.,".-&ºª',")	AS Character
+//-------------------------------------------------------------------------------------------------
+User Function CXVldNome(cNome		,;	//01 Numero Nome/Razao Social para validar
+						lMsg		,;	//02 Mostra avisos (def .T.)
+						cCdErr		,;	//03 Mensagem de erro Customizada (opcional)
+						lNaoVazio	,;	//04 NAO aceita vazios (def .T.)
+						lPF			,;	//05 Valida se eh pessoa fisica ou juridica
+						lAbrev		,;	//06 Aceita abreviacoes se PF
+						nTamMin 	,;	//07 Tamanho minimo do campo
+						nTamMax		,;	//08 Tamanho maximo do campo
+						lAlertAbr	);	//09 Alerta sobre abreviacoes
+								AS Logical
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cDesc		:= ''				AS Character	
+	Local cChLib						AS Character	
+	Local cCh1,cCh2,cCh3				AS Character
+	Local nX							AS Integer
+	//Local nPos							AS Integer
+	Local lRet		:= .T.				AS Logical
+	Local lAuto		:= U_CXRotAuto()	AS Logical
+	Local lMsgUsr	:= .T.				AS Logical
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cNome			AS Character			Optional Default NIL
+	ParamType 1		VAR lMsg			AS Logical				Optional Default .Not. lAuto
+	ParamType 2		VAR cCdErr			AS Character			Optional Default 'CXVldNome-'
+	ParamType 3		VAR lNaoVazio		AS Logical				Optional Default .T.
+	ParamType 4		VAR lPF				AS Logical				Optional Default .T.
+	ParamType 5		VAR lAbrev			AS Logical				Optional Default .F.
+	ParamType 6		VAR nTamMin			AS Numeric				Optional Default 1
+	ParamType 7		VAR nTamMax			AS Numeric				Optional Default 999
+	ParamType 8		VAR lAlertAbr		AS Logical				Optional Default .F.	
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+	
+	//---------------------------------------------------------------------------------------------
+	
+	//Se chamada a partir dos Mashups ignora esta validacao neste momento, sera validado depois
+	If 	EH_MVC
+		Return .T.
+	EndIf
+	
+	If 	lMsg .And. ;
+		lAuto
+		
+		lMsg	:= .F. 
+	EndIf
+
+	If lPF
+		If lAbrev
+			cDesc	:= 'Nome'
+		Else
+			cDesc	:= 'Nome Completo'
+		EndIf
+		cChLib	:= ''
+	Else
+		cDesc	:= 'Razão Social'
+		cChLib	:= cChEspPJ
+	EndIf
+
+	//Pré-Validação dos Dados----------------------------------------------------------------------
+	lRet	:= U_CXVldGen(	@cNome			,;	//01 @cConteudo
+							.F.				,;	//02 Mostra avisos (def .T.)
+							cCdErr			,;	//03 Mensagem de erro Customizada (opcional)
+							lNaoVazio		,;	//04 NAO aceita vazios (def .T.)
+							nTamMin			,;	//05 nTamMin (def 0)
+							nTamMax			,;	//06 nTamMax (def 99999)
+							/*cReadVar*/	,;	//07 cVar (def ReadVar())
+							/*cDscCpo*/		,;	//08 cDscCpo
+							/*lNaoZero*/	,;	//09 lNaoZero (def .F.)
+							/*lSoNum*/		,;	//10 lSoNum	(def .F.)
+							/*lDigitoX*/	,;	//11 lDigitoX (usado em conjunto com lSoNum, def .F.)
+							cDesc			)	//12 cDscCpoDef descrição default quando não usar readvar
+
+	//Ignora vazios?
+	If .Not. lNaoVazio .And. ;
+		Empty(cNome)
+
+		Return .T.
+	EndIf
+
+	//Valida ch especiais--------------------------------------------------------------------------
+	If lRet
+		If .Not. U_CXVlChEsp(cNome				,;	//01 String a ser validada (se nao informado puxa do get atual)
+							/*lSoNumeros*/		,;	//02 Se valida apenas numeros
+							/*lDigitoX*/		,;	//03 Se so numeros aceixa digito X
+							.T.					,;	//04 Se aceita espacos branco no meio do texto
+							cCdErr+'CXVlChEsp-'	,;	//05 Mensagem de erro Customizada (opcional)
+							.F.					,;	//06 Se exibe mensagens de erro
+							cChLib				,;	//07 Outros caracteres alem de Letras e Numeros
+							cDescCpo			)	//08 cDscCpo Descricao do campo para Help
+
+			//nPos	:= Rat(CRLF+'SOLUÇÃO: ',cMsg)// buscar texto da direita para a esquerda
+			//If nPos > 0
+			//	cSoluc	:= SubStr(cMsg,nPos+11)
+			//	cMsg	:= Left(cMsg,nPos)
+			//EndIf
+			//cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			//cMsgErr	:= 	'Problema com o conteúdo do '+cDesc+'.'+CRLF+;
+			//			cMsg
+			//
+			//cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			//If lMsg
+			//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+			//EndIf
+
+			lRet	:= .F.
+		EndIf
+	EndIf
+
+	//Valida se tem caracteres que nao sao letras--------------------------------------------------
+	If 	lRet .And. ;
+		lPF
+
+		For nX := 1 to len(cNome)
+			cCh1	:= SubStr(cNome,nX,1)
+			If 	cCh1 <> ' ' .And. ;
+				.Not. IsAlpha(cCh1)
+
+				cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+				cMsgErr	:= 'O campo '+cDescCpo+'não pode conter números.'
+				cSoluc	:= ''
+				cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+				//If lMsg
+				//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+				//EndIf
+
+				lRet	:= .F.
+				Exit
+			EndIf
+		Next
+	EndIf
+
+	//Valida abreviacoes---------------------------------------------------------------------------
+	If 	lRet .And. ;
+		lPF .And. ;
+		.Not. lAbrev
+
+		cNome	:= RTrim(cNome) + ' ' //Feito assim para validar a ultima letra tambem como abreviacao
+		For nX := 3 to len(cNome)
+			cCh1	:= SubStr(cNome,nX-2,1)
+			cCh2	:= SubStr(cNome,nX-1,1)
+			cCh3	:= SubStr(cNome,nX-0,1)
+			If 	cCh1 == ' ' .And. ;
+				cCh3 == ' '
+
+				If 	cCh2 == 'E' .Or. ;
+					lAlertAbr
+
+					If 	lMsg .And. ;
+						.Not. lAuto .And. ;//! FWIsInCallStack('MSEXECAUTO') .And. ; //Nao pode ser execauto, precisa ser via usuario mesmo
+						.Not. ApMsgYesNo(	'O campo '+cDescCpo+' parece ter uma abreviação.'+CRLF+;
+											'Confirma que esta informação está correta ?',U_CXTxtMsg(,,.T.))
+						lRet	:= .F.
+						lMsgUsr	:= .F.
+					EndIf
+				Else
+					cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+					cMsgErr	:= 	'O campo '+cDescCpo+' não pode conter abreviações.'+CRLF+;
+								'Posição: '+StrZero(nX-1,3)
+					cSoluc	:= 'INFORME O NOME SEM ABREVIAÇÕES.'
+					cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+					//If lMsg
+					//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+					//EndIf
+
+					lRet	:= .F.
+				EndIf
+			EndIf
+		Next
+	EndIf
+
+	//Tela de verificação de permissão do Admin----------------------------------------------------
+	If lMsgUsr
+		lRet	:= VrfAdmin(lRet,lMsg,lAuto)
+	EndIf
+
+Return lRet
+
+//#############################################################################
+//##+----------+------------+-------+---------------------+------+----------+##
+//##|Funcao	   | CXVldRenav | Autor | Cirilo Rocha        | Data | 01/04/18 |##
+//##+----------+------------+-------+---------------------+------+----------+##
+//##|Descr.    | Função genérica para validar o número renavam de veículos  |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 11/04/18 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 28/08/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 12/11/21 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+Static nTamREN	:= GetMV('MX_TAMREN',.F.,11) 		AS Integer		//Se mudar o tamanho precisa observar o algoritmo ainda vale
+//-------------------------------------------------------------------------------------------------
+User Function CXVldRenav(	cNum		,;	//01 Numero Renavam para validar
+							lMsg		,;	//02 Mostra avisos (def .T.)
+							cCdErr		,;	//03 Mensagem de erro Customizada (opcional)
+							lNaoVazio	);	//04 NAO aceita vazios (def .T.)
+									AS Logical
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cDV1							AS Character
+	Local cDVC1		    				AS Character
+	Local cSubNum						AS Character
+	Local lRet		:= .T.				AS Logical
+	Local lAuto		:= U_CXRotAuto()	AS Logical
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cNum			AS Character					Optional Default NIL
+	ParamType 1		VAR lMsg			AS Logical						Optional Default .Not. lAuto
+	ParamType 2		VAR cCdErr			AS Character					Optional Default 'CXVldRen-'
+	ParamType 3		VAR lNaoVazio		AS Logical						Optional Default .T.
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+
+	//---------------------------------------------------------------------------------------------
+	
+	//Se chamada a partir dos Mashups ignora esta validacao neste momento, sera validado depois
+	If 	EH_MVC
+		Return .T.
+	EndIf
+	
+	If 	lMsg .And. ;
+		lAuto
+		
+		lMsg	:= .F. 
+	EndIf
+
+	//Pré-Validação dos Dados----------------------------------------------------------------------
+	lRet	:= U_CXVldGen(	@cNum			,;	//01 @cConteudo
+							.F.				,;	//02 Mostra avisos (def .T.)
+							cCdErr			,;	//03 Mensagem de erro Customizada (opcional)
+							lNaoVazio		,;	//04 NAO aceita vazios (def .T.)
+							nTamRen			,;	//05 nTamMin (def 0)
+							nTamRen			,;	//06 nTamMax (def 99999)
+							/*cReadVar*/	,;	//07 cVar (def ReadVar())
+							/*cDscCpo*/		,;	//08 cDscCpo
+							.T.				,;	//09 lNaoZero (def .F.)
+							.T.				,;	//10 lSoNum	(def .F.)
+							/*lDigitoX*/	,;	//11 lDigitoX (usado em conjunto com lSoNum, def .F.)
+							'RENAVAN'		)	//12 cDscCpoDef descrição default quando não usar readvar
+
+	//Ignora vazios?
+	If .Not. lNaoVazio .And. ;
+		Empty(cNum)
+
+		Return .T.
+	EndIf
+
+	//Valida digitos verificadores-----------------------------------------------------------------
+	If lRet
+		cSubNum	:= Left(cNum,nTamRen-1)
+		cDV1	:= SubStr(cNum,nTamRen,1)
+		
+		cDVC1	:= U_CXMod11(	cSubNum		,;	// 01 
+								2			,;	// 02 Peso Inicio (esquerda -> direita)
+								9			,;	// 03 Peso Final (esquerda -> direita)
+								'0'			,; 	// 04 Resto 10, Se lDif11 entao entenda resto 1
+								'0'			,; 	// 05 Resto 11, Se lDif11 entao entenda resto 0 
+								/*cRestoZero*/,;// 06 Resto  0, So existe se nao lDif11
+								.T.			)  	// 07 Se deve ou nao subtrair o resto da divisao por 11
+				
+		If cDVC1 <> cDV1
+			cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			cMsgErr	:= 'Dígito verificador ou número do '+cDescCpo+'inválido.'
+			cSoluc	:= 'VERIFIQUE E CORRIJA O NÚMERO DIGITADO.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			//If lMsg
+			//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+			//EndIf
+
+			lRet	:= .F.
+		EndIf
+	EndIf
+
+	//Tela de verificação de permissão do Admin----------------------------------------------------
+	lRet	:= VrfAdmin(lRet,lMsg,lAuto)
+
+Return lRet
+
+//#############################################################################
+//##+----------+-----------+-------+----------------------+------+----------+##
+//##|Programa  | CXVldTam  | Autor | Cirilo Rocha         | Data |02/05/2016|##
+//##+----------+-----------+-------+----------------------+------+----------+##
+//##|Descr.    | Valida o tamanho de campos                                 |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   |Programador    | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##| 08/04/18 | Cirilo R.     | Ajuste para nao validar dentro do mashup   |##
+//##| 11/04/18 | Cirilo R.     | Pequena revisao no fonte                   |##
+//##| 26/06/19 | Cirilo R.     | Pequena revisao no fonte                   |##
+//##| 28/08/19 | Cirilo R.     | Pequena revisao no fonte                   |##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+User Function CXVldTam(	nTamMax		,;	// 01 Tamanho maximo do texto
+						nTamMin		,;	// 02 Tamanho minimo do texto
+						lInformado	,;	// 03 (DESUSO) Se o conteudo foi passado como parametro da funcao
+						cTexto		,;	// 04 Conteudo a ser validado
+						lMsg		,;	// 05 Se mostra mensagens da rotina
+						lNaoVazio	,;	// 06 NAO aceita vazios (def [nTamMin > 0])
+						cCdErr		);	// 06 Mensagem de erro Customizada (opcional)
+							AS Logical
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local lRet		:= .T.				AS Logical
+	Local lAuto		:= U_CXRotAuto()	AS Logical
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR nTamMax		  		AS Numeric					Optional Default 999
+	ParamType 1		VAR nTamMin		 	  	AS Numeric					Optional Default 0
+	//ParamType 2		VAR lInformado			AS Logical					Optional Default .F.	//EM DESUSO
+	ParamType 3		VAR cTexto		  		AS Character				Optional Default NIL
+	ParamType 4		VAR lMsg		 	  	AS Logical					Optional Default .Not. lAuto
+	ParamType 5		VAR lNaoVazio	 	  	AS Logical					Optional Default ( nTamMin > 0 )
+	ParamType 6		VAR cCdErr				AS Character				Optional Default 'CXVldTam-'
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+
+	//---------------------------------------------------------------------------------------------
+	
+	//Se chamada a partir dos Mashups ignora esta validacao neste momento, sera validado depois
+	If 	EH_MVC
+		Return .T.
+	EndIf
+	
+	If 	lMsg .And. ;
+		lAuto
+		
+		lMsg	:= .F. 
+	EndIf
+
+	//Pré-Validação dos Dados----------------------------------------------------------------------
+	lRet	:= U_CXVldGen(	@cTexto			,;	//01 @cConteudo
+							.F.				,;	//02 Mostra avisos (def .T.)
+							cCdErr			,;	//03 Mensagem de erro Customizada (opcional)
+							lNaoVazio		,;	//04 NAO aceita vazios (def .T.)
+							nTamMin			,;	//05 nTamMin (def 0)
+							nTamMax			,;	//06 nTamMax (def 99999)
+							/*cReadVar*/	,;	//07 cVar (def ReadVar())
+							/*cDscCpo*/		,;	//08 cDscCpo
+							/*lNaoZero*/	,;	//09 lNaoZero (def .F.)
+							/*lSoNum*/		,;	//10 lSoNum	(def .F.)
+							/*lDigitoX*/	,;	//11 lDigitoX (usado em conjunto com lSoNum, def .F.)
+							/*cDscCpoDef*/	)	//12 cDscCpoDef descrição default quando não usar readvar
+
+	//Ignora vazios?
+	If .Not. lNaoVazio .And. ;
+		Empty(cTexto)
+
+		Return .T.
+	EndIf
+
+	//Tela de verificação de permissão do Admin----------------------------------------------------
+	lRet	:= VrfAdmin(lRet,lMsg,lAuto)
+
+Return lRet
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXVldTel | Autor | Cirilo Rocha       | Data | 18/08/2017  |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descr.    | Funcao generica para validar campos do tipo telefone       |##
+//##|          | NAO PERMITE INFORMAR MAIS DE UM NUMERO E NEM CARACTERES    |##
+//##|          | ESPECIAIS                                                  |##
+//##|          |                                                            |##
+//##|          | NAO TRATA NUMEROS NO FORMATO INTERNACIONAL, POR ISSO TEM UM|##
+//##|          | PARAMETRO PARA DESATIVAR A VALIDACAO NESTES CASOS          |##
+//##|          |                                                            |##
+//##|          | NAO OBRIGA OS CELULARES COM 9 DIGITOS PORQUE TEM ROTINAS   |##
+//##|          | QUE NAO ACEITAM ESSE TAMANHO COMO NA FOLHA / CEF           |##
+//##+----------+---------------+--------------------------------------------+##
+//##|   DATA   |Programador    | Manutenção efetuada                        |##
+//##+----------+---------------+--------------------------------------------+##
+//##| 24/08/17 | Cirilo R.     | Melhoria para tratar o ddd opcional        |##
+//##|          |               | Adicionadas novas validadoes do DDD e Fone |##
+//##| 26/03/18 | Cirilo R.     | Ajuste para nao validar dentro do mashup   |##
+//##| 01/04/18 | Cirilo R.     | Melhoria na validacao do DDD               |##
+//##| 03/04/18 | Cirilo R.     | Melhoria nos estrangeiros                  |##
+//##| 29/11/18 | Cirilo R.     | Revisao do fonte                           |##
+//##| 26/06/19 | Cirilo R.     | Pequena revisao no fonte                   |##
+//##| 28/08/19 | Cirilo R.     | Pequena revisao no fonte                   |##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+----------+---------------+--------------------------------------------+##
+//#############################################################################
+
+Static cPrefEsp	:= '0800/0900/0300/0500'
+//-----------------------------------------------------------------------------
+User Function CXVldTel(	cFone		,;	// 01 Telefone a ser validado (def ReadVar)
+						cComDDD		,;	// 02 C=Tem que ter o DDD,S=Sem o DDD,O=Opcional pode ou nao ter o DDD (def Opcional)
+						lEstrangeiro,; 	// 03 Se o cadastro eh estrangeiro nao valida (opc se passado o 5o. parametro)
+						lMsg		,;	// 04 Se mostra mensagens (def .T.)
+						cUF			,;	// 05 Estado para validacao do DDD
+						lNaoVazio	);	// 06 NAO aceita vazios (def .F.)
+								AS Logical
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local xFone							AS Character
+	Local cCdErr	:= 'CXVldTel-'		AS Character
+	Local lAuto		:= U_CXRotAuto()	AS Logical
+	Local lRet		:= .T.				AS Logical
+	Local nTam							AS Numeric
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cFone		 		AS Character				Optional Default NIL
+	ParamType 1		VAR cComDDD			  	AS Character				Optional Default 'O'
+	ParamType 2		VAR lEstrangeiro 		AS Logical					Optional Default NIL
+	ParamType 3		VAR lMsg			  	AS Logical					Optional Default .T.
+	ParamType 4		VAR cUF			 		AS Character				Optional Default ''
+	ParamType 5		VAR lNaoVazio			AS Logical					Optional Default .F.
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+
+	//---------------------------------------------------------------------------------------------
+	
+	If lEstrangeiro	== NIL
+		If .Not. Empty(cUF)
+			lEstrangeiro	:= ( cUF == 'EX' )
+		Else
+			lEstrangeiro	:= .F.
+		EndIf
+	EndIf
+		
+	If lEstrangeiro 				//Se o cadastro for estrangeiro pula a validacao!
+		Return .T.
+	EndIf
+	
+	//---------------------------------------------------------------------------------------------
+	
+	//Se chamada a partir dos Mashups ignora esta validacao neste momento, sera validado depois
+	If 	EH_MVC
+		Return .T.
+	EndIf
+
+	If 	lMsg .And. ;
+		lAuto
+		
+		lMsg	:= .F. 
+	EndIf
+
+	//Pré-Validação dos Dados----------------------------------------------------------------------
+	lRet	:= U_CXVldGen(	@cFone		,;	//01 @cConteudo
+							.F.			,;	//02 Mostra avisos (def .T.)
+							cCdErr		,;	//03 Mensagem de erro Customizada (opcional)
+							lNaoVazio	,;	//04 NAO aceita vazios (def .T.)
+							/*nTamMin*/	,;	//05 nTamMin (def 0)
+							/*nTamMax*/	,;	//06 nTamMax (def 99999)
+							/*cReadVar*/,;	//07 cVar (def ReadVar())
+							/*cDscCpo*/	,;	//08 cDscCpo
+							/*lNaoZero*/,;	//09 lNaoZero (def .F.)
+							/*lSoNum*/	,;	//10 lSoNum	(def .F.)
+							/*lDigitoX*/,;	//11 lDigitoX (usado em conjunto com lSoNum, def .F.)
+							'Telefone'	)	//12 cDscCpoDef descrição default quando não usar readvar
+	
+	//Ignora vazios?
+	If .Not. lNaoVazio .And. ;
+		Empty(cFone)
+
+		Return .T.
+	EndIf
+
+	xFone	:= cFone //Variavel para validar os caracteres especiais
+	
+	If lRet
+		lRet	:= U_CXVlChEsp(	xFone				,;	//01 String a ser validada (se nao informado puxa do get atual)
+								.T.					,;	//02 Se valida apenas numeros
+								/*lDigitoX*/		,;	//03 Se so numeros aceixa digito X
+								/*lVldEsp*/			,;	//04 Se aceita espacos branco no meio do texto
+								cCdErr+'CXVlChEsp-'	,;	//05 Mensagem de erro Customizada (opcional)
+								.F.					,;	//06 Se exibe mensagens de erro
+								/*cChLib*/			,;	//07 Outros caracteres alem de Letras e Numeros
+								cDescCpo			)	//08 cDscCpo Descricao do campo para Help
+		If lRet
+			cFone	:= RTrim(cFone)
+			nTam	:= Len(cFone)
+			// 84   1234 1234 (10)
+			//084   1234 1234 (11)
+			// 84 9 8888 1234 (11)
+			//084 9 8888 1234 (12)
+			If cComDDD == 'C'		//Numero informado com o DDD no formato 084 ou 84--------------
+				If nTam < 10
+				
+					cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+					cMsgErr	:= 	'Campo '+cDescCpo+'está com tamanho menor que o esperado.'+CRLF+;
+								'Informe APENAS 1 número de telefone com o seu DDD.'+CRLF+;
+								'Deveria ter entre 10 e 12 dígitos e está com '+LTrim(Str(nTam))+'.'
+					cSoluc	:= 'INFORME O NÚMERO DE TELEFONE COM TAMANHO CORRETO.'
+					cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+					//If lMsg
+					//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+					//EndIf
+
+					lRet	:= .F.
+				ElseIf nTam > 12
+
+					cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+					cMsgErr	:= 	'Campo '+cDescCpo+'está com tamanho maior que o esperado.'+CRLF+;
+								'Informe APENAS 1 número de telefone com o seu DDD.'+CRLF+;
+								'Deveria ter entre 10 e 12 dígitos e está com '+LTrim(Str(nTam))+'.'
+					cSoluc	:= 'INFORME APENAS 1 NÚMERO DE TELEFONE COM O SEU DDD.'
+					cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+					//If lMsg
+					//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+					//EndIf
+
+					lRet	:= .F.
+				EndIf
+			//  1234 1234 (08)
+			//9 8888 1234 (09)
+			ElseIf cComDDD == 'S'	//Numero sem o DDD---------------------------------------------
+				If nTam < 8
+				
+					cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+					cMsgErr	:= 'Campo '+cDescCpo+'está com tamanho menor que o esperado.'+CRLF+;
+								'Deveria ter 8 ou 9 dígitos e está com '+LTrim(Str(nTam))+'.'
+					cSoluc	:= 'INFORME O NÚMERO DE TELEFONE SEM O SEU DDD.'
+					cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+					//If lMsg
+					//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+					//EndIf
+
+					lRet	:= .F.
+				ElseIf nTam > 9
+				
+					cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+					cMsgErr	:= 'Campo '+cDescCpo+'está com tamanho maior que o esperado.'+CRLF+;
+								'Deveria ter 8 ou 9 dígitos e está com '+LTrim(Str(nTam))+'.'
+					cSoluc	:= 'INFORME APENAS 1 NÚMERO DE TELEFONE SEM O SEU DDD.'
+					cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+					//If lMsg
+					//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+					//EndIf
+
+					lRet	:= .F.
+				EndIf
+			//Todos os tipos acima-----------------------------------------------------------------
+			Else
+				If nTam < 8
+				
+					cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+					cMsgErr	:= 'Campo '+cDescCpo+'está com tamanho menor que o esperado.'+CRLF+;
+								'Deveria ter 8 ou 12 dígitos e está com '+LTrim(Str(nTam))+'.'
+					cSoluc	:= 'INFORME APENAS 1 NÚMERO DE TELEFONE COM OU SEM O SEU DDD.'
+					cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+					//If lMsg
+					//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+					//EndIf
+
+					lRet	:= .F.
+				ElseIf nTam > 12
+				
+					cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+					cMsgErr	:= 'Campo '+cDescCpo+'está com tamanho maior que o esperado.'+CRLF+;
+								'Deveria ter no máximo 12 dígitos e está com '+LTrim(Str(nTam))+'.'
+					cSoluc	:= 'INFORME APENAS 1 NÚMERO DE TELEFONE COM OU SEM O SEU DDD.'
+					cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+					//If lMsg
+					//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+					//EndIf
+
+					lRet	:= .F.
+				EndIf
+			EndIf
+
+			If lRet
+				//084 9 8888 1234
+				If nTam == 12
+					lRet	:= VldCel(cFone,cDescCpo,lMsg,cCdErr) //Verifica se o numero e' celular
+					If lRet
+						If Left(cFone,1) <> '0' //Se for celular o ddd precisa ser com 3 digitos
+						
+							cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+							cMsgErr	:= 'Campo '+cDescCpo+'deveria conter o DDD no formato 0xx e está inválido.'+CRLF+;
+										'Formato esperado DDD 9 8888 1234.'
+							cSoluc	:= 'VERIFIQUE E DIGITE O NÚMERO DE TELEFONE COM O DDD.'
+							cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+							//If lMsg
+							//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+							//EndIf
+
+							lRet	:= .F.
+						Else
+							lRet	:= VldDDD(	SubStr(cFone,2,2)	,;
+												cDescCpo			,;
+												cUF					,;
+												lMsg				,;
+												cCdErr				)
+						EndIf
+					EndIf
+				//084   8888 1234
+				// 84 9 8888 1234
+				//0800 99 9999
+				ElseIf nTam == 11
+					//84 9 8888 1234
+					If Left(cFone,1) <> '0' 					//Se o DDD com 2 digitos tem que ser um celular com 9 digitos
+						lRet	:= VldCel(cFone,cDescCpo,lMsg,cCdErr) 	//Verifica se o numero e' celular
+						If lRet
+							lRet	:= VldDDD(	SubStr(cFone,1,2)	,;
+												cDescCpo			,;
+												cUF					,;
+												lMsg				,;
+												cCdErr				)
+						EndIf
+					//084   8888 1234
+					ElseIf .Not. (Left(cFone,4) $ cPrefEsp) 	//Nao eh 0800
+						lRet	:= VldDDD(	SubStr(cFone,2,2)	,;
+											cDescCpo			,;
+											cUF					,;
+											lMsg				,;
+											cCdErr				)
+					EndIf
+				//84 1234 1234
+				ElseIf nTam == 10
+					If Left(cFone,1) == '0'
+					
+						cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+						cMsgErr	:= 'Campo '+cDescCpo+'está com formato inválido.'+CRLF+;
+									'Não deveria começar com zero o DDD.'+CRLF+;
+									'Formato esperado DD 1234 1234.'
+						cSoluc	:= 'VERIFIQUE E DIGITE O NÚMERO DE TELEFONE COM O DDD CORRETO.'
+						cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+						//If lMsg
+						//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+						//EndIf
+
+						lRet	:= .F.
+					Else
+						lRet	:= VldDDD(	SubStr(cFone,1,2)	,;
+											cDescCpo			,;
+											cUF					,;
+											lMsg				,;
+											cCdErr				)
+					EndIf
+				//9 8888 1234 --> CELULAR
+				ElseIf nTam == 9
+					lRet	:= VldCel(	cFone	,;
+										cDescCpo,;
+										lMsg	,;
+										cCdErr	)
+				//1234 1234
+				ElseIf nTam == 8
+					If Left(cFone,1) == '0'
+
+						cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+						cMsgErr	:= 'Campo '+cDescCpo+'está com formato inválido.'+CRLF+;
+									'Não é esperado um zero no início do número a menos que seja parte do DDD.'
+						cSoluc	:= 'VERIFIQUE E DIGITE O NÚMERO DE TELEFONE CORRETO.'
+						cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+						//If lMsg
+						//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+						//EndIf
+
+						lRet	:= .F.
+					EndIf
+				//Valida demais casos
+				Else
+					//O 8 digito da esquerda para a direita nao pode ser zero
+					If .Not. (Left(cFone,4) $ cPrefEsp) //Nao eh 0800
+						If SubStr(cFone,nTam-7,1) == '0'
+						
+							cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+							cMsgErr	:= 'Campo '+cDescCpo+'está com formato inválido.'+CRLF+;
+										'O oitavo dígito da direita para esquerda está zerado.'
+							cSoluc	:= 'VERIFIQUE E DIGITE O NÚMERO DE TELEFONE CORRETO.'
+							cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+							//If lMsg
+							//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+							//EndIf
+
+							lRet	:= .F.
+						EndIf
+					EndIf
+				EndIf
+			EndIf
+		EndIf
+	EndIf
+
+	//Tela de verificação de permissão do Admin----------------------------------------------------
+	lRet	:= VrfAdmin(lRet,lMsg,lAuto)
+
+Return lRet
+
+//-------------------------------------------------------------------------------------------------
+Static Function VldCel(	cFone	,;	//01
+						cDescCpo,;	//02
+						lMsg	,;	//03
+						cCdErr	);	//04
+							AS Logical
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local lRet			AS Logical
+	Local nTam			AS Numeric
+	Local nPosCpo		AS Numeric
+
+//	Local cMsgErr		AS Character
+//	Local cCodErr		AS Character
+//	Local cSoluc		AS Character
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cFone  	  		AS Character
+	ParamType 1		VAR cDescCpo  	  	AS Character
+	ParamType 2		VAR lMsg			AS Logical
+	ParamType 3		VAR cCdErr			AS Character
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	lRet	:= .T.
+	nTam	:= Len(cFone)
+	nPosCpo	:= nTam-8
+	
+	//---------------------------------------------------------------------------------------------
+	If 	SubStr(cFone,nPosCpo,1) <> '9' .Or. ;					//Verifica o 9 digito da direita para esquerda
+		.Not. (SubStr(cFone,nPosCpo+1,1) $ '9/8/7/6/5/4/3/2' )	//Verifica o 8 digito da direita para esquerda
+		//SubStr(cFone,nPosCpo+2,1) == '0' 						//Verifica o 7 digito da direita para esquerda //Nao pode ser zero //Desativado porque em SP tem varias excessoes
+		
+		cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+		cMsgErr	:= 'Campo '+cDescCpo+'inválido.'
+		cSoluc	:= 'VERIFIQUE E DIGITE O NÚMERO DE CELULAR VÁLIDO.'
+		cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+		//If lMsg
+		//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+		//EndIf
+
+		lRet	:= .F.
+	EndIf
+
+Return lRet
+
+//-------------------------------------------------------------------------------------------------
+Static Function VldDDD(	cDDD	,;	//01
+						cDescCpo,;	//02
+						cUF		,;	//03
+						lMsg	,;	//04
+						cCdErr	);	//05
+							AS Logical
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local lRet			AS Logical
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cDDD  	  		AS Character
+	ParamType 1		VAR cDescCpo  	  	AS Character
+	ParamType 2		VAR cUF				AS Character
+	ParamType 3		VAR lMsg			AS Logical
+	ParamType 4		VAR cCdErr			AS Character
+
+	//---------------------------------------------------------------------------------------------
+	lRet	:=	U_CXVldDDD(	cDDD				,;	//01 Numero DDD para validar
+							cUF					,;	//02 Estado para validar (opcional)
+							2					,;	//03 Tamanho do campo (def 3)
+							.F.					,;	//04 Mostra avisos (def .T.)
+							cCdErr+'CXVldDDD-'	,;	//05 Mensagem de erro Customizada (opcional)
+							.T.					,;	//06 NAO aceita vazios (def .T.)
+							.T.					,;	//07 Emite apenas aviso na validacao do Estado
+							cDescCpo			)	//08 cDescCpo Descrição do campo
+	
+	//If .Not. lRet
+	//	nPos	:= Rat(CRLF+'SOLUÇÃO: ',cMsg)// buscar texto da direita para a esquerda
+	//	If nPos > 0
+	//		cSoluc	:= SubStr(cMsg,nPos+11)
+	//		cMsg	:= Left(cMsg,nPos)
+	//	EndIf
+	//	cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+	//	cMsgErr	:= 'Campo '+cDescCpo+' está com formato inválido.'+CRLF+;
+	//				cMsg
+	//	cSoluc	:= 'VERIFIQUE E DIGITE O NÚMERO DE DDD VÁLIDO.'
+	//	cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+	//	If lMsg
+	//		U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+	//	EndIf
+	//EndIf
+
+//	If SubStr(cDDD,2) == '0' //Segundo digito do DDD nao pode ser zero
+//		U_CXHelp(,,	'Campo '+cDescCpo+' está com formato inválido.'+CRLF+;
+//					'O DDD não pode terminar em zero.')
+//
+//		lRet	:= .F.
+//	ElseIf Left(cDDD,1) == '0'
+//		U_CXHelp(,,	'Campo '+cDescCpo+' está com formato inválido.'+CRLF+;
+//					'O DDD não pode ser menor que 10.')
+//
+//		lRet	:= .F.
+//	EndIf
+
+Return lRet
+
+//#############################################################################
+//##+==========+==========+=======+=====================+======+============+##
+//##|Programa  | CXVldTes | Autor | Cirilo Rocha        | Data | 14/09/2012 |##
+//##+==========+==========+=======+=====================+======+============+##
+//##|Desc.     | Função para validar se uma determinada TES é válida para   |##
+//##|          | operações de Saída ou Entrada (cTipo)                      |##
+//##|          | Já faz a validação se a TES existe ou está bloqueada       |##
+//##|          | Se o parâmetro cTes não for informado obtém do Get corrente|##
+//##+==========+===========+================================================+##
+//##|   DATA   |Programador| Manutenção Efetuada                            |##
+//##+==========+===========+================================================+##
+//##| 22/10/20 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 10/12/20 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 03/08/21 | Cirilo R. | Ajuste para os campos vazios/opcionais         |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+==========+===========+================================================+##
+//#############################################################################
+User Function CXVldTes(	cTipo		,;	//01 Tipo E/S
+						cTES		,;	//02 Tes a ser validada (get corrente)
+						lNaoVazio	,; 	//03 Não aceita vazio (def .T.)
+						lMsg		);	//04 Mostra mensagens (def .T.)
+							AS Logical
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cCdErr	:= 'CXVldTes-'		AS Character
+	Local lAuto		:= U_CXRotAuto()	AS Logical
+	Local lRet		:= .T.				AS Logical
+	Local oArea							AS Object
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cTipo		AS Character  
+	ParamType 1		VAR cTES		AS Character		Optional Default NIL //&(ReadVar())	//Se nao informado obtem do get corrente 
+	ParamType 2		VAR lNaoVazio	AS Logical			Optional Default .T.
+	ParamType 3		VAR lMsg		AS Logical			Optional Default .Not. lAuto
+	
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	oArea		:= tCtrlAlias():GetArea({'SF4'})
+	
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+
+	//Se chamada a partir dos Mashups ignora esta validacao neste momento, sera validado depois
+	If EH_MVC
+		Return .T.
+	EndIf
+
+	If 	lMsg .And. ;
+		lAuto
+		
+		lMsg	:= .F. 
+	EndIf
+
+	//Pré-Validação dos Dados----------------------------------------------------------------------
+	lRet	:= U_CXVldGen(	@cTES			,;	//01 @cConteudo
+							.F.				,;	//02 Mostra avisos (def .T.)
+							cCdErr			,;	//03 Mensagem de erro Customizada (opcional)
+							lNaoVazio		,;	//04 NAO aceita vazios (def .T.)
+							/*nTamMin*/		,;	//05 nTamMin (def 0)
+							/*nTamMax*/		,;	//06 nTamMax (def 99999)
+							/*cReadVar*/	,;	//07 cVar (def ReadVar())
+							/*cDscCpo*/		,;	//08 cDscCpo
+							/*lNaoZero*/	,;	//09 lNaoZero (def .F.)
+							/*lSoNum*/		,;	//10 lSoNum	(def .F.)
+							/*lDigitoX*/	,;	//11 lDigitoX (usado em conjunto com lSoNum, def .F.)
+							'TES'			)	//12 cDscCpoDef descrição default quando não usar readvar
+
+	//Ignora vazios?
+	If .Not. lNaoVazio .And. ;
+		Empty(cTES)
+
+		Return .T.
+	EndIf
+
+	//---------------------------------------------------------------------------------------------
+	If .Not. U_CXExistCpo(	'SF4'		,; //01
+							cTES		,; //02
+							/*nOrdem*/  ,; //03
+							/*cHelp*/  	,; //04
+							lMsg		,; //05
+							/*lRegblq*/ ,; //06
+							/*dDtBs*/	,; //07
+							lNaoVazio	,; //08
+							cDescCpo	)
+		lRet	:= .F.
+//	ElseIf .Not. MaAvalTes(cTipo,cTES)
+	ElseIf 	.Not. Empty(cTES) .And. ;		//Vazio já validou acima no CXExistCpo
+			.Not. xFisAvTes(cTipo,cTES)
+
+		lRet	:= .F.
+	EndIf
+	
+	oArea:RestArea()		//Restaura area
+
+Return lRet
+
+//#############################################################################
+//##+----------+----------+-------+-----------------------+------+----------+##
+//##|Funcao	   | CXVldTIT | Autor | Cirilo Rocha          | Data | 01/04/18 |##
+//##+----------+----------+-------+-----------------------+------+----------´##
+//##|Descricao | Funcao generica para validar o numero do titulo de eleitor |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 11/04/18 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 02/05/18 | Cirilo R. | Ajustes nos títulos de MG e SP                 |##
+//##| 28/08/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 28/08/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 12/11/21 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+Static nTamTIT	:= GetMV('MX_TAMTIT',.F.,13) 	AS Integer	//Se mudar o tamanho precisa observar o algoritmo ainda vale
+Static aUF										AS Array
+//-------------------------------------------------------------------------------------------------
+User Function CXVldTIT(	cNum		,;	//01 Numero Titulo para validar
+						lMsg		,;	//02 Mostra avisos (def .T.)
+						cCdErr		,;	//03 Mensagem de erro Customizada (opcional)
+						lNaoVazio	);	//04 NAO aceita vazios (def .T.)
+								AS Logical
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cSubNum						AS Character
+	Local cCodUF						AS Character
+	Local cDV1							AS Character
+	Local cDV2							AS Character
+	Local cDVC1							AS Character
+	Local cDVC2							AS Character
+	Local cDVZero	:= '0'				AS Character
+	Local nTam							AS Integer
+	Local lAuto		:= U_CXRotAuto()	AS Logical
+	Local lRet		:= .T.				AS Logical
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cNum			AS Character					Optional Default NIL
+	ParamType 1		VAR lMsg			AS Logical						Optional Default .Not. lAuto
+	ParamType 2		VAR cCdErr			AS Character					Optional Default 'CXVldTit-'
+	ParamType 3		VAR lNaoVazio		AS Logical						Optional Default .T.
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+	
+	//---------------------------------------------------------------------------------------------
+	
+	//Se chamada a partir dos Mashups ignora esta validacao neste momento, sera validado depois
+	If 	EH_MVC
+		Return .T.
+	EndIf
+
+	If 	lMsg .And. ;
+		lAuto
+		
+		lMsg	:= .F. 
+	EndIf
+
+	//Pré-Validação dos Dados----------------------------------------------------------------------
+	lRet	:= U_CXVldGen(	@cNum			,;	//01 @cConteudo
+							.F.				,;	//02 Mostra avisos (def .T.)
+							cCdErr			,;	//03 Mensagem de erro Customizada (opcional)
+							lNaoVazio		,;	//04 NAO aceita vazios (def .T.)
+							12				,;	//05 nTamMin (def 0)
+							nTamTIT			,;	//06 nTamMax (def 99999)
+							/*cReadVar*/	,;	//07 cVar (def ReadVar())
+							/*cDscCpo*/		,;	//08 cDscCpo
+							.T.				,;	//09 lNaoZero (def .F.)
+							.T.				,;	//10 lSoNum	(def .F.)
+							/*lDigitoX*/	,;	//11 lDigitoX (usado em conjunto com lSoNum, def .F.)
+							'Título de Eleitor'	)	//12 cDscCpoDef descrição default quando não usar readvar
+	
+	//Ignora vazios?
+	If .Not. lNaoVazio .And. ;
+		Empty(cNum)
+
+		Return .T.
+	EndIf
+	
+	//Valida estado--------------------------------------------------------------------------------
+	If lRet
+		If ValType(aUF) <> 'A'
+			aUF	:= GetUFTit()
+		EndIf
+		cCodUF	:= SubStr(cNum,09,2)
+
+		If aScan(aUF,cCodUF) == 0
+
+			cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			cMsgErr	:= 'Número do '+cDescCpo+'inválido.'+CRLF+;
+						'O código do estado (posições 09 e 10) '+cCodUF+' NÃO é válido. Deveria ser menor que 28.'
+			cSoluc	:= 'VERIFIQUE E CORRIJA O NÚMERO DIGITADO.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			//If lMsg
+			//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+			//EndIf
+
+			lRet	:= .F.
+		EndIf
+	EndIf
+
+	//Valida digitos verificadores-----------------------------------------------------------------
+	If lRet
+		nTam	:= len(cNum)
+		cSubNum	:= Left(cNum,nTam-4)
+		cDV1	:= SubStr(cNum,nTam-1,1)
+		cDV2	:= SubStr(cNum,nTam  ,1)
+		
+		//Excessao para SP e MG
+		If 	cCodUF $ '01/02' //SP e MG
+			cDVZero	:= '1'
+		EndIf
+
+		cDVC1	:= U_CXMod11(	cSubNum		,;	//01 
+								9			,;	//02 Peso Inicio (esquerda -> direita)
+								2			,;	//03 Peso Final (esquerda -> direita)
+								'0'			,; 	//04 Resto 10, Se lDif11 entao entenda resto 1
+								/*cResto11*/,; 	//05 Resto 11, Se lDif11 entao entenda resto 0
+								cDVZero		,;	//06 Resto  0, So existe se nao lDif11
+								.F.			)  	//07 Se deve ou nao subtrair o resto da divisao por 11
+
+		cDVC2	:= U_CXMod11(	cCodUF+cDVC1,;	//01
+								9			,;	//02 Peso Inicio (esquerda -> direita)
+								2			,;	//03 Peso Final (esquerda -> direita)
+								'0'			,; 	//04 Resto 10, Se lDif11 entao entenda resto 1
+								/*cResto11*/,; 	//05 Resto 11, Se lDif11 entao entenda resto 0
+								cDVZero		,;	//06 Resto  0, So existe se nao lDif11
+								.F.			)  	//07 Se deve ou nao subtrair o resto da divisao por 11
+
+		If 	cDVC1 <> cDV1 .Or. ;
+			cDVC2 <> cDV2
+
+			cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			cMsgErr	:= 'Dígito verificador ou número do '+cDescCpo+'inválido.'
+			cSoluc	:= 'VERIFIQUE E CORRIJA O NÚMERO DIGITADO.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			//If lMsg
+			//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+			//EndIf
+
+			lRet	:= .F.
+		EndIf
+	EndIf
+
+	//Tela de verificação de permissão do Admin----------------------------------------------------
+	lRet	:= VrfAdmin(lRet,lMsg,lAuto)
+
+Return lRet
+
+//-------------------------------------------------------------------------------------------------
+Static Function GetUFTit();
+					AS Array
+Return {;
+		'01',;	//SP
+		'02',;	//MG
+		'03',;	//RJ
+		'04',;	//RS
+		'05',;	//BA
+		'06',;	//PR
+		'07',;	//CE
+		'08',;	//PE
+		'09',;	//SC
+		'10',;	//GO
+		'11',;	//MA
+		'12',;	//PB
+		'13',;	//PA
+		'14',;	//ES
+		'15',;	//PI
+		'16',;	//RN
+		'17',;	//AL
+		'18',;	//MT
+		'19',;	//MS
+		'20',;	//DF
+		'21',;	//SE
+		'22',;	//AM
+		'23',;	//RS
+		'24',;	//AC
+		'25',;	//AP
+		'26',;	//RR
+		'27',;	//TO
+		'28' ;	//ZZ-Exterior
+		}
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXVldRCC | Autor | Cirilo Rocha       | Data | 20/11/2018  |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descr.    | Funcao generica para validar dados nas tabelas genericas   |##
+//##|          | da folha (RCC)                                             |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 28/08/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 02/02/22 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+Static nSizeFil := FwTamSX3('RCC_FIL')[1] 		AS Numeric	//FWSizeFilial()
+Static aCpoTab	:= {} 							AS Array	//Cache de otimizacao
+//-------------------------------------------------------------------------------------------------
+User Function CXVldRCC(	cCodTab		,;	//01 Codigo da tabela
+						cChave		,;	//02 Chave de busca, DEF campo atual
+						cCpoChv		,; 	//03 Campo chave para busca, DEF primeiro campo
+						lMsg		,;	//04 Mostra avisos (def .T.)
+						cCdErr		,;	//05 Mensagem de erro Customizada (opcional)
+						lNaoVazio	);	//06 NAO aceita vazios (def .T.)
+							AS Logical
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aCpos							AS Array
+	Local lAuto		:= U_CXRotAuto()	AS Logical
+	Local lRet		:= .T.				AS Logical
+	Local nPosAtu						AS Numeric
+	Local nPos							AS Numeric
+	Local nPChv							AS Numeric
+	Local oArea							AS Object
+
+	//Posicoes do array aCpoTab
+	Private nRC_CPO	:= 01	AS Integer
+	Private nRC_INI	:= 02	AS Integer
+	Private nRC_TAM	:= 03	AS Integer
+	Private nRC_TIP	:= 04	AS Integer
+
+	Private nRC_TAR	:= 04	AS Integer
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cCodTab	 		AS Character
+	ParamType 1		VAR cChave	 		AS Character			Optional Default NIL
+	ParamType 2		VAR cCpoChv	  		AS Character			Optional Default NIL
+	ParamType 3		VAR lMsg	  		AS Logical				Optional Default .Not. lAuto
+	ParamType 4		VAR cCdErr	  		AS Character			Optional Default 'CXVldRCC-'
+	ParamType 5		VAR lNaoVazio  		AS Logical				Optional Default .T.
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	oArea		:= tCtrlAlias():GetArea({'RCB','RCC'})
+	
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+	
+	//---------------------------------------------------------------------------------------------
+
+	//Se chamada a partir dos Mashups ignora esta validacao neste momento, sera validado depois
+	If 	EH_MVC
+		Return .T.
+	EndIf
+	
+	If 	lMsg .And. ;
+		lAuto
+		
+		lMsg	:= .F. 
+	EndIf
+
+	//Pré-Validação dos Dados----------------------------------------------------------------------
+	lRet	:= U_CXVldGen(	@cChave			,;	//01 @cConteudo
+							.F.				,;	//02 Mostra avisos (def .T.)
+							cCdErr			,;	//03 Mensagem de erro Customizada (opcional)
+							lNaoVazio		,;	//04 NAO aceita vazios (def .T.)
+							/*nTamMin*/		,;	//05 nTamMin (def 0)
+							/*nTamMax*/		,;	//06 nTamMax (def 99999)
+							/*cReadVar*/	,;	//07 cVar (def ReadVar())
+							/*cDscCpo*/		,;	//08 cDscCpo
+							/*lNaoZero*/	,;	//09 lNaoZero (def .F.)
+							/*lSoNum*/		,;	//10 lSoNum	(def .F.)
+							/*lDigitoX*/	,;	//11 lDigitoX (usado em conjunto com lSoNum, def .F.)
+							/*cDscCpoDef*/	)	//12 cDscCpoDef descrição default quando não usar readvar
+
+	//Ignora vazios?
+	If .Not. lNaoVazio .And. ;
+		Empty(cChave)
+
+		Return .T.
+	EndIf
+
+	//---------------------------------------------------------------------------------------------
+	If lRet
+		cCodTab	:= AllTrim(cCodTab)
+		RCB->(dbSetOrder(1)) //RCB_FILIAL+RCB_CODIGO
+		If .Not. RCB->(MsSeek(FWxFilial('RCB')+cCodTab))
+			cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			cMsgErr	:= 'Campo '+cDescCpo+'- Erro ao localizar a tabela '+cCodTab+'.'
+			cSoluc	:= 'INFORME O SETOR DE T.I.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			If lMsg
+				U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+			EndIf
+		
+			oArea:RestArea()		//Restaura area
+			Return .F.				//Erro Crítico
+		EndIf
+
+		//---------------------------------------------------------------------------------------------
+		
+		//Otimizacao
+		nPos	:= aScan(aCpoTab,{|x| x[1] == cCodTab})
+		If nPos == 0 //Tabela nao carregada, faz a carga
+
+			aAdd(aCpoTab,{ cCodTab ,AllTrim(RCB->RCB_DESC), {} })
+			nPos	:= len(aCpoTab)
+			aCpos	:= @aCpoTab[nPos][3]
+
+			nPosAtu	:= 1
+
+			While RCB->(!EOF()) .And. ;
+				RCB->RCB_FILIAL == FWxFilial('RCB') .And. ;
+				RCB->RCB_CODIGO == cCodTab
+
+				aAdd(aCpos,Array(nRC_TAR))
+				aTail(aCpos)[nRC_CPO] := RTrim(RCB->RCB_CAMPOS)
+				aTail(aCpos)[nRC_INI] := nPosAtu
+				aTail(aCpos)[nRC_TAM] := RCB->RCB_TAMAN
+				aTail(aCpos)[nRC_TIP] := RCB->RCB_TIPO
+
+				nPosAtu	+= RCB->RCB_TAMAN
+				RCB->(dbSkip())
+			EndDo
+		EndIf
+
+		//-------------------------------------------------------------------------
+		cChave	:= AllTrim(cChave)
+
+		aCpos	:= @aCpoTab[nPos][3]
+
+		If cCpoChv == NIL //Default eh o primeiro campo
+			nPChv	:= 1
+		Else
+			cCpoChv	:= AllTrim(cCpoChv)
+			nPChv	:= aScan(aCpos, {|x| x[nRC_CPO] == cCpoChv })
+		EndIf
+
+		If nPChv == 0
+
+			cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			cMsgErr	:= 'Campo '+cDescCpo+'- Não foi possível localizar o campo Chave '+;
+						cCpoChv+'na tabela '+cCodTab
+			cSoluc	:= 'INFORME O SETOR DE T.I.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+			If lMsg
+				U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+			EndIf
+
+			oArea:RestArea()		//Restaura area
+			Return .F.				//Erro Crítico
+		EndIf
+	EndIf
+	
+	//Busca os dados na tabela RCC-----------------------------------------------------------------
+	If lRet
+		//Busca primeiro pela filial
+		lRet	:= BuscaRCC(FWxFilial("SRA")		,;	//01
+							cCodTab					,;	//02
+							cChave					,;	//03
+							aCpos[nPChv][nRC_INI]	,;	//04
+							aCpos[nPChv][nRC_TAM]	)	//05
+
+		//Se nao achar por filial busca pela empresa
+		If .Not. lRet
+			lRet	:= BuscaRCC(Space(nSizeFil)			,;	//01
+								cCodTab					,;	//02
+								cChave					,;	//03
+								aCpos[nPChv][nRC_INI]	,;	//04
+								aCpos[nPChv][nRC_TAM]	) 	//05
+		EndIf
+		
+		If .Not. lRet
+			cCodErr	:= cCdErr+LTrim(Str(ProcLine()))
+			cMsgErr	:= 'Código '+cChave+' NÃO localizado na tabela '+;
+						cCodTab+' - '+aCpoTab[nPos][2]+'.'+CRLF+;
+						'Campo: '+cDescCpo
+			cSoluc	:= ''
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+		EndIf
+
+		//If lMsg
+		//	U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+		//EndIf
+	EndIf
+
+	//Tela de verificação de permissão do Admin----------------------------------------------------
+	lRet	:= VrfAdmin(lRet,lMsg,lAuto)
+	
+	oArea:RestArea()		//Restaura area
+
+Return lRet
+
+//-----------------------------------------------------------------------------
+Static Function BuscaRCC(	cFilRCC	,;	//01
+							cCodTab	,;	//02
+							cChave	,;	//03
+							nPChv	,;	//04
+							nTChv	); 	//05
+								AS Logical
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local lAchou	AS Logical
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cFilRCC			AS Character
+	ParamType 1		VAR cCodTab			AS Character
+	ParamType 2		VAR cChave			AS Character
+	ParamType 3		VAR nPChv	 		AS Numeric
+	ParamType 4		VAR nTChv			AS Numeric
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	lAchou	:= .F.
+
+	//---------------------------------------------------------------------------------------------
+	RCC->(U_CXSetOrd(1)) //RCC_FILIAL+RCC_CODIGO+RCC_FIL+RCC_CHAVE+RCC_SEQUEN
+	RCC->(MsSeek(FWxFilial("RCC")+cCodTab+cFilRCC))
+	While 	RCC->(!Eof()) .And. ;
+			RCC->RCC_FILIAL == FWxFilial("RCC") .And. ;
+			RCC->RCC_CODIGO == cCodTab .And. ;
+			RCC->RCC_FIL == cFilRCC
+
+		If Alltrim(Substr(RCC->RCC_CONTEU,nPChv,nTChv)) == cChave //Localiza a chave
+			lAchou	:= .T.
+			Exit
+		EndIf
+
+		RCC->(dBSkip())
+	EndDo
+
+Return lAchou
+
+//#############################################################################
+//##+==========+============+=======+==================+======+=============+##
+//##|Programa  | CXExistCpo | Autor | Cirilo Rocha     | Data | 14/01/2019  |##
+//##+==========+============+=======+==================+======+=============+##
+//##|Descricao | Função identica a padrão, exceto pelo texto do help que é  |##
+//##|          |  mais explicativo citando qual tabela validou e qual campo |##
+//##+==========+==========+=================================================+##
+//##| DATA     | ANALISTA | MANUTENCAO EFETUADA                             |##
+//##+==========+==========+=================================================+##
+//##| 15/03/19 |Cirilo R. | Pequena revisão no fonte                        |##
+//##| 04/04/19 |Cirilo R. | Ajuste para não usar filial nas tabelas SX      |##
+//##| 06/06/19 |Cirilo R. | Melhoria na solução                             |##
+//##| 20/08/19 |Cirilo R. | Revisão no fonte                                |##
+//##| 27/07/22 |Cirilo R. | Revisão no fonte                                |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+==========+==========+=================================================+##
+//#############################################################################
+User Function CXExistCpo(	cAlias	,;	//01 Alias da tabela que sera validada
+							cChave	,;	//02 Chave de busca na tabela (def ReadVar())
+							uOrdem	,;	//03 Ordem de busca (def 1) ou nickname
+							cHelp	,;	//04 Help a ser exibido na tabela (def NIL)
+							lMsg	,;	//05 Mostra o help (def .T.)
+							lRegblq	,;	//06 Valida registros bloqueados (def .T.)
+							dDtBs	,;	//07 Data base para validacao (def dDataBase)
+							lNVazio	,;	//08 Valida registros vazios (def .T.)
+							cDCpo	);	//09 Descricao do campo para o help (def ReadVar)
+								AS Logical
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local lRet			AS Logical
+	Local oArea			AS Object
+
+	Local cVar			AS Character
+	Local cDTab			AS Character
+	Local cPrefCpo		AS Character
+	Local cCpoBlqL		AS Character
+	Local cCpoBlqD		AS Character
+	Local cFilTab		AS Character
+	Local cCpoFil		AS Character
+	Local cSubChv		AS Character
+	Local dDtBlq		AS Date
+	Local aHelp			AS Array
+	Local lSX5			AS Logical
+	Local aSX5			AS Array
+	Local nX			AS Numeric
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cAlias  	  	AS Character
+	ParamType 1		VAR cChave  	  	AS Character			Optional Default NIL
+	ParamType 2		VAR uOrdem  	  	AS Numeric,Character	Optional Default 1
+	ParamType 3		VAR cHelp  	  		AS Character			Optional Default NIL
+	ParamType 4		VAR lMsg		  	AS Logical				Optional Default .T.
+	ParamType 5		VAR lRegblq  	  	AS Logical				Optional Default .T.	//Valida tambem se o registro esta bloqueado
+	ParamType 6		VAR dDtBs		  	AS Date					Optional Default dDataBase
+	ParamType 7		VAR lNVazio		  	AS Logical				Optional Default .T.
+	ParamType 8		VAR cDCpo			AS Character			Optional Default NIL
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	lRet		:= .T.
+	cSubChv		:= ''
+	cFilTab		:= ''
+	
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+	
+	//Tabela do SX5--------------------------------------------------------------------------------
+	lSX5	:= .F.
+	If len(cAlias) == 2
+		cSubChv	:= cAlias
+		cAlias	:= 'SX5'
+		lSX5	:= .T.
+	EndIf
+		
+	//---------------------------------------------------------------------------------------------
+	
+	If 	.Not. FWAliasInDic(cAlias) .And. ;
+		Select(cAlias) == 0	//Trata tabelas de sistema como MP_ ou SYS_
+		
+		U_CXMsgErro('Tabela '+cAlias+' NÃO existe no sistema.',;
+					'INFORME O SETOR DE T.I.',lMsg)
+		Return .F.
+	EndIf
+	
+	//---------------------------------------------------------------------------------------------
+	
+	oArea		:= tCtrlAlias():GetArea(cAlias)	//Salva Area
+	
+	cMsg		:= '' //Variavel compartilha de mensagens de erro
+	
+	If cHelp <> NIL
+		aHelp	:= GetHlpSoluc(cHelp)
+		
+		cMsgErr	:= aHelp[1]+CRLF
+		For nX := 2 to len(aHelp)
+			cSoluc	+= aHelp[nX]+CRLF
+		Next
+	EndIf
+	
+	cPrefCpo	:= FwPrefixoCpo(cAlias)
+	cCpoBlqL	:= cPrefCpo+'_MSBLQL' 
+	cCpoBlqD	:= cPrefCpo+'_MSBLQD'
+	cCpoFil		:= cPrefCpo+'_FILIAL'
+	
+	//---------------------------------------------------------------------------------------------
+	//Se o valor a ser validado nao foi passado usa a variavel readvar()
+	cVar	:= ReadVar()
+	If .Not. Empty(cVar)
+		If ValType(cChave) <> 'C'
+			cChave 	:= &(cVar)
+		EndIf
+		cVar	:= StrTran(cVar,'M->','')
+		If ValType(cDCpo) <> 'C'
+			cDCpo	:= LTrim(FwX3Titulo(cVar)+' ('+cVar+') ')
+		EndIf
+	ElseIf ValType(cChave) <> 'C'	//String nao informada
+	
+		U_CXMsgErro('Chave não informada nos parâmetros da função.'+CRLF+;
+					'Campo: '+cVar,;
+					'INFORME O SETOR DE T.I.',lMsg)
+
+		lRet	:= .F.
+	EndIf
+
+	If ValType(cDCpo) <> 'C'
+		cDCpo	:= ''
+	EndIf
+
+	//---------------------------------------------------------------------------------------------
+	If 	lRet .And. ;
+		Empty(cChave)
+		
+		If lNVazio
+
+			U_CXMsgErro('Campo '+cDCpo+'NÃO informado. Preenchimento obrigatório.',;
+						'INFORME O CAMPO SOLICITADO.',lMsg)
+
+			lRet	:= .F.
+		Else
+			Return .T.	//Precisa retornar aqui porque a string esta vazia
+		EndIf
+	Else
+		If 	.Not. lSX5 .And. ;
+			cAlias	== 'SX5'
+
+			cSubChv	:= Left(cChave,nTamSX5)
+			cChave	:= SubStr(cChave,nTamSX5+1)
+		EndIf
+	EndIf
+	
+	//---------------------------------------------------------------------------------------------
+	
+	If cAlias == 'SX5'
+		aSX5	:= FwGetSX5('00',cSubChv)
+		If Len(aSX5) > 0
+			cDTab	:= aSX5[1][_X5_DESCRI]
+		Else
+			cDTab	:= FwSX2Util():GetX2Name(cAlias) 
+		EndIf
+		cDTab	+= ' ('+cAlias+Iif(Empty(cSubChv),'','-'+cSubChv)+')'
+	Else
+		cDTab	:= FwSX2Util():GetX2Name(cAlias)+' ('+cAlias+Iif(Empty(cSubChv),'','-'+cSubChv)+')'
+	EndIf
+
+	//---------------------------------------------------------------------------------------------
+
+//	If cAlias == 'SX5'
+//		cChave	:= cSubChv+cChave
+//	EndIf
+	
+	//---------------------------------------------------------------------------------------------
+	If ValType(uOrdem) == 'N'
+		(cAlias)->(dbSetOrder(uOrdem))
+	Else
+		(cAlias)->(dbOrderNickName(uOrdem))
+	EndIf
+//	If 	.Not. ( cAlias $ 'SIX,SX1,SX2,SX3,SX4,SX7,SX9,SXA,SXB' )
+	If (cAlias)->(FieldPos(cCpoFil)) > 0 .And. ;
+		.Not. ( cAlias $ 'SX6,SM0' ) .And. ;
+		Left((cAlias)->(IndexKey()),Len(cCpoFil)) == cCpoFil	//O campo indice esta no inicio do indice
+		
+		//A função padrão já pressupõe sempre o FWxFilial
+		cFilTab	:= FWxFilial(cAlias)
+	EndIf
+
+	//---------------------------------------------------------------------------------------------
+	
+	If lRet
+		If .Not. (cAlias)->(dbSeek(cFilTab+cSubChv+cChave))
+
+			U_CXMsgErro('Campo '+cDCpo+'. Registro '+IIF(Empty(cFilTab),'',cFilTab+'-')+cChave+' NÃO localizado na tabela '+cDTab+'.',;
+						'INFORME UM CÓDIGO EXISTENTE NA TABELA '+Upper(cDTab)+' OU CADASTRE SE NECESSÁRIO.',lMsg)
+
+			lRet	:= .F.
+		ElseIf lRegblq	//Valido os campos de bloqueio padroes
+			//Bloqueio padrao
+			If (cAlias)->(FieldPos(cCpoBlqL)) > 0 .And. ; 
+				U_CXFieldGet(cCpoBlqL,cAlias) == '1'
+
+				U_CXMsgErro('Campo '+cDCpo+'. Registro '+IIF(Empty(cFilTab),'',cFilTab+'-')+cChave+' da tabela '+cDTab+;
+							' está bloqueado para uso (_MSBLQL)',;
+							'ENTRE EM CONTATO COM O RESPONSÁVEL PELO REGISTRO PARA IDENTIFICAR O MOTIVO DO BLOQUEIO.',lMsg)
+				
+				lRet	:= .F.
+			EndIf
+			
+			//Bloqueio por data	
+			If (cAlias)->(FieldPos(cCpoBlqD)) > 0
+			
+				dDtBlq	:= U_CXFieldGet(cCpoBlqD,cAlias)
+				If 	.Not. Empty(dDtBlq) .And. ;
+					dDtBlq <= dDtBs
+					
+					U_CXMsgErro('Campo '+cDCpo+'. Registro '+IIF(Empty(cFilTab),'',cFilTab+'-')+cChave+' da tabela '+cDTab+;
+								' está bloqueado para uso (_MSBLQD) desde a data '+DtoC(dDtBlq)+'.',;
+								'ENTRE EM CONTATO COM O RESPONSÁVEL PELO REGISTRO PARA IDENTIFICAR O MOTIVO DO BLOQUEIO.',lMsg)
+
+					lRet	:= .F.
+				EndIf
+				
+			EndIf
+		EndIf
+	EndIf
+	
+	oArea:RestArea()		//Restaura area 
+
+Return lRet
+
+//#############################################################################
+//##+==========+============+=======+==================+======+=============+##
+//##|Programa  | CXExstChv  | Autor | Cirilo Rocha     | Data | 14/01/2019  |##
+//##+==========+============+=======+==================+======+=============+##
+//##|Descr.    | Função identica a função padrão, exceto pelo texto do help |##
+//##|          |  que é mais explicativo citando qual tabela validou e qual |##
+//##|          |  campo                                                     |##
+//##+==========+==========+=================================================+##
+//##| DATA     | ANALISTA | MANUTENÇÃO EFETUADA                             |##
+//##+==========+==========+=================================================+##
+//##| 28/06/21 | Cirilo R.| Melhoria para permitir utilizar NickName        |##
+//##| 16/11/22 | Cirilo R.| Melhoria para fazer a conversão de Data para    |##
+//##|          |          |  string de forma automática                     |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+==========+==========+=================================================+##
+//#############################################################################
+Static nTamSX5	:= Len(U_CXFieldGet('X5_TABELA','SX5'))		AS Numeric
+//-------------------------------------------------------------------------------------------------
+User Function CXExstChv(	cAlias	,;	//01 Alias da tabela que sera validada
+							uChave	,;	//02 Chave de busca na tabela (def ReadVar())
+							uOrdem	,;	//03 Ordem de busca (def 1) ou nickname
+							cHelp	,;	//04 Help a ser exibido na tabela (def NIL)
+							lMsg	,;	//05 Mostra o help (def .T.)
+							lNVazio	,;	//06 Valida registros vazios (def .T.)
+							cDCpo	);	//07 Descricao do campo para o help (def ReadVar)
+								AS Logical
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local lRet			AS Logical
+	Local oArea			AS Object
+
+	Local cVar			AS Character
+	Local cDTab			AS Character
+	Local cFilTab		AS Character
+	Local cCpoFil		AS Character
+	Local cSubChv		AS Character
+	Local aHelp			AS Array
+	Local lSX5			AS Logical
+	Local aSX5			AS Array
+	Local nX			AS Numeric
+	Local nRecnoAtu		AS Numeric
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cAlias  	  	AS Character
+	ParamType 1		VAR uChave  	  	AS Character,Date		Optional Default NIL
+	ParamType 2		VAR uOrdem  	  	AS Numeric,Character	Optional Default 1
+	ParamType 3		VAR cHelp  	  		AS Character			Optional Default NIL
+	ParamType 4		VAR lMsg		  	AS Logical				Optional Default .T.
+	ParamType 5		VAR lNVazio		  	AS Logical				Optional Default .T.
+	ParamType 6		VAR cDCpo			AS Character			Optional Default NIL
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	lRet		:= .T.
+	cSubChv		:= ''
+	cFilTab		:= ''
+	
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+	
+	//Tabela do SX5
+	lSX5	:= .F.
+	If len(cAlias) == 2
+		cSubChv	:= cAlias
+		cAlias	:= 'SX5'
+		lSX5	:= .T.
+	EndIf
+	
+	oArea		:= tCtrlAlias():GetArea(cAlias)	//Salva Area
+	nRecnoAtu	:= (cAlias)->(Recno())
+	cMsg		:= '' //Variavel compartilha de mensagens de erro
+	
+	If Type('INCLUI') <> 'L'
+		Private INCLUI	:= .F.
+	EndIf
+	
+	If ValType(cHelp) == 'C'
+		aHelp	:= GetHlpSoluc(cHelp)
+		
+		cMsgErr	:= aHelp[1]+CRLF
+		For nX := 2 to len(aHelp)
+			cSoluc	+= aHelp[nX]+CRLF
+		Next
+	EndIf
+	
+	cCpoFil		:= FwPrefixoCpo(cAlias)+'_FILIAL'
+	
+	//---------------------------------------------------------------------------------------------
+	//Se o valor a ser validado nao foi passado usa a variavel readvar()
+	cVar	:= ReadVar()
+	If .Not. Empty(cVar)
+		If ValType(uChave) <> 'C'
+			uChave 	:= &(cVar)
+		EndIf
+		cVar	:= StrTran(cVar,'M->','')
+		If ValType(cDCpo) <> 'C'
+			cDCpo	:= LTrim(FwX3Titulo(cVar)+' ('+cVar+') ')
+		EndIf
+	ElseIf ValType(uChave) <> 'C'	//String nao informada
+		U_CXMsgErro('Chave não informada nos parâmetros da função.'+CRLF+;
+					'Campo: '+cVar,'INFORME O SETOR DE T.I.',lMsg,/*oArea*/)
+		lRet	:= .F.
+	EndIf
+
+	If ValType(cDCpo) <> 'C'
+		cDCpo	:= ''
+	EndIf
+
+	If ValType(uChave) == 'D'
+		uChave	:= DtoS(uChave)
+	EndIf
+
+	//---------------------------------------------------------------------------------------------
+	If 	lRet .And. ;
+		Empty(uChave)
+		
+		If lNVazio
+			U_CXMsgErro('Campo '+cDCpo+'NÃO informado. Preenchimento obrigatório.',;
+						'INFORME O CAMPO SOLICITADO.',lMsg,/*oArea*/)
+			lRet	:= .F.
+		Else
+			Return .T.	//Precisa retornar aqui porque a string esta vazia
+		EndIf
+	Else
+		If 	.Not. lSX5 .And. ;
+			cAlias	== 'SX5'
+
+			cSubChv	:= Left(uChave,nTamSX5)
+			uChave	:= SubStr(uChave,nTamSX5+1)
+		EndIf
+	EndIf
+	
+	//---------------------------------------------------------------------------------------------
+	
+	If cAlias == 'SX5'
+		aSX5	:= FwGetSX5('00',cSubChv)
+		If Len(aSX5) > 0
+			cDTab	:= aSX5[1][_X5_DESCRI]
+		Else
+			cDTab	:= FwSX2Util():GetX2Name(cAlias) 
+		EndIf
+		cDTab	+= ' ('+cAlias+Iif(Empty(cSubChv),'','-'+cSubChv)+')'
+	Else
+		cDTab	:= FwSX2Util():GetX2Name(cAlias)+' ('+cAlias+Iif(Empty(cSubChv),'','-'+cSubChv)+')'
+	EndIf
+
+	//---------------------------------------------------------------------------------------------
+
+//	If cAlias == 'SX5'
+//		uChave	:= cSubChv+uChave
+//	EndIf
+	
+	//---------------------------------------------------------------------------------------------
+	If ValType(uOrdem) == 'N'
+		(cAlias)->(U_CXSetOrd(uOrdem))
+	Else
+		(cAlias)->(dbOrderNickName(uOrdem))
+	EndIf
+//	If 	.Not. ( cAlias $ 'SIX,SX1,SX2,SX3,SX4,SX7,SX9,SXA,SXB' )
+	If (cAlias)->(FieldPos(cCpoFil)) > 0 .And. ;
+		.Not. ( cAlias $ 'SX6,SM0' ) .And. ;
+		Left((cAlias)->(IndexKey()),Len(cCpoFil)) == cCpoFil	//O campo indice esta no inicio do indice
+		
+		//A funcao padrao ja pressupoe sempre o xFilial
+		cFilTab	:= FWxFilial(cAlias)
+	EndIf
+
+	//---------------------------------------------------------------------------------------------
+	
+	If lRet
+		If (cAlias)->(dbSeek(cFilTab+cSubChv+uChave)) .And. ;
+			(INCLUI .Or. (cAlias)->(Recno()) <> nRecnoAtu )
+			U_CXMsgErro('Campo '+cDCpo+'. Chave do registro '+cFilTab+uChave+' JÁ existe na tabela '+cDTab+'.',;
+						'INFORME UM CÓDIGO QUE AINDA NÃO EXISTA NA TABELA.',lMsg,/*oArea*/)
+			lRet	:= .F.
+		EndIf
+	EndIf
+	
+	oArea:RestArea()		//Restaura area 
+
+Return lRet
+
+//##################################################################################################
+//##+========+=================================+=======+====================+======+=============+##
+//##|Programa| VrfAdmin                        | Autor | Cirilo Rocha       | Data | 02/03/2023  |##
+//##+========+=================================+=======+====================+======+=============+##
+//##|Desc.   | Se o usuário for Admin permite ignorar as validações                              |##
+//##+========+==========+========================================================================+##
+//##|  DATA  | ANALISTA | MANUTENÇÃO EFETUADA                                                    |##
+//##+========+==========+========================================================================+##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##+========+==========+========================================================================+##
+//##################################################################################################
+Static Function VrfAdmin(	lRet	,;	//01 lRet
+							lMsg	,;	//02 lMsg
+							lAuto	,;	//03 lAuto
+							lAviso	);	//04 lAviso
+								AS Logical
+
+	//Tratamento para o Admin----------------------------------------------------------------------
+	If	.Not. lRet .And. ;
+		lMsg
+
+		If Empty(cMsgErr)
+			If Empty(cCodErr)
+				cCodErr	:= U_CXTxtMsg(,2,.T.)
+			EndIf
+			cMsgErr	:= 'Erro desconhecido.'
+			cSoluc	:= 'INFORME O SETOR DE T.I.'
+		EndIf
+
+		If	.Not. U_CXRotAuto() .And. ;
+			U_RGENF01(,.F.,.T.) //Usuarios admin
+
+			If ApMsgNoYes(	'<b>PROBLEMA:</b> '+cMsgErr+;
+							IIf(!Empty(cSoluc),CRLF+CRLF+'<b>SOLUÇÃO:</b> '+cSoluc,'')+CRLF+CRLF+;
+							'<b>ADMIN:</b> Tem certeza que deseja prosseguir ?',cCodErr)
+				lRet	:= .T.
+			EndIf
+		Else
+			U_CXHelp(cCodErr,,cMsgErr,,cSoluc,lAviso)
+		EndIf
+	EndIf
+
+Return lRet
+
+//#############################################################################
+//##+----------+----------+-------+---------------------+------+------------+##
+//##|Programa  | CXVldCpo | Autor | Cirilo Rocha        | Data | 13/02/2015 |##
+//##+----------+----------+-------+---------------------+------+------------+##
+//##|Descr.    | Função genérica para executar validações de um campo como  |##
+//##|          |  se o usuário estivesse digitando, interessante para ser   |##
+//##|          |  usado em automações internas.                             |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 29/08/17 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 11/04/18 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 28/08/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 08/02/23 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXVldCpo(	cCampo	,;	//01 cCampo
+						lMsg	);	//02 lMsg
+							AS Logical
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cTabela	AS Character
+	Local cVldUsr	AS Character
+	Local cVldPad	AS Character
+	Local lRet		AS Logical
+	Local oArea 	AS Object
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cCampo			AS Character		Optional Default ''
+	ParamType 1		VAR lMsg			AS Logical			Optional Default .Not. U_CXRotAuto()
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	lRet	:= .T.
+
+	//Variaveis compartilhadas de mensagens de erro
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+
+	//Remove espacos vazios
+	cCampo	:= StrTran(AllTrim(cCampo),'M->','')
+	
+	//Valida campo informado
+	If Empty(cCampo)
+		U_CXMsgErro("Campo não informado.",;
+					'INFORME O SETOR DE T.I.',lMsg,/*oArea*/)
+		lRet	:= .F.
+	ElseIf len(cCampo) > _TamX3_CAMPO
+		U_CXMsgErro("Campo "+cCampo+" informado é maior que o esperado.",;
+					'INFORME O SETOR DE T.I.',lMsg,/*oArea*/)
+		lRet	:= .F.
+	EndIf
+
+	If lRet
+		//Compatibiliza o tamanho da variavel
+		cCampo	:= PadR(cCampo,_TamX3_CAMPO)
+		cTabela	:= FwTabPref(cCampo)
+
+		If Len(FwTamSX3(cCampo)) == 0
+			U_CXMsgErro("Não foi possível localizar o campo "+cCampo,;
+						'INFORME O SETOR DE T.I.',lMsg,/*oArea*/)
+			lRet	:= .F.
+		EndIf
+	EndIf
+
+	If lRet
+		cVldPad	:= AllTrim(FwGetSx3Cache(cCampo,'X3_VALID'))
+
+		cVldUsr	:= AllTrim(FwGetSx3Cache(cCampo,'X3_VLDUSER'))
+
+		//Validacao padrao
+		If .Not. Empty(cVldPad+cVldUsr)
+			oArea	:= tCtrlAlias():GetArea({cTabela,'#PAR'})		//Salva area para evitar desposicionamentos
+
+			//Seta a variavel de edicao
+			__ReadVar	:= 'M->'+cCampo
+
+			//Seta a tabela do campo atual
+			dbSelectArea(cTabela)
+
+			If 	lRet .And. ;
+				.Not. Empty(cVldPad)
+
+				lRet 	:= &(cVldPad)
+			EndIf
+
+			//Validacao customizada
+			If 	lRet .And. ;
+				.Not. Empty(cVldUsr)
+
+				lRet 	:= &(cVldUsr)
+			EndIf
+
+			oArea:RestArea()		//Restaura area
+		EndIf
+
+	EndIf
+
+Return lRet

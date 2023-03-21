@@ -7,26 +7,32 @@
 //##+==========+===========+=======+===================+======+=============+##
 //##|Programa  | CXX3Combo | Autor | Cirilo Rocha      | Data | 03/03/2017  |##
 //##+==========+===========+=======+===================+======+=============+##
-//##|Descricao | Funcao que retorna a descricao do ComboBox                 |##
-//##|          |                                                            |##
-//##|          |                                                            |##
-//##|          |                                                            |##
-//##+==========+===============+============================================+##
-//##|   DATA   | Programador   | Manutencao Efetuada                        |##
-//##+==========+===============+============================================+##
-//##| 30/01/19 | Cirilo Rocha  | Pequena revisao no fonte                   |##
-//##|          |               |                                            |##
-//##|          |               |                                            |##
-//##+==========+===============+============================================+##
+//##|Descr.    | Função que retorna a descrição do ComboBox                 |##
+//##+==========+===========+================================================+##
+//##|   DATA   |Programador| Manutenção Efetuada                            |##
+//##+==========+===========+================================================+##
+//##| 30/01/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 23/03/22 | Cirilo R. | Otimização utilizando cache do combo           |##
+//##| 11/01/23 | Cirilo R. | Otimização usando cache Json                   |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+==========+===========+================================================+##
 //#############################################################################
+Static jCache		:= JsonObject():New()			AS Json
+//-------------------------------------------------------------------------------------------------
 User Function CXX3Combo(cCampo		,;	//01 Campo do dicionario
-						cAlias		,;	//02
-						lAliasCpo	,;	//03
-						lPrefix		,;	//04
-						cConteudo	 )	//05
+						cAlias		,;	//02 cAlias	
+						lAliasCpo	,;	//03 lAliasCpo
+						lPrefix		,;	//04 lPrefix	
+						cConteudo	);	//05 cConteudo
+							AS Character
 						
 	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aCombo	AS Array
+	Local aItens	AS Array
 	Local cRet		AS Character
+	Local nX		AS Integer
+	Local jCombo	AS Json
 	Local oArea		AS Object
 	
 	//Parametros da rotina-------------------------------------------------------------------------
@@ -39,24 +45,55 @@ User Function CXX3Combo(cCampo		,;	//01 Campo do dicionario
 	//Inicializa Variaveis-------------------------------------------------------------------------
 	cCampo	:= Alltrim(cCampo)
 	cRet	:= ''
-	oArea	:= tCtrlAlias():GetArea('SX3')
 	
-	//---------------------------------------------------------------------------------------------
-	If cAlias == NIL
-		If lAliasCpo
-			cAlias	:= U_CXTabela(cCampo) //Alias do campo
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+
+	If jCache:hasProperty(cCampo)	//Busca registro no cache
+		jCombo	:= jCache[cCampo]
+	Else
+		oArea	:= tCtrlAlias():GetArea('SX3')
+		jCombo	:= JsonObject():New()
+		
+		SX3->(dbSetOrder(2))
+		If SX3->(DbSeek(cCampo))
+			aCombo	:= StrTokArr2(RTrim(SX3->(X3CBox())),';',.F.)
+			For nX := 1 to Len(aCombo)
+				aItens	:= StrTokArr2(AllTrim(aCombo[nX]),'=',.F.)
+				jCombo[aItens[1]]	:= JsonObject():New()
+				jCombo[aItens[1]]['descricao']	:= aItens[2]
+				FwFreeArray(aItens)
+			Next
+			FwFreeArray(aCombo)
 		Else
-			cAlias	:= Alias()	//Alias corrente
-		EndIf
+			U_CXMsgErro(U_CXTxtMsg(,2)+'Erro ao localizar o campo '+cCampo+' no SX3.',;
+						'INFORME O SETOR DE T.I.',U_CXRotAuto(.T.),/*oArea*/)
+		Endif
+		//Adiciono mesmo quando existem erros para apresentar apenas 1 
+		//vez a mensagem de erro ao usuário/console por campo
+		jCache[cCampo]	:= jCombo
+		
+		oArea:RestArea()		//Restaura area
 	EndIf
-	//Revalidacao da variavel
-	ParamType 1		VAR cAlias		  	  	AS Character
 	
 	//---------------------------------------------------------------------------------------------
-	If cConteudo == NIL
+	If ValType(cConteudo) <> 'C'
 		If cAlias == 'M' //Memoria
 			cConteudo	:= &('M->'+cCampo)
 		Else
+			If ValType(cAlias) <> 'C'
+				If lAliasCpo
+					cAlias	:= FwTabPref(cCampo)	//Alias do campo
+				Else
+					cAlias	:= Alias()				//Alias corrente
+				EndIf
+			EndIf
+			//Revalidacao da variavel
+			ParamType 1		VAR cAlias		  	  	AS Character
+
 			cConteudo	:= U_CXFieldGet(cCampo,cAlias,/*lAliasCpo*/,/*lVirtual*/)
 		EndIf
 	EndIf
@@ -64,12 +101,15 @@ User Function CXX3Combo(cCampo		,;	//01 Campo do dicionario
 	ParamType 4		VAR cConteudo  	  		AS Character
 	
 	//---------------------------------------------------------------------------------------------
-	cRet		:= SX3->(X3Combo(cCampo,cConteudo))
-	
-	If lPrefix
-		cRet	:= AllTrim(cConteudo)+' - '+cRet
+	If .Not. Empty(cConteudo)	
+		If jCombo:hasProperty(cConteudo)
+			If lPrefix
+				cRet	:= cConteudo+' - '
+			EndIf
+			cRet	+= AllTrim(jCombo[cConteudo]['descricao'])
+		Else
+			cRet	:= cConteudo+' - '+'#ERRO#'
+		EndIf
 	EndIf
-
-	oArea:RestArea()		//Restaura area
 
 Return cRet

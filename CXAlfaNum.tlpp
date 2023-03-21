@@ -1,0 +1,41 @@
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+#INCLUDE "CXInclude.ch"
+
+//#############################################################################
+//##+==========+=============+=======+==================+======+============+##
+//##|Programa  | CXAlfaNum   | Autor | Cirilo Rocha     | Data | 02/05/2016 |##
+//##+==========+=============+=======+==================+======+============+##
+//##|Descricao | Deixa apenas os caracteres numericos e letras na string    |##
+//##+==========+===========+================================================+##
+//##|   DATA   |Programador| Manutencao Efetuada                            |##
+//##+==========+===========+================================================+##
+//##| 01/12/20 | Cirilo R. | Pequena revisão                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+==========+===========+================================================+##
+//#############################################################################
+User Function CXAlfaNum(cString);	//01 cString
+							AS Character
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local nX    	AS Integer
+	Local cChar 	AS Character
+	Local cRet		AS Character
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cString		AS Character
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	cChar	:= ''
+	cRet	:= ''
+	
+	For nX := 1 To Len(cString)
+		cChar	:=	SubStr(cString, nX, 1)
+		If LetterOrNum(cChar)
+			cRet	+= cChar
+		Endif
+	Next nX
+	
+Return cRet

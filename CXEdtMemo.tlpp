@@ -1,0 +1,185 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#Include "CXInclude.ch"
+
+//#############################################################################
+//##+----------+--------------+-------+-------------------+------+----------+##
+//##|Programa  | CXEdtMemo    | Autor | Cirilo Rocha      | Data |17/05/2018|##
+//##+----------+--------------+-------+-------------------+------+----------+##
+//##|Descr.    | Função para exibir/editar um campo memo ou texto em uma    |##
+//##|          | tela grande                                                |##
+//##|          | NÃO FUNCIONA EM TELAS MVC!!!!                              |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção Efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 18/05/18 | Cirilo R. | Ajustes para GRID                              |##
+//##| 19/05/18 | Cirilo R. | Ajustes no tamanho da janela dinâmico          |##
+//##| 30/05/18 | Cirilo R. | Trocada pela função CXPutCpo para preenchimento|##
+//##|          |           | do campo (para também o MVC)                   |##
+//##| 21/05/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 28/08/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 01/10/19 | Cirilo R. | Ajuste para respeitar os campos não editáveis  |##
+//##|          |           | da enchoice                                    |##
+//##| 03/12/19 | Cirilo R. | Melhoria no fonte                              |##
+//##| 02/03/21 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 12/10/21 | Cirilo R. | Pequena revisão (release 33)                   |##
+//##| 14/12/21 | Cirilo R. | Pequena revisão (release 33)                   |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+Static nSeconds		:= -1 		AS Numeric
+//-------------------------------------------------------------------------------------------------
+User Function CXEdtMemo(cCampo		,;	//01 Campo precisa ser informado!!
+						cTitulo		,;	//02 Titulo da Janela (def Nome campo)
+						lReadOnly	,;	//03 Modo somente leitura (def ALTERA or INCLUI)
+						lMax		);	//04 Abre janeja maximizada (def .T.)
+								AS Logical
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local uBakVar		AS Variant
+//	Local cMemo			AS Character
+	Local lRet			AS Logical
+	
+	//Usado no CXApMsgMemo
+	Private _nMinLar	AS Numeric		//Largura minina da janela
+	Private _nMaxLar	AS Numeric		//Largura maxima da janela
+	Private _nMinAlt	AS Numeric		//Altura minina da janela
+	Private _bSetGet	AS CodeBlock
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cCampo				AS Character
+	ParamType 1		VAR cTitulo				AS Character			Optional Default NIL
+	ParamType 2		VAR lReadOnly			AS Logical				Optional Default NIL
+	ParamType 3		VAR lMax				AS Logical				Optional Default .T.
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	lRet		:= .T.
+
+	_nMinLar	:= 800	//Largura minina da janela
+	_nMaxLar	:= 800	//Largura maxima da janela
+	_nMinAlt	:= 500	//Altura minina da janela
+
+	//Variavel interna para controle se clicou no OK, caso seja necessario verificar
+	_lOk	:= .F.
+
+	//Se chamada a partir dos Mashups ignora esta validacao neste momento, sera validado depois
+	If 	EH_MVC
+		Return .T.
+	EndIf
+	
+	//Funcao executada sem interface (JOB/Server)
+	If	U_CXRotAuto() //IsBlind()
+		Return .T.
+	EndIf
+
+	If 	ValType(cCampo) == 'C' .And. ;
+		.Not. Empty(cCampo)
+
+		If ValType(lReadOnly) <> 'L'
+			If 	( Type('ALTERA') == 'L' .And. ALTERA ) .Or. ;
+				( Type('INCLUI') == 'L' .And. INCLUI )
+
+				lReadOnly	:= .F.
+			Else
+				lReadOnly	:= .T.
+			EndIf
+		EndIf
+
+		//Verifico se o campo esta nos campos editaveis
+		If 	.Not. lReadOnly .And. ;
+			Type('_aCpoAlt') == 'A' .And. ;
+			aScan(_aCpoAlt,cCampo) == 0
+			
+			lReadOnly	:= .T.
+		EndIf
+
+		If 	Type('ALTERA') == 'L' 	.And. ;
+			Type('INCLUI') == 'L' 	.And. ;
+			.Not. ALTERA			.And. ;
+			.Not. INCLUI
+			
+			lReadOnly	:= .F.
+		EndIf
+		
+		If 	Empty(ReadVar()) .And. ;
+			lReadOnly
+
+			Return .F.
+		EndIf
+
+		//So abre se for o campo selecionado
+		If .Not. (cCampo $ ReadVar())
+			Return .T.
+		Else
+			lRet	:= .F.
+		EndIf
+
+		//Tratamento para evitar chamar duas vezes em sequencia
+		//If 	ValType(nSeconds) == 'N' .And. ;
+		If 	nSeconds > 0 .And. ;
+			( Seconds() - nSeconds ) < 0.1
+			
+			nSeconds	:= Seconds()	//Atualizo a hora do ultimo processamento
+			Return lRet
+		EndIf
+
+		//Uso por referencia para facilitar alguns controles
+		uBakVar	:= &('M->'+cCampo)
+		If ValType(uBakVar) <> 'C'
+			ApMsgAlert('ERRO: CAMPO '+cCampo+' NÃO + CARACTERE.',U_CXTxtMsg(,,.T.))
+			Return .T.
+		EndIf
+
+		//Usado assim para manipular diretamente a variavel de memoria! na funcao CXApMsgMemo
+		_bSetGet	:= &('{|u|if(Pcount()>0,M->'+cCampo+':=u,M->'+cCampo+')}')
+
+		If ValType(cTitulo) <> 'C'
+			cTitulo	:= FWSX3Util():GetDescription(cCampo)+' ('+cCampo+')'
+			If Empty(cTitulo)
+				cTitulo	:= 'ERRO AO LOCALIZAR TÍTULO DO CAMPO '+Upper(cCampo)
+			EndIf
+			cTitulo	:= U_CXTxtMsg()+cTitulo
+		EndIf
+
+		_lOk	:= U_CXApMsgMemo(	&('@M->'+cCampo)	,;	//01 Texto a ser exibido no memo
+									cTitulo				,;	//02 Titulo da Janela
+									.F.					,;	//03 Mostra botao Salvar (default .T.)
+									.Not. lReadOnly		,;	//04 Mostra botao OK (default .F.)
+									lReadOnly			,;	//05 Modo somente leitura (def .T.)
+									.F.					,;	//06 Grava texto em um log (def .T.)
+									lMax				,;	//07 Abre janeja maximizada (def .T.)
+									{|| U_CXVldCpo(cCampo)})//08 Validacao do botao OK
+
+		If 	_lOk .And. ;
+			.Not. lReadOnly
+			
+			U_CXPutCpo(	cCampo				,;	//01 Campo a ser preenchdi
+						.T.					,;	//02 Preenche campo na memoria
+						/*cAlias*/			,;	//03 Alias da tabela ou M-> se memoria
+						/*lGrid*/			,;	//04 Se memoria em Grid
+						&('M->'+cCampo)		,;	//05 Valor a ser preenchido
+						/*nLine*/			,;	//06 Linha do aCols que esta sendo manipulada (def N)
+						/*aHeaderPastPar*/	,;	//07 aHeader onde serao salvos os dados (def aHeader)
+						/*aColsPastPar*/ 	)	//08 aCols onde serao salvos os dados (def aCols)
+
+//			&('M->'+cCampo)	:= cMemo
+//
+//			//Tratamento para Grid
+//			If 	Type('aCols') <> 'U' .And. ;
+//				Type('aHeader') <> 'U' .And. ;
+//				GdFieldPos(cCampo) > 0
+//
+//				GdFieldPut(cCampo,cMemo)
+//			EndIf
+		Else
+			&('M->'+cCampo)	:= uBakVar	//Se cancelou restaura a variavel
+		EndIf
+		
+		nSeconds	:= Seconds()	//Atualizo a hora do ultimo processamento
+	Else
+		ApMsgAlert('ERRO: Campo não informado, é obrigatório para esta função.',U_CXTxtMsg(,,.T.))
+	EndIf
+
+Return lRet //So retorna falso quando eh o proprio campo que esta sendo editado

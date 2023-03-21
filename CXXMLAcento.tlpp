@@ -1,0 +1,45 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#INCLUDE "CXInclude.ch"
+
+//#############################################################################
+//##+----------+-------------+-------+-----------------+------+-------------+##
+//##|Programa  | CXXMLAcento | Autor | Cirilo Rocha    | Data | 07/05/2012  |##
+//##+----------+-------------+-------+-----------------+------+-------------+##
+//##|Descr.    | Funcao para converter os acentos para caracteres de escape |##
+//##|          | do XML.                                                    |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 23/02/23 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXXMLAcento(cString);	//01 cString
+								AS Character
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aChar		:= {  	{ '<' , '&lt;' 	} 	,;
+							{ '>' , '&gt;' 	}	,;
+							{ '&' , '&amp;'	}	,;
+							{ '"' , '&quot;'}	,; //Apas duplas
+							{ "'" , '&apos;'}	 ; //Aspa simples
+						}	AS Array
+	Local cChar				AS Character
+	Local cRet	:= ""		AS Character
+	Local nX				AS Integer
+	Local nPos				AS Integer
+
+	//---------------------------------------------------------------------------------------------
+	For nX := 1 to len(cString)
+		cChar	:= SubStr(cString,nX,1)
+		nPos	:= aScan(aChar,{|X| X[1] == cChar } )
+		If nPos == 0
+			cRet	+= cChar
+		Else
+			cRet	+= aChar[nPos][2]
+		EndIf
+	Next
+
+Return cRet

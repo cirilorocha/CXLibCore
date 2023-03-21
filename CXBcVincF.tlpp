@@ -1,0 +1,107 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+#INCLUDE "FWSFAllUsers.ch"
+
+//#############################################################################
+//##+----------+-----------+-------+-------------------+------+-------------+##
+//##|Programa  | CXBcVincF | Autor | Cirilo Rocha      | Data |  06/05/2016 |##
+//##+----------+-----------+-------+-------------------+------+-------------+##
+//##|Descr.    | Função para retornar o código de usuário vinculado a uma   |##
+//##|          |  matrícula                                                 |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 22/08/19 | Cirilo R. | Ajuste para o Lobo Guara                       |##
+//##| 29/07/22 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+Static aPswUsr := NIL		AS Array
+//-------------------------------------------------------------------------------------------------
+User Function CXBcVincF(cFilFunc,;	//01 Filial Funcionário (def cFilAnt)
+						cMatFunc,;	//02 Matrícula
+						cGrpEmp	);	//03 Empresa do Vínculo (def cEmpAnt)
+							AS Character
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aBindParam	AS Array
+	Local aKeyUser 		AS Array
+	Local nPos			AS Numeric
+	Local cCodUsr		AS Character
+	Local oArea			AS Object
+	Local cQuery		AS Character
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cFilFunc  	  	AS Character	Optional Default cFilAnt
+	ParamType 1		VAR cMatFunc  	  	AS Character
+	ParamType 2		VAR cGrpEmp  	  	AS Character	Optional Default cEmpAnt
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	cCodUsr		:= ''
+	
+	If Empty(cMatFunc)
+		Return cCodUsr
+	EndIf
+	
+	//---------------------------------------------------------------------------------------------
+	If TCCanOpen('SYS_USR_VINCFUNC')	//SX no banco de dados?
+		
+		If aPswUsr == NIL
+			aPswUsr	:= {}
+		EndIf
+		
+		nPos	:= aScan(aPswUsr,{|x| 	x[2] == cFilFunc 	.And. ;
+										x[3] == cMatFunc 		} )
+		If nPos > 0
+			cCodUsr	:= aPswUsr[nPos][1]
+		Else
+			oArea	:= tCtrlAlias():GetArea()
+
+			//Query
+			cQuery	:= ""
+			cQuery 	+= "SELECT USR_ID,USR_GRPEMP,USR_FILIAL,USR_CODFUNC "+CRLF
+			cQuery 	+= "FROM SYS_USR_VINCFUNC "+CRLF
+			cQuery 	+= "WHERE D_E_L_E_T_ = '' "+CRLF
+			cQuery 	+= "AND USR_GRPEMP	= ? "+CRLF
+			cQuery 	+= "AND USR_FILIAL	= ? "+CRLF
+			cQuery 	+= "AND USR_CODFUNC	= ? "+CRLF
+			
+			aBindParam	:= {}
+			aAdd(aBindParam,cGrpEmp)
+			aAdd(aBindParam,cFilFunc)
+			aAdd(aBindParam,cMatFunc)
+
+			cCodUsr	:= MpSysExecScalar(cQuery,'USR_ID',aBindParam)	//Executa uma consulta e retorna a primeira linha no conjunto de resultados retornados pela consulta
+
+			oArea:RestArea()		//Restaura area
+			
+			If .Not. Empty(cCodUsr)
+				aAdd(aPswUsr,{cCodUsr,cFilFunc,cMatFunc})
+			EndIf
+		EndIf
+	Else
+		aKeyUser 	:= {"USR_CODFUNC",{'PROTHEUSVINCFUNC','USR_GRPEMP'},{'PROTHEUSVINCFUNC','USR_FILIAL'}}
+		
+		//+-------------------------------------------------+
+		//| Esse retorno foi configurado da seguinte forma: |
+		//| 1 -> Sequencial interno                         |
+		//| 2 -> Codigo de Usuario                          |
+		//| 3 -> Matricula                                  |
+		//| 4 -> Empresa                                    |
+		//| 5 -> Filial do funcionario                      |
+		//+-------------------------------------------------+
+		If aPswUsr == NIL
+			aPswUsr	:= FWSFAllUsers(,aKeyUser)
+		EndIf
+
+		nPos	:= aScan(aPswUsr,{|x| 	x[5] == cFilFunc 	.And. ;
+										x[3] == cMatFunc 		} )
+		If nPos > 0
+			cCodUsr	:= aPswUsr[nPos][2]
+		EndIf
+	EndIf
+
+Return cCodUsr

@@ -1,60 +1,85 @@
-#INCLUDE "Protheus.ch"
-#INCLUDE "RWMake.ch"
-#INCLUDE "topconn.ch"
-#INCLUDE "CXInclude.ch"
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+#INCLUDE 'CXInclude.ch'
 
-//ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ
-//ฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑ
-//ฑฑษออออออออออัออออออออออหอออออออัออออออออออออออออออออหออออออัอออออออออออออปฑฑ
-//ฑฑบPrograma  ณ CXTipoNF บ Autor ณ Cirilo Rocha       บ Data ณ  29/03/2012 บฑฑ
-//ฑฑฬออออออออออุออออออออออสอออออออฯออออออออออออออออออออสออออออฯอออออออออออออนฑฑ
-//ฑฑบDesc.     ณ Funcao para retornar a descricao do tipo da NF             บฑฑ
-//ฑฑบ          ณ                                                            บฑฑ
-//ฑฑบ          ณ Existem 3 retornos possiveis:                              บฑฑ
-//ฑฑบ          ณ  1 = Descricao do tipo (segundo parametro obrigatorio)     บฑฑ
-//ฑฑบ          ณ  2 = Array com as descricoes dos tipos para NF             บฑฑ
-//ฑฑบ          ณ  3 = Array com os tipos de NF validos                      บฑฑ
-//ฑฑบ          ณ                                                            บฑฑ
-//ฑฑบ          ณ                                                            บฑฑ
-//ฑฑฬออออออออออุอออออออออออออออัออออออออออออออออออออออออออออออออออออออออออออนฑฑ
-//ฑฑบ   DATA   ณ Programador   ณ Manutencao Efetuada                        บฑฑ
-//ฑฑฬออออออออออุอออออออออออออออุออออออออออออออออออออออออออออออออออออออออออออนฑฑ
-//ฑฑบ 24/02/16 ณ Cirilo Rocha  ณ Pequeno ajuste para retornar vazio se tipo1บฑฑ
-//ฑฑบ          ณ               ณ                                            บฑฑ
-//ฑฑบ          ณ               ณ                                            บฑฑ
-//ฑฑศออออออออออฯอออออออออออออออฯออออออออออออออออออออออออออออออออออออออออออออผฑฑ
-//ฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑ
-//฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿
-User Function CXTipoNF(nRetorno,cTipoNF,lRetVazio)
-                  
-	Local nPos			:= 0
-	Local xRetorno		:= NIL
-	Local aDescTipos	:= {	"Normal"					,;
-									"Devolu็ใo"				,;
-									"Beneficiamento"		,;
-									"Compl. ICMS"			,;
-									"Compl. IPI"			,;
-									"Compl. Pre็o/Frete"	}
-	Local aTipos		:= {"N","D","B","I","P","C"}
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXTipoNF | Autor | Cirilo Rocha       | Data |  29/03/2012 |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Desc.     | Funcao para retornar a descricao do tipo da NF             |##
+//##|          |                                                            |##
+//##|          | Existem 3 retornos possiveis:                              |##
+//##|          |  1 = Descricao do tipo (segundo parametro obrigatorio)     |##
+//##|          |  2 = Array com as descricoes dos tipos para NF             |##
+//##|          |  3 = Array com os tipos de NF validos                      |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manuten็ใo efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 24/02/16 | Cirilo R. | Pequeno ajuste para retornar vazio se tipo1    |##
+//##| 27/01/23 | Cirilo R. | Pequena revisใo no fonte                       |##
+//##|          |           | Otimiza็ใo para usar cache Json                |##
+//##| 01/02/23 | Cirilo R. | Nova op็ใo 4                                   |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+Static jCacheTipo		:= NIL				AS Json
+//-------------------------------------------------------------------------------------------------
+User Function CXTipoNF(	nTipo	,;	//01 nTipo
+						cTipoNF	,;	//02 cTipoNF
+						lRetVazio)	//03 lRetVazio
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aTipos		AS Array
+	Local aDescTipos	AS Array
+	Local uRet			AS Variant
 	
-	Default lRetVazio	:= .T.
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR nTipo		AS Numeric
+	ParamType 1		VAR cTipoNF		AS Character			Optional
+	ParamType 2		VAR lRetVazio	AS Logical				Optional Default .T.
 	
+	//Alimenta o Cache, nใo achei rotina padrใo com esses dados, eles sempre amarram no fonte
+	If ValType(jCacheTipo) <> 'J'
+		jCacheTipo		:= JsonObject():New()
+		jCacheTipo['N']	:= FWI18NLANG("MATA103X","STR0001",0001)					//"Normal"
+		jCacheTipo['D']	:= FWI18NLANG("MATA103X","STR0002",0002)					//"Devolucao"
+		jCacheTipo['B']	:= FWI18NLANG("MATA103X","STR0003",0003)					//"Beneficiamento"
+		jCacheTipo['I']	:= StrTran(FWI18NLANG("MATA103X","STR0004",0004),'  ',' ')	//"Compl. ICMS"
+		jCacheTipo['P']	:= StrTran(FWI18NLANG("MATA103X","STR0005",0005),'  ',' ')	//"Compl. IPI"
+		jCacheTipo['C']	:= FWI18NLANG("MATA103X","STR0006",0006)					//"Compl. Preco/Frete"
+	EndIf
+
 	//Retorna a descricao do tipo passado como parametro
-	If nRetorno == 1
-		nPos	:= aScan(aTipos,{ |X| X == cTipoNF })
-		If nPos > 0
-			xRetorno	:= aDescTipos[nPos]
+	If nTipo == 1
+		
+		ParamType 1		VAR cTipoNF		AS Character		//Revalido porque neste caso ้ obrigat๓rio
+
+		If jCacheTipo:hasProperty(cTipoNF)	//Busca registro no cache
+			uRet	:= jCacheTipo[cTipoNF]
 		EndIf
 	//Retorna o array com as descricoes dos tipos
-	ElseIf nRetorno == 2
-		xRetorno	:= aClone(aDescTipos)
+	ElseIf nTipo == 2
+		aDescTipos	:= {}
+		aTipos		:= jCacheTipo:GetNames()
+		aEval(aTipos,{|x| aAdd(aDescTipos,jCacheTipo[x]) } )
+		uRet		:= aDescTipos
 	//Retorna o array com os tipos validos
-	ElseIf nRetorno == 3
-		xRetorno	:= aClone(aTipos)
+	ElseIf nTipo == 3
+		uRet	:= jCacheTipo:GetNames()
+	//Retorna array concatenado X=Descricao
+	ElseIf nTipo == 4
+		aDescTipos	:= {}
+		aTipos		:= jCacheTipo:GetNames()
+		aEval(aTipos,{|x| aAdd(aDescTipos,x+'='+jCacheTipo[x]) } )
+		uRet		:= aDescTipos
 	EndIf
 	
-	If xRetorno == Nil .And. lRetVazio
-		xRetorno	:= ''
+	If 	ValType(uRet) == 'U' .And. ;
+		lRetVazio
+
+		uRet	:= ''
 	EndIf
 
-Return xRetorno
+Return uRet

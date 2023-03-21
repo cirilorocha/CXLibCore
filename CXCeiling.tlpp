@@ -1,0 +1,38 @@
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+#INCLUDE 'CXInclude.ch'
+
+//##################################################################################################
+//##+========+=================================+=======+====================+======+=============+##
+//##|Programa| CXCeiling                       | Autor | Cirilo Rocha       | Data | 21/12/2022  |##
+//##+========+=================================+=======+====================+======+=============+##
+//##|Desc.   | Função para sempre arredondar / trunca para cima um valor. Até existe uma função  |##
+//##|        |  padrão Ceiling, porém a mesma tem uma limitação que não trabalha com decimais.   |##
+//##+========+==========+========================================================================+##
+//##|  DATA  | ANALISTA | MANUTENÇÃO EFETUADA                                                    |##
+//##+========+==========+========================================================================+##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##+========+==========+========================================================================+##
+//##################################################################################################
+User Function CXCeiling(nValor	,;	//01 nValor
+						nDec	);	//02 nDec
+							AS Numeric
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local nRet			AS Numeric
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR nValor		AS Numeric
+	ParamType 1		VAR nDec		AS Numeric
+	
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	nRet	:= Round(nValor,nDec)
+
+	If ( nValor - nRet ) > 0	//Arredondou para baixo, força para cima!
+		nRet	+= 1/(10^nDec)
+	EndIf
+
+Return nRet

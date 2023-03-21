@@ -1,0 +1,42 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+
+//#############################################################################
+//##+----------+--------------+-------+----------------+------+-------------+##
+//##|Programa  | CXSepEmail   | Autor | Cirilo Rocha   | Data | 18/02/2017  |##
+//##+----------+--------------+-------+----------------+------+-------------+##
+//##|Descr.    | Separa o nome do email do endereço nos casos de emails no  |##
+//##|          |  formato NOME <ENDEREÇO>                                   |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 13/08/19 | Cirilo R. | Pequena revisao                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXSepEmail(cEndMail,cNomeMail)
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local nPosIni	AS Numeric
+	Local nPosFim	AS Numeric
+	Local cEmail	AS Character
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cEndMail			AS Character
+	ParamType 1		VAR cNomeMail			AS Character				Optional Default ''
+	
+	//---------------------------------------------------------------------------------------------
+	cEmail	:= cEndMail
+	nPosIni	:= At('<',cEmail)// buscar texto da esquerda para a direita
+	nPosFim	:= At('>',cEmail)// buscar texto da esquerda para a direita
+	If 	nPosIni > 0 .And. ;
+		nPosFim > 0
+		
+		cEndMail	:= SubStr(cEmail, nPosIni+1, (nPosFim-nPosIni-1) )
+		cNomeMail	:= AllTrim(Left(cEmail, nPosIni-1))
+	EndIf
+
+Return

@@ -1,0 +1,87 @@
+#INCLUDE "RWMake.ch"
+#INCLUDE "Protheus.ch"
+#Include "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXNmUsr  | Autor | Cirilo Rocha       | Data | 17/10/2013  |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descricao | Função que retorna o nome do usuário.                      |##
+//##|          | Considera primeiramente o nome completo, se não achar usa  |##
+//##|          |  nome abreviado (login)                                    |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção Efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 29/01/15 | Cirilo R. | Correção de erro log quando não há alias setado|##
+//##| 12/09/16 | Cirilo R. | Correção quando o código passado não existe    |##
+//##|          |           | Pequena melhoria no fonte                      |##
+//##| 30/04/18 | Cirilo R. | Pequena otimização no fonte                    |##
+//##| 15/02/21 | Cirilo R. | Parâmetro novo para mostrar o código junto ao  |##
+//##|          |           |  nome                                          |##
+//##| 13/02/23 | Cirilo R. | Otimização usando cache Json                   |##
+//##| 08/03/23 | Cirilo R. | Tratamento para controle de dados sensíveis    |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+Static jCacheName		:= JsonObject():New()					AS Json
+Static lFwGetUserName	:= FindFunction("FWGETUSERNAME")		AS Logical
+Static lOfuscar			:= .Not. ( VerSenha(192) .And. VerSenha(193) )	AS Logical
+//-------------------------------------------------------------------------------------------------
+User Function CXNmUsr(	cUser	,;	//01 cUser
+						lCodigo	,;	//02 lCodigo
+						lLGPD	);	//03 lLGPD considera LGPD (def .T.)
+							AS Character
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cNome			AS Character
+	//Local nPos			AS Numeric
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cUser  	  		AS Character		Optional Default __cUserID
+	ParamType 1		VAR lCodigo	  		AS Logical			Optional Default .F.
+	ParamType 2		VAR lLGPD	  		AS Logical			Optional Default .T.
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	cNome		:= ""
+
+	//---------------------------------------------------------------------------------------------
+	If !Empty(cUser)
+		//Otimizacao
+		//nPos	:= aScan(aUsrName,{|x| x[1] == cUser })
+		//If nPos > 0
+		If jCacheName:hasProperty(cUser)	//Busca registro no cache
+		//	cNome	:= aUsrName[nPos][2]
+			cNome	:= jCacheName[cUser]
+		Else
+			//If !Empty(cUser)
+				If lFwGetUserName
+					cNome	:= SX5->(AllTrim(FwGetUserName(cUser)))
+				Else
+					cNome	:= SX5->(AllTrim(UsrFullName(cUser)))
+				EndIf
+
+				If Empty(cNome)
+			//		cNome	:= AllTrim(cUserName)
+					cNome	:= AllTrim(UsrRetName(cUser))
+			//		cNome	:= AllTrim(FwUserName(cUser))	//Erro log se não encontrar!
+				EndIf
+			//EndIf
+			//aAdd(aUsrName,{cUser,cNome}) //Otimizacao
+			jCacheName[cUser]	:= cNome	//Guardo informação no cache!
+		EndIf
+		
+		If 	lOfuscar .And. ;
+			lLGPD
+
+			cNome	:= Replicate('*',30)
+		EndIf
+		
+		If lCodigo
+			cNome	:= cUser+' - '+cNome
+		EndIf
+		
+	EndIf
+
+Return cNome

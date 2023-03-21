@@ -1,0 +1,79 @@
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+#INCLUDE 'CXInclude.ch'
+
+//#############################################################################
+//##+----------+----------+-------+-----------------------+------+----------+##
+//##|Funcao	   | CXMod10  | Autor | Cirilo Rocha          | Data | 21/01/15 |##
+//##+----------+----------+-------+-----------------------+------+----------+##
+//##|Descr.    | Cálculo do DV modulo 10                                    |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 01/03/23 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CXMod10(	cCodigo		,;	//01 cCodigo
+						nPesoIni	,;	//02 nPesoIni
+						nPesoFim	,;	//03 nPesoFim
+						cRestoZero	);	//04 cRestoZero
+							AS Character
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cAux			AS Character
+	Local cDigito		AS Character
+	Local nPeso			AS Numeric
+	Local nResto		AS Numeric
+	Local nSoma			AS Numeric
+	Local nAux			AS Numeric
+	Local nJ			AS Numeric
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cCodigo			AS Character
+	ParamType 1		VAR nPesoIni		AS Numeric				Optional Default 2
+	ParamType 2		VAR nPesoFim		AS Numeric				Optional Default 1
+	ParamType 3		VAR cRestoZero		AS Character			Optional Default 0
+
+	//--------------------------------------------------------------------------
+	nSoma	:= 0
+	nPeso	:= nPesoIni
+	For nJ := Len(cCodigo) To 1 Step -1
+		nAux  := Val(SubStr(cCodigo,nJ,1))*nPeso
+		//Se o resultado maior que 10 soma os numeros individualmente
+		//Ex.: 14 => 1+4 = 5
+		If nAux >= 10
+			cAux	:= StrZero(nAux,2)
+			nAux	:= Val(Substr(cAux,1,1))+Val(Substr(cAux,2,1))
+		EndIf
+		nSoma	+= nAux
+
+		If nPeso == nPesoFim
+			nPeso := nPesoIni
+		Else
+			If nPesoFim > nPesoIni
+				nPeso ++
+			Else
+				nPeso --
+			EndIf
+		EndIf
+	Next nJ
+
+	//--------------------------------------------------------------------------
+
+	nAux	:= Int(nSoma/10) * 10
+	If ( nSoma % 10 ) > 0 	//Nao e' multiplo de 10
+		nAux	+=  10 			//Pega o multiplo de 10 imediatamente superior
+	EndIf
+
+	nResto	:= nAux - nSoma
+
+	If nResto == 0
+		cDigito	:=	cRestoZero
+	Else
+		cDigito	:=	Str(nResto,1)
+	EndIf
+
+Return(cDigito)
