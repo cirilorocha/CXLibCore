@@ -5,48 +5,48 @@
 
 //Static lRetAnt	:= Nil
 
-//ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ
-//ฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑ
-//ฑฑษออออออออออัออออออออออหอออออออัอออออออออออออออออออออหออออออัออออออออออออปฑฑ
-//ฑฑบPrograma  ณ RGENF01  บ Autor ณ Cirilo Rocha        บ Data ณ 26/01/2012 บฑฑ
-//ฑฑฬออออออออออุออออออออออสอออออออฯอออออออออออออออออออออสออออออฯออออออออออออนฑฑ
-//ฑฑบDescricao ณ Funcao generica para ser utilizada como validacao se o usu-บฑฑ
-//ฑฑบ          ณ ario pode efetuar algum procedimento.                      บฑฑ
-//ฑฑบ          ณ Valida se esta no parametro passado, se e' da diretoria ou บฑฑ
-//ฑฑบ          ณ da equipe de TI                                            บฑฑ
-//ฑฑบ          ณ Pode ser utilizado no When de campos ou em alguma validacaoบฑฑ
-//ฑฑบ          ณ                                                            บฑฑ
-//ฑฑบ          ณ                                                            บฑฑ
-//ฑฑบ          ณ                                                            บฑฑ
-//ฑฑฬออออออออออุอออออออออออออออัออออออออออออออออออออออออออออออออออออออออออออนฑฑ
-//ฑฑบ   DATA   ณ Programador   ณ Manutencao Efetuada                        บฑฑ
-//ฑฑฬออออออออออุอออออออออออออออุออออออออออออออออออออออออออออออออออออออออออออนฑฑ
-//ฑฑบ 05/09/13 ณ Cirilo Rocha  ณ Adicionado valor padrao para os codigos de บฑฑ
-//ฑฑบ          ณ               ณ usuario                                    บฑฑ
-//ฑฑบ 28/07/15 ณ Cirilo Rocha  ณ Otimizacao do fonte                        บฑฑ
-//ฑฑบ 22/08/18 ณ Cirilo Rocha  ณ Pequena revisao no fonte                   บฑฑ
-//ฑฑบ          ณ               ณ                                            บฑฑ
-//ฑฑบ          ณ               ณ                                            บฑฑ
-//ฑฑศออออออออออฯอออออออออออออออฯออออออออออออออออออออออออออออออออออออออออออออผฑฑ
-//ฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑ
-//฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿฿
+//#############################################################################
+//##+==========+==========+=======+=====================+======+============+##
+//##|Programa  | RGENF01  | Autor | Cirilo Rocha        | Data | 26/01/2012 |##
+//##+==========+==========+=======+=====================+======+============+##
+//##|Descricao | Funcao generica para ser utilizada como validacao se o usu-|##
+//##|          | ario pode efetuar algum procedimento.                      |##
+//##|          | Valida se esta no parametro passado, se e' da diretoria ou |##
+//##|          | da equipe de TI                                            |##
+//##|          | Pode ser utilizado no When de campos ou em alguma validacao|##
+//##|          |                                                            |##
+//##|          |                                                            |##
+//##|          |                                                            |##
+//##+==========+===============+============================================+##
+//##|   DATA   | Programador   | Manutencao Efetuada                        |##
+//##+==========+===============+============================================+##
+//##| 05/09/13 | Cirilo Rocha  | Adicionado valor padrao para os codigos de |##
+//##|          |               | usuario                                    |##
+//##| 28/07/15 | Cirilo Rocha  | Otimizacao do fonte                        |##
+//##| 22/08/18 | Cirilo Rocha  | Pequena revisao no fonte                   |##
+//##| 07/10/20 | Cirilo Rocha  | Pequena revisao no fonte                   |##
+//##|          |               |                                            |##
+//##|          |               |                                            |##
+//##+==========+===============+============================================+##
+//#############################################################################
 Static cUsrDir	:= GetMV('MS_USRDIR',.F.,'000201,000032,000082,000081,000012,000013')
 Static cGrpDir	:= GetMV('MS_GRPDIR',.F.,'000002')
 Static cUsrTi 	:= GetMV('MS_USRTI' ,.F.,'000198,000202,000264,000177')
 Static cGrpTi	:= GetMV('MS_GRPTI' ,.F.,'') //O grupo 000000 ja e' padrao
-
-//-----------------------------------------------------------------------------
-User Function RGENF01(cParUSR,lDiretoria,lTi,cUsrDefault)
+Static aGrpPerm	:= FWSFUsrGrps(__cUserId)
+//-------------------------------------------------------------------------------------------------
+User Function RGENF01(	cParUSR		,;	//01
+						lDiretoria	,;	//02
+						lTi			,;	//03
+						cUsrDefault	 )	//04
 
 	//Declaracao de variaveis----------------------------------------------------------------------
 	Local lRet			AS Logical
 	Local cUsrPar		AS Character
-	Local aGrpPerm		AS Array
 	Local nX			AS Numeric
 
 	//Inicializa Variaveis-------------------------------------------------------------------------
 	lRet		:= .F.
-	aGrpPerm	:= FWSFUsrGrps(__cUserId)
 
 	//Parametros da rotina-------------------------------------------------------------------------
 	ParamType 0		VAR cParUSR		  	  	AS Character			Optional Default ''
@@ -56,22 +56,22 @@ User Function RGENF01(cParUSR,lDiretoria,lTi,cUsrDefault)
 
 	//---------------------------------------------------------------------------------------------
 	//Obtem os usuarios passados pelo parametro
-	If !Empty(cParUSR)
+	If 	.Not. Empty(cParUSR)
 		cUsrPar	:= SuperGetMV(cParUSR,.F.,cUsrDefault)
 
 		//Verifica se esta no parametro passado
-		If !Empty(cUsrPar)
+		If	.Not. Empty(cUsrPar)
 			lRet	:= (__cUserID $ cUsrPar)
 		EndIf
 
 	EndIf
 
-	//ฺฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฟ
-	//ณ Verifica se deve autorizar a diretoria ณ
-	//ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
+	//+----------------------------------------+
+	//| Verifica se deve autorizar a diretoria |
+	//+----------------------------------------+
 
 	//Verifica primeiro nos grupos
-	If !lRet
+	If 	.Not. lRet
 		For nX := 1 to len(aGrpPerm)
 			If aGrpPerm[nX] $ cGrpDir
 				lRet	:= .T.
@@ -81,18 +81,20 @@ User Function RGENF01(cParUSR,lDiretoria,lTi,cUsrDefault)
 	EndIf
 
 	//Depois pelo parametro
-	If !lRet .And. ;
+	If 	.Not. lRet .And. ;
 		lDiretoria
 
 		lRet	:= ( __cUserID $ cUsrDir )
 	EndIf
 
-	//ฺฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฟ
-	//ณ Verifica se pode dar acesso aos usuarios da T.I. ณ
-	//ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
+	//+--------------------------------------------------+
+	//| Verifica se pode dar acesso aos usuarios da T.I. |
+	//+--------------------------------------------------+
 
 	//Busca pelo grupo
-	If !lRet .And. lTi
+	If 	.Not. lRet .And.;
+		lTi
+
 		If FWIsAdmin(__cUserID)
 			lRet	:= .T.
 		Else
@@ -106,24 +108,24 @@ User Function RGENF01(cParUSR,lDiretoria,lTi,cUsrDefault)
 	EndIf
 
 	//Busca pelo parametro
-	If !lRet .And. ;
+	If 	.Not. lRet .And. ;
 		lTi
 
 		lRet	:= (__cUserID $ cUsrTi)
 	EndIf
 
 	//Se usuario administrador
-	If !lRet .And. ;
+	If 	.Not. lRet .And. ;
 		lTi
 
 		lRet	:= (__cUserID == '000000')
 	EndIf
 
-	//ฺฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฟ
-	//ณ Salva retorno para otimizar os resultados da funcao, ณ
-	//ณ pois ela pode ser chamada muitas vezes repetidas     ณ
-	//ณ em um campo When por exemplo                         ณ
-	//ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
+	//+------------------------------------------------------+
+	//| Salva retorno para otimizar os resultados da funcao, |
+	//| pois ela pode ser chamada muitas vezes repetidas     |
+	//| em um campo When por exemplo                         |
+	//+------------------------------------------------------+
 	//lRetAnt	:= lRet
 
 Return lRet
