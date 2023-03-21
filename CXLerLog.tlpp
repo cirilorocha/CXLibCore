@@ -1,0 +1,59 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#INCLUDE "CXInclude.ch"
+
+//ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ
+//±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±
+//±±ÚÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄ¿±±
+//±±³Programa  ³ CXLerLog ³ Autor ³ Cirilo Rocha        ³ Data ³ 30/11/2010 ³±±
+//±±ÃÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄ´±±
+//±±³Descricao ³ Funcao para descriptografar o conteudo dos campos de audi- ³±±
+//±±³          ³ toria do sistema (XX_USERLGI e XX_USERLGA)                 ³±±
+//±±³          ³ Pode ser utilizado em campos virtual para exibir a infor-  ³±±
+//±±³          ³ macao da auditoria. Ex.: U_CXLerLog(SE5->E5_USERLGI)       ³±±
+//±±³          ³                                                            ³±±
+//±±ÃÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´±±
+//±±³Parametros³ cConteudo = conteudo do campo de auditoria a ser exibido   ³±±
+//±±³          ³                                                            ³±±
+//±±³          ³                                                            ³±±
+//±±ÃÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´±±
+//±±³   DATA   ³ Programador   ³ Manutencao efetuada                        ³±±
+//±±ÃÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´±±
+//±±³ 30/04/18 ³ Cirilo Rocha  ³ Pequena revisao no fonte                   ³±±
+//±±³          ³               ³                                            ³±±
+//±±³          ³               ³                                            ³±±
+//±±³          ³               ³                                            ³±±
+//±±ÀÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ±±
+//±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±
+//ßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßß
+
+User Function CXLerLog(cConteudo)
+
+	Local cRet	 := ""
+	Local cUserLG
+
+	Local cUsr
+	Local cNmUsr
+	Local dData
+
+	Default cConteudo 	:= ""
+
+	If !Empty(cConteudo)
+		//LeLog (@cStatus,@cUsrI,@cUsuarioA,@dDataI,@dDataA,cTipo)
+		cUserLG := Embaralha(cConteudo,1)
+		If !Empty(cUserLg)
+			cUsr	:= AllTrim( Subs(cUserLg,3,12) )
+			//cNmUsr	:= UsrRetName(cUsr)
+			cNmUsr	:= Upper(U_CXNmUsr(cUsr))
+			dData 	:= CtoD("01/01/96","DDMMYY") + Load2in4( Substr(cUserLg,16) )
+
+			cRet	:= DtoC(dData)+' - '+cUsr + " " + cNmUsr
+		EndIf
+	EndIf
+
+Return cRet
+
+//---------------------------------------
+User Function LerLog(cConteudo)
+
+Return U_CXLerLog(cConteudo)

@@ -1,0 +1,209 @@
+#INCLUDE "RWMake.ch"
+#INCLUDE "Totvs.ch"
+#INCLUDE "Protheus.ch"
+//#INCLUDE "topconn.ch"
+#Include "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+#INCLUDE "CXStruct.ch"
+
+//#############################################################################
+//##+----------+-------------+-------+--------------------+------+----------+##
+//##|Programa  | CXExecQuery | Autor | Cirilo Rocha       | Data |19/07/2011|##
+//##+----------+-------------+-------+--------------------+------+----------+##
+//##|Descr.    | Função para execução de uma query                          |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 22/02/12 | Cirilo R. | Adicionados parâmetros default para o caminho  |##
+//##|          |           |  para gravar a query e se deve ou não gravar a |##
+//##|          |           |  query por padrão                              |##
+//##| 06/03/12 | Cirilo R. | Feito tratamento para criar a pasta para grava-|##
+//##|          |           |  ção da query caso não exista                  |##
+//##| 30/08/12 | Cirilo R. | Melhoria para criar um alias temporário caso   |##
+//##|          |           |  o cAlias não seja passado, evitando conflitos |##
+//##|          |           |  com alias j abertos                          |##
+//##| 16/04/13 | Cirilo R. | Adicionado tratamento os campos data           |##
+//##| 06/06/13 | Cirilo R. | Correções no tratamento para os campos data    |##
+//##| 13/08/13 | Cirilo R. | Melhoria na gravação da query, adicionada data |##
+//##|          |           |  e hora no nome do arquivo                     |##
+//##| 20/08/13 | Cirilo R. | Ajuste quando havia erro na execução da query  |##
+//##|          |           |  para retornar o erro                          |##
+//##| 12/04/17 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 08/01/18 | Cirilo R. | Pequena otimização do fonte                    |##
+//##| 18/10/18 | Cirilo R. | Alterado para grava a query antes da execução  |##
+//##|          |           |  (para detecção de erros)                      |##
+//##| 28/08/19 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 13/11/20 | Cirilo R. | Usando nova função para execução               |##
+//##| 08/10/21 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 18/11/21 | Cirilo R. | Acrescentado parâmetro aBindParam              |##
+//##| 22/02/22 | Cirilo R. | Tratamento para gravação das queries binded    |##
+//##| 24/02/22 | Cirilo R. | Pequeno processamento dos parâmetros binded    |##
+//##|          |           |  tratando IN e conversão de tipos N,D,L        |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+//Static cUsrGrv	:= GetMV('MS_USGRQRY',.F.,'') //Usuarios que deve gravar as queries
+Static cPathQry		:= GetMV('MX_PATHQRY',.F.,'c:\temp\')		AS Character
+Static lDftGrv		:= GetMV('MX_GRVQRY' ,.F.,.F.)				AS Logical
+Static nTolStat		:= GetMV('MX_EXQRTOL',.F.,500)				AS Numeric //Tolerância para mostrar um alerta no console
+Static nTamCpo		:= Len(U_CXFieldGet('X3_CAMPO','SX3'))		AS Numeric
+
+#Define cDataHora	U_CxGravaData(Date(),'-',8)+'-'+StrTran(Time(),':',';')
+//-------------------------------------------------------------------------------------------------
+User Function CXExecQuery(	cAlias		,;	//01 @Referência
+							cQuery		,;	//02
+							lGrvQry		,;	//03
+							lConvCpo	,;	//04
+							cNomeFun	,;	//05
+							aBindParam	);	//06 Binded parameters
+									AS Logical
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local oArea			AS Object	
+	Local lRet			AS Logical
+	Local nRetDir		AS Numeric
+	Local nTInicio		AS Numeric
+	Local nTempo		AS Numeric
+	Local aStruct		AS Array
+	Local aBindQry		AS Array
+	Local cCampo		AS Character
+	Local cQryProc		AS Character
+	Local nX			AS Integer
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cAlias  		AS Character			Optional Default ''	//@Referência
+	ParamType 1		VAR cQuery 	  		AS Character
+	ParamType 2		VAR lGrvQry			AS Logical   			Optional Default lDftGrv
+	ParamType 3		VAR lConvCpo		AS Logical  	 		Optional Default .F.
+	ParamType 4		VAR cNomeFun		AS Character   			Optional Default FunName()
+	ParamType 5		VAR aBindParam		AS Array	   			Optional Default {}
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	lRet		:= .F.
+	nTInicio	:= Seconds()
+	
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+	
+	
+	//---------------------------------------------------------------------------------------------
+//	If 	cAlias == NIL .Or. ;
+	If	Empty(cAlias)
+		
+		//cAlias	:= CriaTrab(NIL, .F.)	//Inicializa um alias temporario
+		cAlias		:= GetNextAlias() 		//Cria um Alias temporario
+	EndIf
+	
+	If 	.Not. Empty(cQuery) .And. ;
+		.Not. Empty(cAlias)
+		
+		//Compatibiliza a query com o banco de dados
+		//	cQuery 	:= ChangeQuery ( cQuery ) //Estava causando varios problemas na query
+
+		//Processa Bind Param da query e a query para o comando IN---------------------------------
+		aBindQry	:= aClone(aBindParam)
+		If Len(aBindParam) > 0
+			cQryProc	:= U_CXProcQBind(	@cQuery		,;
+											@aBindQry	)
+		Else
+			cQryProc	:= cQuery
+		EndIf
+
+		//Grava a query no disco local do usuario
+		If 	lGrvQry .And. ;
+			.Not. U_CXRotAuto(.T.)	//Job não grava!
+
+			If .Not. ExistDir ( cPathQry )
+				nRetDir	:= MakeDir(cPathQry)
+			Else
+				nRetDir	:= 0
+			EndIf
+	
+			If nRetDir == 0
+				U_CXWriteFile(cPathQry+cNomeFun+' - '+cDataHora+".sql",cQryProc)
+			Else
+				U_CXConOut(	U_CXTxtMsg()+'Não foi possível criar o diretório "'+cPathQry+'" para gravação da query.'+CRLF+;
+							U_CXDescErro() )
+			EndIf
+		EndIf
+		
+		//Executa a query
+		If Len(aBindQry) > 0
+			dbUseArea(.T.,'TOPCONN', TCGenQry2(,,cQuery,aBindQry),cAlias, .T., .T.)	//Assim tem um pouco menos de overhead porque a função MpSysOpenQuery internamente chama o dbUseArea
+		Else	//Protege de erros com campos Memo, detectei que quando existem memos na query e usando um dbGoTop ele se perde e fica em EOF!!! usando TCGenQry2
+			dbUseArea(.T.,'TOPCONN', TCGenQry(,,cQuery),cAlias, .T., .T.)
+		EndIf
+//		MpSysOpenQuery(cQuery,cAlias,/*aSetField*/,/*cDriver*/,aBindQry)	//Executa a query, acaba sendo um pouco mais lento que chamar diretamente dbUseArea (baixo nível)
+
+		//Erro na execucao da query
+		If Select(cAlias) > 0
+			lRet	:= .T.
+			
+			//Faço a seleção da área porque a função padrão MpSysOpenQuery não faz
+			dbSelectArea(cAlias)
+		Else
+			lRet	:= .F.
+		EndIf
+		
+		//Compatibiliza campos data da query
+		If 	lRet .And. ;
+			lConvCpo
+			
+			oArea		:= tCtrlAlias():GetArea({'SX3'})
+			
+			aStruct 	:= (cAlias)->(dbStruct()) //Obtem a estrutura da query
+			TCSrvMap( 'SX3','X3_CAMPO,X3_TIPO')	//Limita os campos de retorno
+			SX3->(U_CXSetOrd(2))
+			For nX := 1 to len(aStruct)
+				cCampo	:= AllTrim(aStruct[nX][nST_CAMPO])
+				
+				//Verifica se o tamanho do campo é compatível para buscar no dicionário
+				If 	Len(cCampo) <= nTamCpo .And. ;
+					Len(cCampo) >= 5 .And. ;
+					At('_',cCampo) > 0 .And. ;
+					.Not. (Left(cCampo,2) $ 'SX,XX,XB,XA')	//Tabelas de sistema
+	
+					cCampo	:= PadR(cCampo,nTamCpo)
+					If 	SX3->(MsSeek(cCampo,.F.)) .And. ;
+						U_CXFieldGet('X3_TIPO','SX3') $ 'D/L'
+						
+						//converte o campo da query em campo Data
+						TcSetField(cAlias,aStruct[nX][nST_CAMPO],U_CXFieldGet('X3_TIPO','SX3'))
+					EndIf
+				EndIf
+			Next
+			TCSrvMap('SX3')	//Restauro a limitação de campos
+			
+			oArea:RestArea()		//Restaura area
+		EndIf
+	Else
+		cCodErr	:= U_CXTxtMsg(,,.T.)
+		cMsgErr := ''
+		cMsgErr += 'Erro na execução da query.'+CRLF
+		If Empty(cQuery)
+			cMsgErr += 'Query Vazia'+CRLF
+		EndIf
+		If .Not. Empty(cAlias)
+			cMsgErr += 'Alias Vazio'+CRLF
+		EndIf
+		cSoluc	:= 'INFORME O SETOR DE T.I.'
+		cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
+		If lMsg
+			U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+		EndIf
+		
+		lRet	:= .F.
+	EndIf
+	
+	nTempo	:= ( Seconds() - nTInicio )*1000
+	If nTempo > nTolStat
+		U_CXConOut(	U_CXTxtMsg(,2)+'CXExecQuery-'+'ALERTA: Execução da query muito demorada, levou '+Transform(nTempo,"@E 9,999.9")+' ms',,.T.)
+		U_CXConOut('QUERY: '+cQryProc)
+	EndIf
+	
+Return lRet
