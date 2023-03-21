@@ -3,25 +3,25 @@
 #Include "ParmType.ch"
 #INCLUDE "CXInclude.ch"
 
-//ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ
-//ฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑ
-//ฑฑษออออออออออัออออออออออหอออออออัออออออออออออออออออออหออออออัอออออออออออออปฑฑ
-//ฑฑบPrograma  ณ CXSetUsr บ Autor ณ Cirilo Rocha       บ Data ณ  21/07/2016 บฑฑ
-//ฑฑฬออออออออออุออออออออออสอออออออฯออออออออออออออออออออสออออออฯอออออออออออออนฑฑ
-//ฑฑบDescrio ณ Funcao para execucao de testes, permitindo mudar de usuarioบฑฑ
-//ฑฑบ          ณ durante o tempo de execucao                                บฑฑ
-//ฑฑบ          ณ                                                            บฑฑ
-//ฑฑฬออออออออออุออออออออออัอออออออออออออออออออออออออออออออออออออออออออออออออนฑฑ
-//ฑฑบDATA      ณ ANALISTA ณ MOTIVO                                          บฑฑ
-//ฑฑฬออออออออออุออออออออออุอออออออออออออออออออออออออออออออออออออออออออออออออนฑฑ
-//ฑฑบ 12/08/19 ณ Cirilo R.ณ Pequena revisao no fonte                        บฑฑ
-//ฑฑบ 23/10/19 ณ Cirilo R.ณ Adicionado tratamento para execucao via fonte   บฑฑ
-//ฑฑบ          ณ          ณ                                                 บฑฑ
-//ฑฑบ          ณ          ณ                                                 บฑฑ
-//ฑฑศออออออออออฯออออออออออฯอออออออออออออออออออออออออออออออออออออออออออออออออผฑฑ
-//ฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑฑ
+//#############################################################################
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Programa  | CXSetUsr | Autor | Cirilo Rocha       | Data |  21/07/2016 |##
+//##+----------+----------+-------+--------------------+------+-------------+##
+//##|Descr.    | Fun็ใo para execu็ใo de testes, permitindo mudar de usuแrio|##
+//##|          |  durante o tempo de execu็ใo                               |##
+//##+----------+----------+-------------------------------------------------+##
+//##|DATA      | ANALISTA | MOTIVO                                          |##
+//##+----------+----------+-------------------------------------------------+##
+//##| 12/08/19 | Cirilo R.| Pequena revisใo no fonte                        |##
+//##| 23/10/19 | Cirilo R.| Adicionado tratamento para execu็ใo via fonte   |##
+//##| 22/03/22 | Cirilo R.| Pequena revisใo no fonte                        |##
+//##|          |          |                                                 |##
+//##|          |          |                                                 |##
+//##+----------+----------+-------------------------------------------------+##
+//#############################################################################
 User Function CXSetUsr(	cCodUsr	,;	//01
-						lMsg	 )	//02
+						lMsg	);	//02
+							AS Logical
 	
 	//Declaracao de variaveis----------------------------------------------------------------------
 	Local aParam	AS Array
@@ -41,18 +41,40 @@ User Function CXSetUsr(	cCodUsr	,;	//01
 	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
 	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
 
-	If cCodUsr == NIL
-		aParam		:= U_CXGetParam(1) //Salva parametros
-		cPerg		:= 'CXSETUSR'
+	If ValType(cCodUsr) <> 'C'
+		If lMsg
+			aParam		:= U_CXGetParam(1) //Salva parametros
+			cPerg		:= 'CXSETUSR'
 
-		U_CXPergunta({	{"Usuแrio ?" 	,"C", len(__cUserID), 0,'NaoVazio() .And. UsrExist(MV_PAR01)','USR'}},cPerg)
-		
-		If .Not. Pergunte(cPerg,.T.)
-			U_CXRestParam(aParam) //Restaura parametros
+			U_CXPergunta({	{"Usuแrio ?" 	,"C", len(__cUserID), 0,'NaoVazio() .And. UsrExist(MV_PAR01)','USR'}},cPerg)
+			
+			If .Not. Pergunte(cPerg,.T.)
+				U_CXRestParam(aParam) //Restaura parametros
+				Return .F.
+			EndIf
+			cCodUsr	:= MV_PAR01
+			U_CXRestParam(aParam) 	//Restaura parametros
+		Else
+			cCodErr	:= U_CXTxtMsg(,,.T.)
+			cMsgErr	:= 'ERRO: NรO FOI PASSADO O CำDIGO DE USUมRIO.'
+			cSoluc	:= 'INFORME O SETOR DE T.I.'
+			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUวรO: '+cSoluc,'')
+			If lMsg
+				U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+			EndIf
+
 			Return .F.
 		EndIf
-		cCodUsr	:= MV_PAR01
-		U_CXRestParam(aParam) 	//Restaura parametros
+	ElseIf Empty(cCodUsr)
+		cCodErr	:= U_CXTxtMsg(,,.T.)
+		cMsgErr	:= 'ERRO: NรO FOI PASSADO O CำDIGO DE USUมRIO.'
+		cSoluc	:= 'INFORME O SETOR DE T.I.'
+		cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUวรO: '+cSoluc,'')
+		If lMsg
+			U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+		EndIf
+
+		Return .F.
 	EndIf
 	
 	//Salva dados atuais

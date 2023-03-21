@@ -28,6 +28,9 @@
 //##| 13/08/18 | Cirilo R. | Correcao para salvar e restaura o filtro dos   |##
 //##|          |           | deletados                                      |##
 //##| 23/08/19 | Cirilo R. | Pequena revisao no fonte                       |##
+//##| 10/03/23 | Cirilo R. | Pequena revisao no fonte                       |##
+//##|          |           | Ajustes para usar as classes zDBF para salvar  |##
+//##|          |           |  em DBF                                        |##
 //##|          |           |                                                |##
 //##|          |           |                                                |##
 //##+----------+-----------+------------------------------------------------+##
@@ -43,32 +46,35 @@ User Function CXCopyTab(cFileSource	,; 	//01 Arquivo de origem (ex: \system\sx30
 								AS Logical
 
 	//Declaracao de variaveis----------------------------------------------------------------------
-	Local lBack 		AS Logical
-	Local aStruTgt		AS Array
-	Local aStruSrc		AS Array
+	Local aCampos		AS Array
+	Local aDados		AS Array
 	Local aPosSrc		AS Array
-	Local nTamTgt		AS Numeric
-	Local cIndice		AS Character
-	Local oArea	  		AS Object
-	Local cQuery		AS Character
-	Local cQry			AS Character
-	Local cSource		AS Character
-	Local cNmSrc		AS Character
-	Local cTarget		AS Character
+	Local aRecnoDel		AS Array
+	Local aStruSrc		AS Array
+	Local aStruTgt		AS Array
 	Local cFileExt		AS Character
-	Local nX			AS Numeric
-	Local nTotal		AS Numeric
+	Local cIndice		AS Character
+	Local cNmSrc		AS Character
+	Local cQry			AS Character
+	Local cQuery		AS Character
+	Local cSource		AS Character
+	Local cTarget		AS Character
+	Local lBack 		AS Logical
+	Local lCanUseBulk	AS Logical
+	Local lDelBak		AS Logical
 	Local lFiltro		AS Logical
+	Local lTgtDBF		AS Logical
 	Local lTgtTop		AS Logical
+	Local nBuffer		AS Numeric
 	Local nPos			AS Numeric
 	Local nPosRec		AS Numeric
-	Local nBuffer		AS Numeric
-	Local aCampos		AS Array
-	Local lDelBak		AS Logical
-	Local lCanUseBulk	AS Logical
+	Local nTamTgt		AS Numeric
+	Local nTotal		AS Numeric
+	Local nX			AS Numeric
+	Local oArea	  		AS Object
 	Local oBulk			AS Object
-	Local aRecnoDel		AS Array
-	Local aDados		AS Array
+	Local oDBFTgt		AS Object
+	Local uConteudo		AS Variant
 
 	//Parametros da rotina-------------------------------------------------------------------------
 	ParamType 0 VAR cFileSource		AS Character
@@ -108,13 +114,14 @@ User Function CXCopyTab(cFileSource	,; 	//01 Arquivo de origem (ex: \system\sx30
 		cDrvTgt		:= U_CXGetDrv(cFileExt)
 	EndIf
 	lTgtTop	:= (cDrvTgt == 'TOPCONN')
+	lTgtDBF	:= (cDrvTgt == 'DBFCDXADS')
 
-	cTarget := Iif(".#DB" $ cFileTarget,Strtran(cFileTarget,".#DB","BKP"),FileNoExt(cFileTarget))
+	cTarget := Iif(".#DB" $ cFileTarget,Strtran(cFileTarget,".#DB","BKP"),U_CXRetFileName(cFileTarget))
 //  cTarget := RetFileName(cTarget)
 
-	cSource := Iif(".#DB" $ cFileSource,Strtran(cFileSource,".#DB","BKP"),FileNoExt(cFileSource))
+	cSource := Iif(".#DB" $ cFileSource,Strtran(cFileSource,".#DB","BKP"),U_CXRetFileName(cFileSource))
 //  cSource := RetFileName(cSource)
-	cNmSrc	:= RetFileName(cSource)
+	cNmSrc	:= U_CXRetFileName(cSource)
 
 	U_CXSetRegua(nTpRegua,0)
 	U_CXIncRegua(nTpRegua,'Copiando tabela '+cNmSrc+'...')
@@ -122,7 +129,7 @@ User Function CXCopyTab(cFileSource	,; 	//01 Arquivo de origem (ex: \system\sx30
 	// Deletando arquivo de Destino caso exista
 	If MsFile(cTarget,cIndice,cDrvTgt)
 
-		cIndice := RetFileName(cTarget)+OrdBagExt()
+		cIndice := U_CXRetFileName(cTarget)+OrdBagExt()
 
 		lBack 	:= MsErase(cTarget,cIndice,cDrvTgt)
 	EndIf
@@ -131,13 +138,8 @@ User Function CXCopyTab(cFileSource	,; 	//01 Arquivo de origem (ex: \system\sx30
 	If lBack
 		dbUseArea(.T.,cDrvSrc, cSource,'SOURCE', .T., .T.) //Abre a tabela origem
 		If Select('SOURCE') == 0
-			cCodErr	:= U_CXTxtMsg(,,.T.)
-			cMsgErr	:= "ERRO ao abrir tabela de origem "+cFileSource+" usando o driver "+cDrvSrc+"."
-			cSoluc	:= ''
-			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
-			If lMsg
-				U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
-			EndIf
+			U_CXMsgErro("ERRO ao abrir tabela de origem "+cFileSource+" usando o driver "+cDrvSrc+".",;
+						/*cSolucao*/,lMsg,/*oArea*/)
 			lBack	:= .F.
 		Else
 			aStruSrc := SOURCE->(dbStruct())
@@ -168,43 +170,38 @@ User Function CXCopyTab(cFileSource	,; 	//01 Arquivo de origem (ex: \system\sx30
 			Next
 
 			If len(aStruTgt) == 1
-				cCodErr	:= U_CXTxtMsg(,,.T.)
-				cMsgErr	:= "ERRO - NENHUM CAMPO VÁLIDO PARA FAZER O BACKUP DA TABELA."
-				cSoluc	:= "VERIFIQUE OS CAMPOS PASSADOS NO FILTRO."
-				cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
-				If lMsg
-					U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
-				EndIf
+				U_CXMsgErro("ERRO - NENHUM CAMPO VÁLIDO PARA FAZER O BACKUP DA TABELA.",;
+							"VERIFIQUE OS CAMPOS PASSADOS NO FILTRO.",lMsg,/*oArea*/)
 				lBack := .F.
 			EndIf
 		EndIf
 	EndIf
 
 	If lBack
-		If .Not. MsCreate(cFileTarget,aStruTgt,cDrvTgt)	//Cria Arquivo de Destino
-			cCodErr	:= U_CXTxtMsg(,,.T.)
-			cMsgErr	:= "ERRO ao criar tabela de destino "+cFileTarget+" usando o driver "+cDrvTgt+CRLF+;
-						U_CXDescErro()+"."
-			cSoluc	:= ""
-			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
-			If lMsg
-				U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
-			EndIf
+		If lTgtDBF
+			// Cria o objeto para gravação do arquivo 
+			oDBFTgt := zDBFFile():New(cFileTarget)
+			If 	.Not. oDBFTgt:Create(aStruTgt) .Or. ;
+				.Not. oDBFTgt:Open(.T.,.T.)
+
+				U_CXMsgErro(oDBFTgt:GetErrorStr(),/*cSolucao*/,lMsg,/*oArea*/)
+				lBack	:= .F.
+			Endif
+		ElseIf .Not. MsCreate(cFileTarget,aStruTgt,cDrvTgt)	//Cria Arquivo de Destino
+			U_CXMsgErro("ERRO ao criar tabela de destino "+cFileTarget+" usando o driver "+cDrvTgt+CRLF+;
+						U_CXDescErro()+".",/*cSolucao*/,lMsg,/*oArea*/)
 			lBack 	:= .F.
 		EndIf
 	EndIf
 
 	If lBack
-		dbUseArea(.T., cDrvTgt, cTarget, 'TARGET', .F. , .F. )
-		If Select('TARGET') == 0
-			cCodErr	:= U_CXTxtMsg(,,.T.)
-			cMsgErr	:= "ERRO ao abrir tabela de destino "+cFileTarget+" usando o driver "+cDrvTgt+"."
-			cSoluc	:= ""
-			cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
-			If lMsg
-				U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
+		If .Not. lTgtDBF
+			dbUseArea(.T., cDrvTgt, cTarget, 'TARGET', .F. , .F. )
+			If Select('TARGET') == 0
+				U_CXMsgErro("ERRO ao abrir tabela de destino "+cFileTarget+" usando o driver "+cDrvTgt+".",;
+							/*cSolucao*/,lMsg,/*oArea*/)
+				lBack	:= .F.
 			EndIf
-			lBack	:= .F.
 		EndIf
 	EndIf
 
@@ -212,22 +209,20 @@ User Function CXCopyTab(cFileSource	,; 	//01 Arquivo de origem (ex: \system\sx30
 	If lBack
 		//Cria um indice de campos entre o Source e o Target
 		aPosSrc		:= {}
-		aStruTgt 	:= TARGET->(dbStruct()) //Recarrego os campos para garantir, pois, campos memo sao reordenados pelo ctree
+		If lTgtDBF
+			aStruTgt	:= oDBFTgt:dbStruct()
+		Else
+			aStruTgt 	:= TARGET->(dbStruct()) //Recarrego os campos para garantir, pois, campos memo sao reordenados pelo ctree
+		EndIf
 		nTamTgt		:= len(aStruTgt)
 		aPosSrc		:= Array(nTamTgt)
-		nPosRec		:= aScan(aStruTgt,{|x| x[nST_CAMPO] == 'CX_RECNO' })
+		nPosRec		:= aScan(aStruTgt,{|x| RTrim(x[nST_CAMPO]) == 'CX_RECNO' })	//Feito assim por causa dos memos!
 		For nX := 1 to nTamTgt
-			nPos	:= aScan(aStruSrc,{|x| x[nST_CAMPO] == aStruTgt[nX][nST_CAMPO] })
+			nPos	:= aScan(aStruSrc,{|x| RTrim(x[nST_CAMPO]) == RTrim(aStruTgt[nX][nST_CAMPO]) })
 			If nPos <= 0 .And. ;
 				nX <> nPosRec
 
-				cCodErr	:= U_CXTxtMsg(,,.T.)
-				cMsgErr	:= "Problema na estrutura da tabela "+cSource+"."
-				cSoluc	:= ""
-				cMsg	:= cCodErr+': '+cMsgErr+IIf(!Empty(cSoluc),CRLF+'SOLUÇÃO: '+cSoluc,'')
-				If lMsg
-					U_CXHelp(cCodErr,,cMsgErr,,cSoluc)
-				EndIf
+				U_CXMsgErro("Problema na estrutura da tabela "+cSource+".",/*cSolucao*/,lMsg,/*oArea*/)
 				lBack	:= .F.
 				Exit
 			EndIf
@@ -288,31 +283,42 @@ User Function CXCopyTab(cFileSource	,; 	//01 Arquivo de origem (ex: \system\sx30
 			nBuffer++
 			If lCanUseBulk
 				aDados	:= {}
+			ElseIf lTgtDbf
+				oDBFTgt:Insert()	//Equivalente ao reclock()
 			Else
 				RecLock('TARGET',.T.)
 			EndIf
 			
 			For nX := 1 to nTamTgt
-				If nX == nPosRec
-					If !lTgtTop //Nao trata o recno quando a tabela e' top!
-						If lCanUseBulk
-							aAdd(aDados,SOURCE->(Recno()))
-						Else
-							TARGET->(FieldPut(nX,SOURCE->(Recno())))
-						EndIf
-					EndIf
-				Else
-					If lCanUseBulk
-						aAdd(aDados,SOURCE->(FieldGet(aPosSrc[nX])))
-					Else
-//						TARGET->(&(aStruTgt[nX][nST_CAMPO]))	:= SOURCE->(FieldGet(aPosSrc[nX]))
-						TARGET->(FieldPut(nX,SOURCE->(FieldGet(aPosSrc[nX])))) //Melhor otimizacao!
-					EndIf
+				
+				If 	nX == nPosRec .And. ;
+					lTgtTop //Nao trata o recno quando a tabela e' top!
+
+					Loop
 				EndIf
+
+				If nX == nPosRec
+					uConteudo	:= 	SOURCE->(Recno())
+				Else
+					uConteudo	:= 	SOURCE->(FieldGet(aPosSrc[nX]))
+				EndIf
+
+				If lCanUseBulk
+					aAdd(aDados,uConteudo)
+				ElseIf lTgtDbf
+					oDBFTgt:FieldPut(nX,uConteudo)
+				Else
+//					TARGET->(&(aStruTgt[nX][nST_CAMPO]))	:= SOURCE->(FieldGet(aPosSrc[nX]))
+//					TARGET->(FieldPut(nX,SOURCE->(FieldGet(aPosSrc[nX])))) //Melhor otimizacao!
+					TARGET->(FieldPut(nX,uConteudo)) //Melhor otimizacao!
+				EndIf
+
 			Next
 			
 			If lCanUseBulk
 				oBulk:AddData(aDados)
+			ElseIf lTgtDbf
+				oDBFTgt:Update()	//Equivalente ao UnLock()
 			Else
 //	   			TARGET->(MsUnLock())
 				
@@ -326,6 +332,8 @@ User Function CXCopyTab(cFileSource	,; 	//01 Arquivo de origem (ex: \system\sx30
 			If SOURCE->(Deleted()) //se o registro atual esta deletado
 				If lCanUseBulk
 					aAdd(aRecnoDel,nBuffer)
+				ElseIf lTgtDbf
+					oDBFTgt:dbDelete()	//Apaga o registro
 				Else
 					TARGET->(dbDelete()) //Apaga o registro corrente
 				EndIf
@@ -351,7 +359,7 @@ User Function CXCopyTab(cFileSource	,; 	//01 Arquivo de origem (ex: \system\sx30
 				dbUnlockAll()
 			EndIf
 		Next		
-	Else
+	ElseIf .Not. lTgtDbf
 		dbUnlockAll()
 	EndIf
 
@@ -360,7 +368,13 @@ User Function CXCopyTab(cFileSource	,; 	//01 Arquivo de origem (ex: \system\sx30
 		oBulk:Destroy()
 			
 		FreeObj(oBulk)
-		oBulk := NIL
+	EndIf
+
+	If ValType(oDBFTgt) == 'O'
+		oDBFTgt:Close()
+		oDBFTgt:Destroy()
+			
+		FreeObj(oDBFTgt)
 	EndIf
 
 	//Fecha tabelas abertas
