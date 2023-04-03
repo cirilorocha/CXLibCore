@@ -48,7 +48,7 @@ User Function CXMsgErro(cMensagem,;	//01 Mensagem de erro
 	If ValType(oArea) == 'O'
 		oArea:RestArea(.T.)		//Restaura area
 		oArea:Destroy()
-		FWFreeVar(oArea)
+		//FWFreeVar(oArea)//da erros em outros fontes!
 	EndIf
 	
 	cCodErr	:= U_CXTxtMsg(oObj,nNivel+1,.T.)

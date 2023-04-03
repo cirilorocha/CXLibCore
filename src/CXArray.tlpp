@@ -1,14 +1,17 @@
-#INCLUDE "Protheus.ch"
-#INCLUDE "RWMake.ch"
-#Include "ParmType.ch"
-#INCLUDE "CXInclude.ch"
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+#INCLUDE 'CXInclude.ch'
 
 //#############################################################################
 //##+----------+----------+-------+-----------------------+------+----------+##
 //##|Programa  | CXArray  | Autor | Cirilo Rocha          | Data | 03/04/14 |##
 //##+----------+----------+-------+-----------------------+------+----------+##
-//##|Descr.    | Funcao para inicializar um array nDimensional com zeros ou |##
-//##|          | vazio                                                      |##
+//##|Descr.    | Inicializar um array nDimensional com zeros ou vazio       |##
+//##|          |  A função padrão Array() também pode fazer, porém, a mesma |##
+//##|          |  não permite inicializar com zeros                         |##
+//##|          | Também existe a limitação que se passado um array como ini-|##
+//##|          |  cializador o mesmo é feito por referência e não por cópia.|##
 //##+----------+-----------+------------------------------------------------+##
 //##|   DATA   |Programador| Manutenção efetuada                            |##
 //##+----------+-----------+------------------------------------------------+##
@@ -17,16 +20,16 @@
 //##|          |           |                                                |##
 //##+----------+-----------+------------------------------------------------+##
 //#############################################################################
-User Function CXArray(	xVlrInic,;	// 01
-						nPar1	,;	// 02
-						nPar2	,;	// 03
-						nPar3	,;	// 04
-						nPar4	,;	// 05
-						nPar5	)	// 06
+User Function CXArray(	xVlrInic,;	// 01 xVlrInic
+						nPar1	,;	// 02 nPar1
+						nPar2	,;	// 03 nPar2
+						nPar3	,;	// 04 nPar3
+						nPar4	,;	// 05 nPar4
+						nPar5	)	// 06 nPar5
 	
 	//Declaracao de variaveis----------------------------------------------------------------------
-	Local xRet
 	Local nX		AS Numeric
+	Local xRet		AS Variant
 
 	//Parametros da rotina-------------------------------------------------------------------------
 	ParamType 0		VAR xVlrInic		AS Character,Numeric,Date,Array,Logical,Object,Block

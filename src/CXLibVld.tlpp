@@ -44,7 +44,7 @@ User Function CXVldGen(	uConteudo	,;	//01 @uConteudo
 						nTamMin		,;	//05 nTamMin (def 0)
 						nTamMax		,;	//06 nTamMax (def 99999)
 						cReadVar	,;	//07 cVar (def ReadVar())
-						cDscCpo		,;	//08 cDscCpo
+						cDscCpo		,;	//08 @cDscCpo
 						lNaoZero	,;	//09 lNaoZero (def .F.)
 						lSoNum		,;	//10 lSoNum	(def .F.)
 						lDigitoX	,;	//11 lDigitoX (usado em conjunto com lSoNum, def .F.)
@@ -204,7 +204,10 @@ User Function CXVldGen(	uConteudo	,;	//01 @uConteudo
 
 	//Tela de verificação de permissão do Admin----------------------------------------------------
 	lRet	:= VrfAdmin(lRet,lMsg,lAuto)
-
+		
+	//Para poder utilizar em outros fontes esta descrição por referência
+	cDscCpo	:= cDescCpo
+	
 Return lRet
 
 //#############################################################################
