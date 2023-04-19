@@ -57,6 +57,7 @@
 //##| 05/04/22 | Cirilo R. | Adicionado parâmetro com o código de usuário   |##
 //##|          |           |  para execução                                 |##
 //##| 25/11/22 | Cirilo R. | Melhoria para buscar informações de classes    |##
+//##| 19/04/23 | Cirilo R. | Melhoria para também informar a database       |##
 //##|          |           |                                                |##
 //##|          |           |                                                |##
 //##+==========+===========+================================================+##
@@ -79,6 +80,7 @@ User Function CXTestFunc()
 	Local aSM0				AS Array
 	Local nPos				AS Numeric
 	Local nTamEmp			AS Numeric
+	Local dDtBak			AS Date
 
 	Local cModAnt		    AS Character
 	Local nModAnt		    AS Numeric
@@ -273,6 +275,17 @@ User Function CXTestFunc()
 	//		Return
 	//	EndIf
 
+		//Salva variaveis de ambiente
+		cEmpBak		:= cEmpAnt	//Salvo para comparar depois
+		cFilBak		:= cFilAnt	//Salvo para comparar depois
+		nRecSM0		:= SM0->(Recno())	//Salvo para comparar depois
+		nSvSx8Len 	:= GetSx8Len() //Salvo para comparar depois
+		dDtBak		:= dDataBase
+		
+		oArea		:= tCtrlAlias():GetArea({'SM0','#PAR','#KEY','#PSW'})
+		//aParam		:= U_CXGetParam(60) //Salva parametros
+		SaveInter() //Salva Variaveis Publicas
+
 		//Chama tela de pagametros
 		If .Not. Parametros()
 			//Restaura error block padrao
@@ -309,18 +322,10 @@ User Function CXTestFunc()
 		MV_PAR02 := ''
 		MV_PAR03 := ''
 		MV_PAR04 := ''
+		MV_PAR05 := ''
 
-		//Salva variaveis de ambiente
-		cEmpBak		:= cEmpAnt	//Salvo para comparar depois
-		cFilBak		:= cFilAnt	//Salvo para comparar depois
-		nRecSM0		:= SM0->(Recno())	//Salvo para comparar depois
-		nSvSx8Len 	:= GetSx8Len() //Salvo para comparar depois
-		
-		oArea		:= tCtrlAlias():GetArea({'SM0','#PAR','#KEY','#PSW'})
-		//aParam		:= U_CXGetParam(60) //Salva parametros
 		__cInternet	:= NIL 
 		VAR_IXB		:= NIL
-		SaveInter() //Salva Variaveis Publicas
 
 		//Tratamentos de erro de execucao
 		Begin Sequence
@@ -340,6 +345,7 @@ User Function CXTestFunc()
 		VAR_IXB		:= NIL
 		__cInternet	:= NIL
 		aPergunta	:= {} //Variavel de perguntas
+		dDataBase	:= dDtBak
 		RestInter() // Restauro variaveis publicas
 
 		If inTransact() //Esta dentro de uma transacao
@@ -656,6 +662,7 @@ Static Function Parametros() AS Logical
 	MV_PAR02	:= PadR(MV_PAR02,100)
 	MV_PAR03	:= MV_PAR03
 	MV_PAR04	:= PadR(MV_PAR04,Len(__cUserID))
+	MV_PAR05	:= StoD(MV_PAR05)
 
 	//---------------------------------------------------------------------------------------------
 	oDlg	:= MSDialog():New(	000,000,270,410,U_CXTxtMsg()+'Executar Função',,,,DS_MODALFRAME,;
@@ -666,7 +673,7 @@ Static Function Parametros() AS Logical
 		tSay():New(012,010,{|| 'Função:'	},oDlg,,/*oFont*/,,,,.T.,,,050,010)
 		tGet():New(010,050,{|u| if(PCount()>0,MV_PAR01:=u,MV_PAR01)}, oDlg, 055,010,,;
 					{|| VldFunc() },,,,,,.T.,,,,,,,,,,'MV_PAR01')
-		tComboBox():New(010,110,{|u|if(PCount()>0,MV_PAR03:=u,MV_PAR03)},aCbMod,090,011,oDlg,,;
+		tComboBox():New(010,110,{|u|if(PCount()>0,MV_PAR03:=u,MV_PAR03)},aCbMod,090,013,oDlg,,;
 						,,,,.T.,,,,,,,,,'MV_PAR03')
 
 		tSay():New(032,010,{|| 'Parâmetros:'	},oDlg,,/*oFont*/,,,,.T.,,,050,010)
@@ -677,6 +684,9 @@ Static Function Parametros() AS Logical
 		oGtUsr	:= tGet():New(050,050,{|u| if(PCount()>0,MV_PAR04:=u,MV_PAR04)}, oDlg, 050,010,,;
 								{|| Vazio() .Or. UsrExist(MV_PAR04) },,,,,,.T.,,,,,,,,,,'MV_PAR04')
 		oGtUsr:cF3	:= 'USR'
+		tSay():New(052,110,{|| 'DataBase:'	},oDlg,,/*oFont*/,,,,.T.,,,050,010)
+		tGet():New(050,140,{|u| if(PCount()>0,MV_PAR05:=u,MV_PAR05)}, oDlg, 060,010,,;
+					,,,,,,.T.,,,,,,,,,,'MV_PAR05')
 
 		tSay():New(070,010,{|| cFunType	},oDlg,,/*oFont*/,,,,.T.,,,190,10)
 		tSay():New(080,010,{|| cTxtLin1	},oDlg,,/*oFont*/,,,,.T.,,,190,37)
@@ -701,10 +711,13 @@ Static Function Parametros() AS Logical
 		If .Not. Empty(MV_PAR04)
 			U_CXSetUsr(MV_PAR04)
 		Else
-			U_CXSetUsr(cUsrRot)			
+			U_CXSetUsr(cUsrRot)
+		EndIf
+		If .Not. Empty(MV_PAR05)
+			dDataBase	:= MV_PAR05
 		EndIf
 
-		SlvParam({MV_PAR01,MV_PAR02,MV_PAR03,MV_PAR04},'CXTestFuncP.par')
+		SlvParam({MV_PAR01,MV_PAR02,MV_PAR03,MV_PAR04,DtoS(MV_PAR05)},'CXTestFuncP.par')
 	EndIf
 
 	//Restaura tecla de atalho
