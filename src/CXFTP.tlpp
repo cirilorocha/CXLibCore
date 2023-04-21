@@ -1,0 +1,556 @@
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+#INCLUDE 'CXInclude.ch'
+
+//##################################################################################################
+//##+========+=================================+=======+====================+======+=============+##
+//##|Programa| CXFTP                           | Autor | Cirilo Rocha       | Data | 21/04/2023  |##
+//##+========+=================================+=======+====================+======+=============+##
+//##|Desc.   | Função que emula um servidor FTP básico no SmartClient                            |##
+//##|        |                                                                                   |##
+//##+========+==========+========================================================================+##
+//##|  DATA  | ANALISTA | MANUTENÇÃO EFETUADA                                                    |##
+//##+========+==========+========================================================================+##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##|        |          |                                                                        |##
+//##+========+==========+========================================================================+##
+//##################################################################################################
+#DEFINE	GETF_HIDDENDIR 	256		//Mostra arquivos e pastas ocultas
+#DEFINE	GETF_SYSDIR 	512		//Mostra arquivos e pastas do sistema
+#DEFINE _DATA_HORA_		DtoS(Date())+'_'+StrTran(Time(),':','')
+//-------------------------------------------------------------------------------------------------
+User Function CXFTP()
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aPosBt				AS Array
+	Local aMenu		:= {}		AS Array
+	Local nX					AS Numeric
+	Local nAltTela				AS Numeric
+	Local nAltBt	:= 020		AS Numeric	/*Integer*/
+	Local nLarBt	:= 080		AS Numeric	/*Integer*/
+	Local oDlg					AS Object		// Dialog Principal
+
+	//Posições do array aMenu
+	Local cRX_DESC	:= 01		AS Numeric
+	Local bRX_EXEC	:= 02		AS Numeric
+
+	//Posições do retorno da função Directory
+	Private cDR_NOME	:= 01	AS Numeric
+//	Private nDR_TAM		:= 02	AS Numeric
+//	Private dDR_DATA	:= 03	AS Numeric
+//	Private cDR_HORA	:= 04	AS Numeric
+	Private cDR_TIPO	:= 05	AS Numeric
+
+	//---------------------------------------------------------------------------------------------
+	aAdd(aMenu,{'Arquivos Srv -> Cli'	,{|| CopiaArq(.T.,.F.)} })
+	aAdd(aMenu,{'Arquivos Cli -> Srv'	,{|| CopiaArq(.T.,.T.)} })
+
+	aAdd(aMenu,{'Diretório Srv -> Cli'	,{|| CopiaArq(.F.,.F.)} })
+	aAdd(aMenu,{'Diretório Cli -> Srv'	,{|| CopiaArq(.F.,.T.)} })
+
+//	aAdd(aMenu,{'Cria Diretório'		,{|| CriaDir()} })
+	aAdd(aMenu,{'Apaga Diretório'		,{|| DelArqDir(.F.)} })
+	aAdd(aMenu,{'Apaga Arquivo'			,{|| DelArqDir(.T.)} })
+
+	nAltTela	:= ((Len(aMenu)+1)*(nAltBt+035))+035
+	
+	oDlg	:= MSDialog():New(	000,000,nAltTela,(nLarBt*3)+010,U_CXTxtMsg()+"CXFTP",;
+								/*cPar6*/,/*nPar7*/,/*lPar8*/,/*DS_MODALFRAME*/,/*anClrText*/,/*anClrBack*/,;
+								/*oPar12*/,/*oWnd*/,.T.,,,,/*lTransparent*/)
+		
+		aPosBt	:= U_CXPosBtn(oDlg,nLarBt,nAltBt)
+
+		For nX := 1 to Len(aMenu)
+			TButton():New( 	005+(nX-1)*(nAltBt+005), 025, aMenu[nX][cRX_DESC], oDlg,aMenu[nX][bRX_EXEC],;
+							nLarBt, nAltBt,,,.F.,.T.,.F.,,.F.,,,.F. )
+		Next
+		 
+		TButton():New( aPosBt[1], 025, "&Fechar", oDlg,{||  oDlg:end()}, nLarBt, nAltBt,,,.F.,.T.,.F.,,.F.,,,.F. )
+
+	// ativa diálogo centralizado
+	oDlg:Activate(/*uPar1*/,/*uPar2*/,/*uPar3*/,.T./*lCenter*/,/*{|Self| Valid }*/,/*uPar6*/,/*{|Self| Init }*/ )
+
+	FreeObj(oDlg)
+
+Return
+
+//---------------------------------------------------------------------------------------------
+Static Function CopiaArq(	lArq	AS Logical	,;
+							lDstSrv	AS Logical	)
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aArquivos	:= {}		AS Array
+	Local cDirArq				AS Character
+	Local cDirRoot	:= '\'		AS Character
+	Local cDirDst				AS Character
+	Local cTitulo				AS Character
+	Local cTitOrg				AS Character
+	Local cTitDst				AS Character
+	Local nOpcoes				AS Numeric
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamObg 0		VAR lArq
+	ParamObg 1		VAR lDstSrv
+
+	//---------------------------------------------------------------------------------------------
+	nOpcoes		:= GETF_HIDDENDIR + GETF_SYSDIR
+	If lArq
+		cTitulo	:= U_CXTxtMsg()+'Selecione os arquivos'
+		nOpcoes	+= GETF_MULTISELECT
+	Else
+		cTitulo	:= U_CXTxtMsg()+'Selecione o diretório'
+		nOpcoes	+= GETF_RETDIRECTORY
+	EndIf
+
+	If lDstSrv
+		cTitOrg	:= cTitulo+' no Cliente'
+		cTitDst	:= U_CXTxtMsg()+'Selecione o diretório no Servidor'
+	Else
+		cTitOrg	:= cTitulo+' no Servidor'
+		cTitDst	:= U_CXTxtMsg()+'Selecione o diretório no Cliente'
+	EndIf 
+
+	cDirArq	:= U_cGetFile(	'*.*'		,;	//01 cMascara
+							cTitOrg		,;	//02 cTitulo
+							1			,;	//03 nMascPadrao
+							'\'			,;	//04 cDirInicial
+							.T.			,;	//05 lSalvar
+							nOpcoes		,;	//06 nOpcoes
+							.T.			,;	//07 lServer
+							.T.			)	//08 lKeepCase
+
+	//Usuário NÃO cancelou
+	If .Not. Empty(cDirArq)
+		If lArq
+			cDirRoot	:= ''
+		Else
+			cDirRoot	:= AllTrim(cDirArq)
+		EndIf
+		cDirDst	:= U_cGetFile(	'*.*'				,;	//01 cMascara
+								cTitDst				,;	//02 cTitulo
+								1					,;	//03 nMascPadrao
+								'c:\'				,;	//04 cDirInicial
+								.T.					,;	//05 lSalvar
+								GETF_RETDIRECTORY	,;	//06 nOpcoes
+								.F.					,;	//07 lServer
+								.T.					)	//08 lKeepCase
+		
+		//Usuário cancelou
+		If Empty(cDirArq)
+			Return
+		EndIf
+
+		If lArq
+			aArquivos	:= U_CXSeparaArq(cDirArq)
+		Else
+			If .Not. GetArqDir(	cDirArq		,;	//01 cDir
+								@aArquivos	)	//02 @aArquivos
+				aArquivos	:= {}	//Erro! ou Cancelou
+			EndIf
+		EndIf
+
+		If Len(aArquivos) > 0
+			Processa( 	{|| CpyArq(aArquivos,cDirRoot,cDirDst,lDstSrv) },;
+						U_CXTxtMsg()+cTitulo							,;
+						'Aguarde...'									,;
+						.F. 											)
+		EndIf
+	EndIf
+
+Return
+
+//---------------------------------------------------------------------------------------------
+Static Function CpyArq(	aArquivos	AS Array	,;	//01 aArquivos
+						cDirRoot	AS Character,;	//02 cDirRoot
+						cDirDst		AS Character,;	//03 cDirDst
+						lDstSrv		AS Logical	)	//04 lDstSrv
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cArqDst				AS Character
+	Local cFile					AS Character
+	Local cExten				AS Character
+	Local cDrive				AS Character
+	Local cDir					AS Character
+	Local cTemp					AS Character
+	Local lErro					AS Logical
+	Local lTodos	:= .F.		AS Logical
+	Local nX					AS Numeric
+	Local nOpc		:= -1		AS Numeric
+
+	//Opções da tela
+	Private nOPC_IGNORA		:= 01		AS Numeric
+	Private nOPC_SUBSTITUI	:= 02		AS Numeric
+	Private nOPC_RENOMEAR	:= 03		AS Numeric
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamObg 0		VAR aArquivos
+	ParamObg 1		VAR cDirRoot
+	ParamObg 2		VAR cDirDst
+	ParamObg 3		VAR lDstSrv
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	cTemp	:= LTrim(Str(Len(aArquivos)))
+	ProcRegua(Len(aArquivos))
+
+	For nX := 1 to Len(aArquivos)
+		IncProc('Processando '+LTrim(Str(nX))+' / '+cTemp)
+
+		SplitPath( aArquivos[nX],@cDrive,@cDir, @cFile, @cExten )
+		cDir	:= SubStr(cDir,Len(cDirRoot))
+		cArqDst	:= cDirDst+cDir+cFile+cExten
+		cArqDst	:= StrTran(cArqDst,'\\','\')
+
+		If .Not. lTodos
+			If File(cArqDst)
+				If .Not. TelaUsr(cArqDst,@nOpc,@lTodos)
+					Return
+				EndIf
+			EndIf
+		EndIf
+
+		If .Not. ExistDir(cDirDst+cDir,,.F.)
+			If 	MakeDir(cDirDst+cDir,,.F.) <> 0 .And. ;	//Erro
+				.Not. FwAlertYesNo(	'ERRO ao criar diretório destino.'+CRLF+;
+									'Destino: '+cDirDst+cDir+CRLF+;
+									'Erro: '+U_CXDescErro()+CRLF+CRLF+;
+									'DESEJA CONTINUAR MESMO ASSIM ?',U_CXTxtMsg(,,.T.))
+				Return
+			EndIf
+		EndIf
+
+		If nOpc == nOPC_IGNORA
+			Loop
+		EndIf
+
+		If nOpc == nOPC_RENOMEAR //Renomear
+			cArqDst	:= cDirDst+cDir+cFile+'_'+_DATA_HORA_+cExten
+			cArqDst	:= StrTran(cArqDst,'\\','\')
+
+			lErro	:= .Not. __CopyFile(aArquivos[nX]	,;	//cOrigem
+										cArqDst			,;	//cDestino
+										/*nPar3*/		,;	//?????
+										/*nPar4*/		,;	//?????
+										.F.				)	//lChangeCase
+		Else
+			If lDstSrv
+				lErro	:= .Not. CpyT2S(aArquivos[nX]	,;	//cFile
+										cDirDst+cDir	,;	//cFolder
+										.T.				,;	//lCompress
+										.F.				)	//lChangeCase
+			Else
+				lErro	:= .Not. CpyS2T(aArquivos[nX]	,;	//cFile
+										cDirDst+cDir	,;	//cFolder
+										.T.				,;	//lCompress
+										.F.				)	//lChangeCase
+			EndIf
+			If 	lErro .And. ;
+				.Not. FwAlertYesNo(	'ERRO ao copiar o arquivo.'+CRLF+;
+									'Origem: '+aArquivos[nX]+CRLF+;
+									'Destino: '+cDirDst+CRLF+;
+									'Erro: '+U_CXDescErro()+CRLF+CRLF+;
+									'DESEJA CONTINUAR MESMO ASSIM ?',U_CXTxtMsg(,,.T.))
+				Return
+			EndIf
+		EndIf
+	Next
+
+Return
+
+//---------------------------------------------------------------------------------------------
+Static Function TelaUsr(cArquivo	AS Character,;	//01 cArquivo
+						nOpcx		AS Numeric	,;	//02 @nOpcx
+						lTodos		AS Logical	);	//03 @lTodos
+										AS Logical
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aPosBt					AS Array
+	Local lRet		:= .T.			AS Logical
+	Local nLarBt	:= 050			AS Numeric /*Integer*/
+	Local nAltBt	:= 015			AS Numeric /*Integer*/
+	Local oDlg						AS Object
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cArquivo	AS Character
+	ParamType 1		VAR nOpcx		AS Numeric				Optional Default NIL 	//Referência
+	ParamType 2		VAR lTodos		AS Logical				Optional Default .F.	//Referência
+
+	//---------------------------------------------------------------------------------------------
+	oDlg	:= MSDialog():New(	000,000,210,500,U_CXTxtMsg()+'Conflito de arquivo',/*cPar6*/,/*nPar7*/,/*lPar8*/,;
+								DS_MODALFRAME,/*anClrText*/,/*anClrBack*/,/*oPar12*/,/*oWnd*/,.T.,,,,/*lTransparent*/)
+
+		aPosBt	:= U_CXPosBtn(oDlg,nLarBt,nAltBt)
+
+		tSay():New(005,005	 ,{|| 'O arquivo já existe no destino.'},oDlg,,,,,,.T.,,,150,nAltBt)
+		tSay():New(020,005	 ,{|| 'Arquivo: '+cArquivo},oDlg,,,,,,.T.,,,150,nAltBt)
+		tSay():New(035,005	 ,{|| 'O QUE DESEJA FAZER ? '},oDlg,,,,,,.T.,,,150,nAltBt)
+
+		TCheckBox():New(060,005,'Processar todos ?',;
+						{|u|if(PCount()>0,lTodos:=u,lTodos)},oDlg,100,020,,,,,,,,.T.,,,)
+
+		//-----------------------------------------------------------------------------------------
+		tButton():New(aPosBt[1],aPosBt[4][1],'Substituir'	,oDlg,{|| nOpcx := nOPC_SUBSTITUI	, oDlg:End() },nLarBt,nAltBt,,,,.T.)
+		tButton():New(aPosBt[1],aPosBt[4][2],'Ignorar'		,oDlg,{|| nOpcx := nOPC_IGNORA		, oDlg:End() },nLarBt,nAltBt,,,,.T.)
+		tButton():New(aPosBt[1],aPosBt[4][3],'Renomear'		,oDlg,{|| nOpcx := nOPC_RENOMEAR	, oDlg:End() },nLarBt,nAltBt,,,,.T.)
+		tButton():New(aPosBt[1],aPosBt[4][4],'Cancelar Tudo',oDlg,{|| lRet := .F. 				, oDlg:End() },nLarBt,nAltBt,,,,.T.)
+		
+		oDlg:lEscClose := .F.  //Nao permite fechar usando a tecla ESC
+	
+	// ativa diálogo centralizado
+	oDlg:Activate(/*uPar1*/,/*uPar2*/,/*uPar3*/,.T./*lCenter*/,/*{|Self| Valid }*/,/*uPar6*/,/*{|Self| Init }*/ )
+
+	FreeObj(oDlg)
+
+Return lRet
+
+//---------------------------------------------------------------------------------------------
+Static Function DelArqDir(lArq	AS Logical)
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aArquivos		:= {}	AS Array
+	Local aDiretorios	:= {}	AS Array
+	Local cDir					AS Character
+	Local cTitulo				AS Character
+	Local lRet					AS Logical
+	Local nOpcoes				AS Numeric
+	
+	Private lErro	:= .F.		AS Logical
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamObg 0	VAR lArq
+
+	//---------------------------------------------------------------------------------------------
+	nOpcoes		:= GETF_HIDDENDIR + GETF_SYSDIR
+	If lArq
+		cTitulo	:= U_CXTxtMsg()+'Selecione os arquivos'
+		nOpcoes	+= GETF_MULTISELECT
+	Else
+		cTitulo	:= U_CXTxtMsg()+'Selecione o diretório'
+		nOpcoes	+= GETF_RETDIRECTORY
+	EndIf
+
+	cDir	:= U_cGetFile(	'*.*'	,;	//01 cMascara
+							cTitulo	,;	//02 cTitulo
+							1		,;	//03 nMascPadrao
+							'\'		,;	//04 cDirInicial
+							.T.		,;	//05 lSalvar
+							nOpcoes	,;	//06 nOpcoes
+							.T.		,;	//07 lServer
+							.T.		)	//08 lKeepCase
+
+	If .Not. Empty(cDir)
+		If lArq
+			aArquivos	:= U_CXSeparaArq(cDir)
+		Else
+			If .Not. GetArqDir(	cDir		,;	//01 cDir
+								@aArquivos	,;	//02 @aArquivos
+								@aDiretorios)	//03 @aDiretorios
+				Return
+			EndIf
+		EndIf
+
+		Processa( 	{|| lRet	:= BkpFTP(aArquivos) }	,;
+					U_CXTxtMsg()+'Efetuando Backup'		,;
+					'Aguarde...'						,;
+					.F. 								)
+		If lRet
+			Processa( 	{|| DelArq(aArquivos)}			,;
+						U_CXTxtMsg()+'Apagando arquivos',;
+						'Aguarde...'					,;
+						.F. 							)
+			If lArq
+				If .Not. lErro
+					FwAlertInfo('Arquivos pagados com SUCESSO.'+CRLF+;
+								'Diretório: '+cDir,U_CXTxtMsg(,,.T.))
+				EndIf
+			Else
+				aAdd(aDiretorios,cDir)	//Diretório raiz
+				Processa( 	{|| DelDir(aDiretorios)}			,;
+							U_CXTxtMsg()+'Apagando diretórios'	,;
+							'Aguarde...'						,;
+							.F. 								)
+				If .Not. lErro
+					FwAlertInfo('Diretório pagado com SUCESSO.'+CRLF+;
+								'Diretório: '+cDir,U_CXTxtMsg(,,.T.))
+				EndIf
+			EndIf
+		EndIf
+	EndIf
+
+Return
+
+/*=================================================================================================
+Autor      : Cirilo Rocha
+Data       : 21/04/2023 
+Info       : Deleta diretórios do servidor
+*================================================================================================*/
+Static Function DelDir(aDiretorio	AS Array)
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aDirExc			AS Array
+	Local cDir				AS Character
+	Local cTemp				AS Character
+	Local nX				AS Numeric
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamObg 0	VAR	aDiretorio
+
+	//---------------------------------------------------------------------------------------------
+	cTemp	:= LTrim(Str(Len(aDiretorio)))
+
+	//Busca níveis de diretórios
+	aDirExc	:= {}
+	For nX := 1 to Len(aDiretorio)
+		cDir	:= StrTran(aDiretorio[nX]+'\','\\','\')
+		aAdd(aDirExc,{cDir,(Len(cDir)-Len(StrTran(cDir,'\')))})
+	Next
+	//Ordena os diretórios do mais profundo
+	aSort(aDirExc,,,{|x,y| StrZero(x[2],4)+x[1] > StrZero(y[2],4)+y[1] })	//Ordem descrescente
+
+	ProcRegua(Len(aDiretorio))
+
+	For nX := 1 to Len(aDiretorio)
+		IncProc('Processando '+LTrim(Str(nX))+' / '+cTemp)
+
+		If .Not. DirRemove( aDiretorio[nX] )
+			lErro	:= .T.
+			If .Not. FwAlertYesNo(	'ERRO ao apagar o diretório.'+CRLF+;
+									'Arquivo: '+aDiretorio[nX]+CRLF+;
+									'Erro: '+U_CXDescErro()+CRLF+CRLF+;
+									'DESEJA CONTINUAR MESMO ASSIM ?',U_CXTxtMsg(,,.T.))
+				Return
+			EndIf
+		EndIf
+	Next
+
+Return
+
+/*=================================================================================================
+Autor      : Cirilo Rocha
+Data       : 21/04/2023 
+Info       : Deleta arquivos do servidor
+*================================================================================================*/
+Static Function DelArq(aArquivos	AS Array)
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cTemp				AS Character
+	Local nX				AS Numeric
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamObg 0	VAR	aArquivos
+
+	//---------------------------------------------------------------------------------------------
+	cTemp	:= LTrim(Str(Len(aArquivos)))
+	ProcRegua(Len(aArquivos))
+
+	For nX := 1 to Len(aArquivos)
+		IncProc('Processando '+LTrim(Str(nX))+' / '+cTemp)
+
+		If 	FErase( aArquivos[nX],/*xParam*/, .F. ) <> 0
+			lErro	:= .T.
+			If .Not. FwAlertYesNo(	'ERRO ao apagar o arquivo.'+CRLF+;
+									'Arquivo: '+aArquivos[nX]+CRLF+;
+									'Erro: '+U_CXDescErro()+CRLF+CRLF+;
+									'DESEJA CONTINUAR MESMO ASSIM ?',U_CXTxtMsg(,,.T.))
+				Return
+			EndIf
+		EndIf
+	Next
+
+Return
+
+/*=================================================================================================
+Autor      : Cirilo Rocha
+Data       : 21/04/2023 
+Info       : Função que faz um backup zipado do arquivo ou diretório quando é excluído do servidor
+*================================================================================================*/
+Static Function BkpFTP(aArquivos	AS Array)
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local lRet		:= .T.					AS Logical
+	Local cArqBkp							AS Character
+	Local cDirBkp	:= '\backup\'			AS Character
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamObg 0	VAR aArquivos
+	
+	//---------------------------------------------------------------------------------------------
+	ProcRegua(0)
+	If .Not. ExistDir(cDirBkp,,.F.)
+		If 	MakeDir(cDirBkp,,.F.) <> 0 .And. ;	//Erro
+			.Not. FwAlertYesNo(	'ERRO ao criar diretório de backup.'+CRLF+;
+								'Destino: '+cDirBkp+CRLF+;
+								'Erro: '+U_CXDescErro()+CRLF+CRLF+;
+								'DESEJA CONTINUAR MESMO ASSIM ?',U_CXTxtMsg(,,.T.))
+			Return .F.
+		EndIf
+	EndIf
+
+	cArqBkp	:= cDirBkp+'CXFTP_BKP_'+_DATA_HORA_+'.zip'
+	If FZip(cArqBkp,aArquivos,/*cBaseDir*/,/*cSenha*/) <> 0
+
+		If	.Not. FwAlertYesNo(	'ERRO ao criar backup dos arquivos.'+CRLF+;
+								'Destino: '+cArqBkp+CRLF+CRLF+;
+								'DESEJA CONTINUAR MESMO ASSIM ?',U_CXTxtMsg(,,.T.))
+			Return .F.
+		EndIf
+	EndIf
+
+Return lRet
+
+/*=================================================================================================
+Autor      : Cirilo Rocha
+Data       : 21/04/2023 
+Info       : Rotina para gerar uma listagem dos arquivos de um diretório do servidor, de forma
+				recursiva
+*================================================================================================*/
+Static Function GetArqDir(	cDir		AS Character,;	//01 cDir
+							aArquivos	AS Array	,;	//02 @aArquivos
+							aDiretorios	AS Array	);	//03 @aDiretorios
+												AS Logical
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aListaArq	:= {}			AS Array
+	Local nX						AS Numeric
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cDir		AS Character
+	
+	Default aArquivos	:= {}
+	Default aDiretorios	:= {}
+
+	//---------------------------------------------------------------------------------------------
+	If Right(cDir,1) <> '\'
+		cDir	+= '\'
+	EndIf
+	aListaArq	:= Directory(cDir+'*.*','HSD',/*uParam1*/,.F.,/*nTypeOrder*/)
+	
+	If Len(aListaArq) >= (10000-1)	//10k arquivos!!!!
+		FwAlertYesNo(	'PROBLEMA: A listagem de arquivos do diretório: '+cDir+' ultrapassa o limite '+;
+						' de 10k arquivos.'+CRLF+CRLF+;
+						'PROSSEGUE MESMO ASSIM ?',U_CXTxtMsg(,,.T.))
+		FwFreeArray(aListaArq)
+		Return .F.
+	EndIf
+
+	For nX := 1 to Len(aListaArq)
+		If 	aListaArq[nX][cDR_NOME] == '.' .Or. ;
+			aListaArq[nX][cDR_NOME] == '..'
+			Loop
+		EndIf
+		If aListaArq[nX][cDR_TIPO] == 'D'	//Diretório!
+			If .Not. GetArqDir(	cDir+aListaArq[nX][cDR_NOME],;
+								@aArquivos					)
+				FwFreeArray(aListaArq)
+				Return .F.
+			EndIf
+			aAdd(aDiretorios,cDir+aListaArq[nX][cDR_NOME])
+		Else
+			aAdd(aArquivos,cDir+aListaArq[nX][cDR_NOME])
+		EndIf
+	Next
+	FwFreeArray(aListaArq)
+
+Return .T.
+
