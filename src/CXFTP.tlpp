@@ -119,7 +119,7 @@ Static Function CopiaArq(	lArq	AS Logical	,;
 							cTitOrg		,;	//02 cTitulo
 							1			,;	//03 nMascPadrao
 							'\'			,;	//04 cDirInicial
-							.T.			,;	//05 lSalvar
+							.F.			,;	//05 lSalvar
 							nOpcoes		,;	//06 nOpcoes
 							.Not.lDstSrv,;	//07 lServer
 							.T.			)	//08 lKeepCase
