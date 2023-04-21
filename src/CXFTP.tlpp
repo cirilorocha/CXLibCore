@@ -54,7 +54,7 @@ User Function CXFTP()
 	aAdd(aMenu,{'Apaga Diretório'		,{|| DelArqDir(.F.)} })
 	aAdd(aMenu,{'Apaga Arquivo'			,{|| DelArqDir(.T.)} })
 
-	nAltTela	:= ((Len(aMenu)+1)*(nAltBt+035))+035
+	nAltTela	:= ((Len(aMenu)+2)*(nAltBt+035))+035
 	
 	oDlg	:= MSDialog():New(	000,000,nAltTela,(nLarBt*3)+010,U_CXTxtMsg()+"CXFTP",;
 								/*cPar6*/,/*nPar7*/,/*lPar8*/,/*DS_MODALFRAME*/,/*anClrText*/,/*anClrBack*/,;
@@ -66,6 +66,8 @@ User Function CXFTP()
 			TButton():New( 	005+(nX-1)*(nAltBt+005), 025, aMenu[nX][cRX_DESC], oDlg,aMenu[nX][bRX_EXEC],;
 							nLarBt, nAltBt,,,.F.,.T.,.F.,,.F.,,,.F. )
 		Next
+		
+		tSay():New(aPosBt[1]-025,025	 ,{|| 'Ambiente: '+GetEnvServer()},oDlg,,,,,,.T.,,,150,nAltBt)
 		 
 		TButton():New( aPosBt[1], 025, "&Fechar", oDlg,{||  oDlg:end()}, nLarBt, nAltBt,,,.F.,.T.,.F.,,.F.,,,.F. )
 
@@ -81,7 +83,8 @@ Static Function CopiaArq(	lArq	AS Logical	,;
 							lDstSrv	AS Logical	)
 
 	//Declaracao de variaveis----------------------------------------------------------------------
-	Local aArquivos	:= {}		AS Array
+	Local aArquivos		:= {}	AS Array
+	Local aDiretorios	:= {}	AS Array
 	Local cDirArq				AS Character
 	Local cDirRoot	:= '\'		AS Character
 	Local cDirDst				AS Character
@@ -118,7 +121,7 @@ Static Function CopiaArq(	lArq	AS Logical	,;
 							'\'			,;	//04 cDirInicial
 							.T.			,;	//05 lSalvar
 							nOpcoes		,;	//06 nOpcoes
-							.T.			,;	//07 lServer
+							.Not.lDstSrv,;	//07 lServer
 							.T.			)	//08 lKeepCase
 
 	//Usuário NÃO cancelou
@@ -127,6 +130,16 @@ Static Function CopiaArq(	lArq	AS Logical	,;
 			cDirRoot	:= ''
 		Else
 			cDirRoot	:= AllTrim(cDirArq)
+			cDirRoot	:= StrTran(cDirRoot+'\','\\','\')
+			aDiretorios	:= StrTokArr2(cDirRoot,'\',.F.)
+			//Reconstrói removendo o último nível de diretório
+			aSize(aDiretorios,len(aDiretorios)-1)	//Remove apenas o último diretório
+			If lDstSrv
+				cDirRoot	:= ''
+			Else
+				cDirRoot	:= '\'
+			EndIf
+			aEval(aDiretorios,{|x| cDirRoot += x+'\' })
 		EndIf
 		cDirDst	:= U_cGetFile(	'*.*'				,;	//01 cMascara
 								cTitDst				,;	//02 cTitulo
@@ -134,11 +147,11 @@ Static Function CopiaArq(	lArq	AS Logical	,;
 								'c:\'				,;	//04 cDirInicial
 								.T.					,;	//05 lSalvar
 								GETF_RETDIRECTORY	,;	//06 nOpcoes
-								.F.					,;	//07 lServer
+								lDstSrv				,;	//07 lServer
 								.T.					)	//08 lKeepCase
 		
 		//Usuário cancelou
-		If Empty(cDirArq)
+		If Empty(cDirDst)
 			Return
 		EndIf
 
@@ -168,15 +181,17 @@ Static Function CpyArq(	aArquivos	AS Array	,;	//01 aArquivos
 						lDstSrv		AS Logical	)	//04 lDstSrv
 
 	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aDiretorios			AS Array
 	Local cArqDst				AS Character
 	Local cFile					AS Character
 	Local cExten				AS Character
 	Local cDrive				AS Character
 	Local cDir					AS Character
 	Local cTemp					AS Character
+	Local cSubDir				AS Character
 	Local lErro					AS Logical
 	Local lTodos	:= .F.		AS Logical
-	Local nX					AS Numeric
+	Local nX,nY					AS Numeric
 	Local nOpc		:= -1		AS Numeric
 
 	//Opções da tela
@@ -198,7 +213,7 @@ Static Function CpyArq(	aArquivos	AS Array	,;	//01 aArquivos
 		IncProc('Processando '+LTrim(Str(nX))+' / '+cTemp)
 
 		SplitPath( aArquivos[nX],@cDrive,@cDir, @cFile, @cExten )
-		cDir	:= SubStr(cDir,Len(cDirRoot))
+		cDir	:= SubStr(cDir,Len(cDirRoot)-1)
 		cArqDst	:= cDirDst+cDir+cFile+cExten
 		cArqDst	:= StrTran(cArqDst,'\\','\')
 
@@ -211,13 +226,19 @@ Static Function CpyArq(	aArquivos	AS Array	,;	//01 aArquivos
 		EndIf
 
 		If .Not. ExistDir(cDirDst+cDir,,.F.)
-			If 	MakeDir(cDirDst+cDir,,.F.) <> 0 .And. ;	//Erro
-				.Not. FwAlertYesNo(	'ERRO ao criar diretório destino.'+CRLF+;
-									'Destino: '+cDirDst+cDir+CRLF+;
-									'Erro: '+U_CXDescErro()+CRLF+CRLF+;
-									'DESEJA CONTINUAR MESMO ASSIM ?',U_CXTxtMsg(,,.T.))
-				Return
-			EndIf
+			aDiretorios	:= StrTokArr2(cDir,'\',.F.)
+			cSubDir		:= StrTran(cDirDst+'\','\\','\')
+			For nY := 1 to Len(aDiretorios)
+				cSubDir	+= aDiretorios[nY]+'\'
+				If 	.Not. ExistDir(cSubDir,,.F.) .And. ;	//Só tenta triar se NÃO existir
+					MakeDir(cSubDir,,.F.) <> 0 .And. ;		//Erro ao criar o diretório
+					.Not. FwAlertYesNo(	'ERRO ao criar diretório destino.'+CRLF+;
+										'Destino: '+cSubDir+CRLF+;
+										'Erro: '+U_CXDescErro()+CRLF+CRLF+;
+										'DESEJA CONTINUAR MESMO ASSIM ?',U_CXTxtMsg(,,.T.))
+					Return
+				EndIf
+			Next
 		EndIf
 
 		If nOpc == nOPC_IGNORA
