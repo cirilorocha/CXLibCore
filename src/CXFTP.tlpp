@@ -560,7 +560,7 @@ Static Function GetArqDir(	cDir		AS Character,;	//01 cDir
 			aListaArq[nX][cDR_NOME] == '..'
 			Loop
 		EndIf
-		If aListaArq[nX][cDR_TIPO] == 'D'	//Diretório!
+		If 'D' $ aListaArq[nX][cDR_TIPO] 	//Diretório! //PRECISA SER ASSIM $
 			If .Not. GetArqDir(	cDir+aListaArq[nX][cDR_NOME],;
 								@aArquivos					)
 				FwFreeArray(aListaArq)
