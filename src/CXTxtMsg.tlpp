@@ -41,9 +41,9 @@ User Function CXTxtMsg(	oObjeto		,;	//01 oObjeto
 	
 	//Declaracao de variaveis----------------------------------------------------------------------
 	Local cString		AS Character
-	Local cFuncao		AS Character
-	Local nX			AS Integer
-	Local aFile			AS Array
+	//Local cFuncao		AS Character
+	//Local nX			AS Integer
+	//Local aFile			AS Array
 
 	//Parametros da rotina-------------------------------------------------------------------------
 	ParamType 0		VAR oObjeto 		AS Object		Optional Default NIL
@@ -61,34 +61,35 @@ User Function CXTxtMsg(	oObjeto		,;	//01 oObjeto
 
 	//Chamada a partir de uma user function
 	Else
-		cFuncao	:= Upper(ProcName(nNivel))
-
-		If .Not. Left(cFuncao,2) == 'U_' //Funcao de usuario?
-			//Busca funcao de usuario chamadora da Static Function
-			For nX := nNivel+1 to 30
-				cFuncao	:= Upper(ProcName(nX))
-				//Busca se e' funcao customizada
-				If Left(cFuncao,2) == 'U_' .Or. ;
-					Empty(cFuncao)			//Fim da pilha
-	//				cString	:= SubStr(cString,3)
-					Exit
-				EndIf
-			Next
-		EndIf
-
-		If Empty(cFuncao)
-			cFuncao	:= 'Desconhecida'
-		Else
-			GetFuncArray( cFuncao, /*@aType*/, @aFile, /*@aLine*/, /*@aDate*/, /*@aTime*/ ) //Busca dados da funcao no RPO
-			If Len(aFile) == 0 //Erro ao localizar funcao!
-				cString	:= SubStr(cFuncao,3)
-			Else
-				cString	:= RetFileName(aFile[1])
-			EndIf
-		EndIf
-
-		cString	+= '('+AllTrim(Str(ProcLine(nNivel)))+') - '
-
+		//cFuncao	:= Upper(ProcName(nNivel))
+		//
+		//If .Not. Left(cFuncao,2) == 'U_' //Funcao de usuario?
+		//	//Busca funcao de usuario chamadora da Static Function
+		//	For nX := nNivel+1 to 30
+		//		cFuncao	:= Upper(ProcName(nX))
+		//		//Busca se e' funcao customizada
+		//		If Left(cFuncao,2) == 'U_' .Or. ;
+		//			Empty(cFuncao)			//Fim da pilha
+	//	//			cString	:= SubStr(cString,3)
+		//			Exit
+		//		EndIf
+		//	Next
+		//EndIf
+		//
+		//If Empty(cFuncao)
+		//	cFuncao	:= 'Desconhecida'
+		//Else
+		//	GetFuncArray( cFuncao, /*@aType*/, @aFile, /*@aLine*/, /*@aDate*/, /*@aTime*/ ) //Busca dados da funcao no RPO
+		//	If Len(aFile) == 0 //Erro ao localizar funcao!
+		//		cString	:= SubStr(cFuncao,3)
+		//	Else
+		//		cString	:= RetFileName(aFile[1])
+		//	EndIf
+		//EndIf
+		//
+		//cString	+= '('+AllTrim(Str(ProcLine(nNivel)))+') - '
+		
+		cString	+= U_CXRetFileName(ProcSource())+'('+AllTrim(Str(ProcLine(nNivel)))+')'
 	EndIf
 	
 	If lSemTraco
