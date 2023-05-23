@@ -22,6 +22,7 @@
 //##| 14/03/19 | Cirilo R. | Pequena revisão no fonte                       |##
 //##| 18/04/19 | Cirilo R. | Correção para apresentar o nome de usuário     |##
 //##| 09/02/22 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 23/05/23 | Cirilo R. | Correção para datar a partir de 19/05/2023     |##
 //##|          |           |                                                |##
 //##|          |           |                                                |##
 //##+----------+-----------+------------------------------------------------+##
@@ -57,7 +58,7 @@ User Function CXLerLog(cConteudo);
 			EndIf
 
 			cNmUsr		:= Upper(Left(U_CXNmUsr(cUsr),25))
-			dData		:= CtoD("01/01/96","DDMMYY") + Load2in4(Substr(cUserLg,16))	
+			dData		:= CtoD("01/01/96","DDMMYY") + Load2in4(Substr(cUserLg,15))
 			
 			cRet 		:= DtoC(dData)+'-'+cUsr+"-"+cNmUsr
 		EndIf
