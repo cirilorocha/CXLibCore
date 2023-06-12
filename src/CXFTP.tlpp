@@ -100,29 +100,29 @@ Static Function CopiaArq(	lArq	AS Logical	,;
 	//---------------------------------------------------------------------------------------------
 	nOpcoes		:= GETF_HIDDENDIR + GETF_SYSDIR
 	If lArq
-		cTitulo	:= U_CXTxtMsg()+'Selecione os arquivos'
+		cTitulo	:= 'Selecione os arquivos'
 		nOpcoes	+= GETF_MULTISELECT
 	Else
-		cTitulo	:= U_CXTxtMsg()+'Selecione o diretório'
+		cTitulo	:= 'Selecione o diretório'
 		nOpcoes	+= GETF_RETDIRECTORY
 	EndIf
 
 	If lDstSrv
 		cTitOrg	:= cTitulo+' no Cliente'
-		cTitDst	:= U_CXTxtMsg()+'Selecione o diretório no Servidor'
+		cTitDst	:= 'Selecione o diretório no Servidor'
 	Else
 		cTitOrg	:= cTitulo+' no Servidor'
-		cTitDst	:= U_CXTxtMsg()+'Selecione o diretório no Cliente'
+		cTitDst	:= 'Selecione o diretório no Cliente'
 	EndIf 
 
-	cDirArq	:= U_cGetFile(	'*.*'		,;	//01 cMascara
-							cTitOrg		,;	//02 cTitulo
-							1			,;	//03 nMascPadrao
-							'\'			,;	//04 cDirInicial
-							.F.			,;	//05 lSalvar
-							nOpcoes		,;	//06 nOpcoes
-							.Not.lDstSrv,;	//07 lServer
-							.T.			)	//08 lKeepCase
+	cDirArq	:= U_cGetFile(	'Todos os Arquivos | *.*|Menus| *.xnu'	,;	//01 cMascara
+							U_CXTxtMsg()+cTitOrg					,;	//02 cTitulo
+							1										,;	//03 nMascPadrao
+							'\'										,;	//04 cDirInicial
+							.F.										,;	//05 lSalvar
+							nOpcoes									,;	//06 nOpcoes
+							.Not.lDstSrv							,;	//07 lServer
+							.T.										)	//08 lKeepCase
 
 	//Usuário NÃO cancelou
 	If .Not. Empty(cDirArq)
@@ -142,7 +142,7 @@ Static Function CopiaArq(	lArq	AS Logical	,;
 			aEval(aDiretorios,{|x| cDirRoot += x+'\' })
 		EndIf
 		cDirDst	:= U_cGetFile(	'*.*'				,;	//01 cMascara
-								cTitDst				,;	//02 cTitulo
+								U_CXTxtMsg()+cTitDst,;	//02 cTitulo
 								1					,;	//03 nMascPadrao
 								'c:\'				,;	//04 cDirInicial
 								.T.					,;	//05 lSalvar
@@ -166,7 +166,7 @@ Static Function CopiaArq(	lArq	AS Logical	,;
 
 		If Len(aArquivos) > 0
 			Processa( 	{|| CpyArq(aArquivos,cDirRoot,cDirDst,lDstSrv) },;
-						U_CXTxtMsg()+cTitulo							,;
+						U_CXTxtMsg()+cTitulo											,;
 						'Aguarde...'									,;
 						.F. 											)
 		EndIf
