@@ -27,7 +27,7 @@
 //##+========+==========+========================================================================+##
 //##|  DATA  | ANALISTA | MANUTENÇÃO EFETUADA                                                    |##
 //##+========+==========+========================================================================+##
-//##|21/04/23| Cirilo R.| Melhoria no retorno da função quando multi-arquivo no servidor         |##
+//##|        |          |                                                                        |##
 //##|        |          |                                                                        |##
 //##|        |          |                                                                        |##
 //##+========+==========+========================================================================+##
@@ -39,7 +39,6 @@ User Function CXSeparaArq(cArquivos);	//01 cArquivos
 	Local nPAtu					AS Integer
 	Local nPQueb				AS Integer
 	Local nPFim					AS Integer
-	Local nX					AS Integer
 
 	//Parametros da rotina-------------------------------------------------------------------------
 	ParamType 0		VAR cArquivos		AS Character
@@ -64,12 +63,6 @@ User Function CXSeparaArq(cArquivos);	//01 cArquivos
 	//---------------------------------------------------------------------------------------------
 	If At('|',cArquivos)	//cGetFile antiga
 		aArquivos	:= StrTokArr2(cArquivos,'|',.F.)
-		For nX := 1 to Len(aArquivos)
-			aArquivos[nX]	:= AllTrim(aArquivos[nX])
-			If Left(aArquivos[nX],9) == 'SERVIDOR\'
-				aArquivos[nX]	:= SubStr(aArquivos[nX],9)
-			EndIf
-		Next
 	Else
 		nPAtu	:= 1
 		nPQueb	:= At(':',cArquivos)
@@ -330,12 +323,11 @@ Return lOK
 //##|Programa  | CXFileExt  | Autor | Cirilo Rocha     | Data | 03/05/2017  |##
 //##+----------+------------+-------+------------------+------+-------------+##
 //##|Descr.    | Retorna apenas extensão do arquivo                         |##
-//##|          | Poderia usar o padrão FileNoExt(), porém o mesmo se atra-  |##
-//##|          |  palha quando existe ponto no nome do arquivo              |##
 //##+----------+-----------+------------------------------------------------+##
 //##|   DATA   |Programador| Manutenção efetuada                            |##
 //##+----------+-----------+------------------------------------------------+##
 //##| 23/02/23 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 04/07/23 | Cirilo R. | Pequena revisão no fonte                       |##
 //##|          |           |                                                |##
 //##|          |           |                                                |##
 //##+----------+-----------+------------------------------------------------+##
@@ -345,12 +337,13 @@ User Function CXFileExt(cArquivo);	//01 cArquivo
 
 	//Declaracao de variaveis----------------------------------------------------------------------
 	Local cRet	:= ''							AS Character
-	Local nPos	:= Rat(".",cArquivo)			AS Integer
+	Local nPos									AS Integer
 	
 	//Parametros da rotina-------------------------------------------------------------------------
 	ParamType 0		VAR cArquivo		AS Character
 
 	//---------------------------------------------------------------------------------------------
+	nPos	:= Rat(".",cArquivo)
 	If nPos > 0
 		cRet	:= SubStr(cArquivo,nPos)
 	EndIf
