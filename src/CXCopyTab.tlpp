@@ -293,9 +293,9 @@ User Function CXCopyTab(cFileSource	,; 	//01 Arquivo de origem (ex: \system\sx30
 			cQuery 	+= "SELECT COUNT(1) TOTAL "+CRLF
 			cQuery 	+= "FROM "+cSource+CRLF
 
-			U_CXExecQuery(@cQry,cQuery,/*lGravaQuery*/,.F.,/*cNomeFun*/) //Executa a query
-
-			nTotal	:= (cQry)->TOTAL
+			//U_CXExecQuery(@cQry,cQuery,/*lGravaQuery*/,.F.,/*cNomeFun*/) //Executa a query
+			//nTotal	:= (cQry)->TOTAL
+			nTotal	:= MpSysExecScalar(cQuery,'TOTAL',/*aBindParam*/)	//Executa uma consulta e retorna a primeira linha no conjunto de resultados retornados pela consulta
 
 			(cQry)->(dbCloseArea()) //Fecha a query
 		Else
