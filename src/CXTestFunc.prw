@@ -1111,7 +1111,7 @@ Static Function MsgErroCst(oErr);
 		oModel := Nil
 	EndIf
 
-	U_CXWriteFile('C:\Temp\erro.log',cLogErro)
+	U_CXWriteFile('C:\Protheus\erro.log',cLogErro)
 
 	U_CXApMsgMemo(cLogErro,'CXTestFunc-ERRO',.T.,.F.,.T.,.F.)
 
