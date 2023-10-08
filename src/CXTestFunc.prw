@@ -201,8 +201,8 @@ User Function CXTestFunc()
 					.T.				) 	//11 Faz a abertura da conexao com servidor do banco
 //		PREPARE ENVIRONMENT EMPRESA Left(cEmp_,2) FILIAL Left(cFil_,2)
 
-		__cUserID	:= '000000'
-		cUserName	:= 'Administrador'
+		U_CXSetUsr('000000')
+		__cInternet	:= NIL		//Preciso colocar aqui para forçar mostrar mensagens
 
 		lCarrAmb		:= .T. //Carregou o ambiente
 		
@@ -504,10 +504,10 @@ Static Function MostraRet(uRet)
 								/*lPar8*/,DS_MODALFRAME,/*anClrText*/,/*anClrBack*/,/*oPar12*/,/*oMainWnd*/,.T.)
 
 		tSay():New(nMrg+4,nMrg	 ,{|| 'Tipo do Retorno:'},oDlg,,,,,,.T.,,,040,nAltBt)
-		TGet():New(nMrg  ,nMrg+45,{|u| if(PCount()>0,cGtTipo:=u,cGtTipo)}, oDlg, 130,nAltBt,'@',,,,,,,.T.,,,,,,,.T.,,,'cGtTipo')
+		TGet():New(nMrg  ,nMrg+45,bSetGet(cGtTipo), oDlg, 130,nAltBt,'@',,,,,,,.T.,,,,,,,.T.,,,'cGtTipo')
 
 	//	tSay():New(022,010,{|| 'Retorno:'},oDlg,,,,,,.T.,,,040,010)
-		oGtRet	:=	tMultiget():New(nAltBt+nMrg*2,nMrg,{|u|if(Pcount()>0,cGtRet:=u,cGtRet)},;
+		oGtRet	:=	tMultiget():New(nAltBt+nMrg*2,nMrg,bSetGet(cGtRet),;
 									oDlg,nLrg-nMrg*2,nLnBt-nMrg*2,oFonte,,,,,.T.,,,,,,.T.)
 		oGtRet:EnableVScroll( .T. )
 		oGtRet:EnableHScroll( .T. )
@@ -586,10 +586,10 @@ Static Function SelEmpFil();
 		
 		aPosBt	:= U_CXPosBtn(oDlg,nLarBt,nAltBt)
 		
-		oEmp	:= tComboBox():New(10,05,{|u|if(PCount()>0,cEmp_:=u,cEmp_)},aEmp,165,20,oDlg,,,;
+		oEmp	:= tComboBox():New(10,05,bSetGet(cEmp_),aEmp,165,20,oDlg,,,;
 										{|| VldEmp(oEmp:nAt)},,,.T.,,,,,,,,,'cEmp_')
 
-		oFil	:= tComboBox():New(30,05,{|u|if(PCount()>0,cFil_:=u,cFil_)},aFil,165,20,oDlg,,,,,,.T.,,,,,,,,,'cFil_')
+		oFil	:= tComboBox():New(30,05,bSetGet(cFil_),aFil,165,20,oDlg,,,,,,.T.,,,,,,,,,'cFil_')
 
 		tButton():New(aPosBt[1],aPosBt[5][1],'Cancelar'		,oDlg,{|| lRet := .F. , oDlg:End() },nLarBt,nAltBt,,,,.T.)
 		oBOK	:= tButton():New(aPosBt[1],aPosBt[5][5],'OK'			,oDlg,{|| lRet := .T. , oDlg:End() },nLarBt,nAltBt,,,,.T.)
@@ -671,21 +671,21 @@ Static Function Parametros() AS Logical
 		aPosBt	:= U_CXPosBtn(oDlg,nLarBt,nAltBt)
 		
 		tSay():New(012,010,{|| 'Função:'	},oDlg,,/*oFont*/,,,,.T.,,,050,010)
-		tGet():New(010,050,{|u| if(PCount()>0,MV_PAR01:=u,MV_PAR01)}, oDlg, 055,010,,;
+		tGet():New(010,050,bSetGet(MV_PAR01), oDlg, 055,010,,;
 					{|| VldFunc() },,,,,,.T.,,,,,,,,,,'MV_PAR01')
-		tComboBox():New(010,110,{|u|if(PCount()>0,MV_PAR03:=u,MV_PAR03)},aCbMod,090,013,oDlg,,;
+		tComboBox():New(010,110,bSetGet(MV_PAR03),aCbMod,090,013,oDlg,,;
 						,,,,.T.,,,,,,,,,'MV_PAR03')
 
 		tSay():New(032,010,{|| 'Parâmetros:'	},oDlg,,/*oFont*/,,,,.T.,,,050,010)
-		tGet():New(030,050,{|u| if(PCount()>0,MV_PAR02:=u,MV_PAR02)}, oDlg, 150,010,,;
+		tGet():New(030,050,bSetGet(MV_PAR02), oDlg, 150,010,,;
 					,,,,,,.T.,,,,,,,,,,'MV_PAR02')
 
 		tSay():New(052,010,{|| 'Usuário:'	},oDlg,,/*oFont*/,,,,.T.,,,050,010)
-		oGtUsr	:= tGet():New(050,050,{|u| if(PCount()>0,MV_PAR04:=u,MV_PAR04)}, oDlg, 050,010,,;
+		oGtUsr	:= tGet():New(050,050,bSetGet(MV_PAR04), oDlg, 050,010,,;
 								{|| Vazio() .Or. UsrExist(MV_PAR04) },,,,,,.T.,,,,,,,,,,'MV_PAR04')
 		oGtUsr:cF3	:= 'USR'
 		tSay():New(052,110,{|| 'DataBase:'	},oDlg,,/*oFont*/,,,,.T.,,,050,010)
-		tGet():New(050,140,{|u| if(PCount()>0,MV_PAR05:=u,MV_PAR05)}, oDlg, 060,010,,;
+		tGet():New(050,140,bSetGet(MV_PAR05), oDlg, 060,010,,;
 					,,,,,,.T.,,,,,,,,,,'MV_PAR05')
 
 		tSay():New(070,010,{|| cFunType	},oDlg,,/*oFont*/,,,,.T.,,,190,10)
