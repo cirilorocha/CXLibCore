@@ -24,6 +24,8 @@
 //##|          |          |  este fonte porque estava causando loops        |##
 //##|          |          | Validação parse no comando ADVPL                |##
 //##| 27/01/23 | Cirilo R.| Melhoria para processar o comando contém $      |##
+//##| 25/10/23 | Cirilo R.| Melhoria para colocar parênteses quando o retor-|##
+//##|          |          |  no for uma expressão composta                  |##
 //##|          |          |                                                 |##
 //##|          |          |                                                 |##
 //##+==========+==========+=================================================+##
@@ -52,23 +54,24 @@ User Function CXAdv2Sql(uFilAdv	,;	//01 uFilAdv
 							AS Character
 	
 	//Declaracao de variaveis----------------------------------------------------------------------
-	Local aCharSpc		AS Array
-	Local cFilSQL		AS Character
-	Local cTrecho		AS Character
-	Local cTrecho2		AS Character
-	Local cAnt			AS Character
-	Local cMeio			AS Character
-	Local cChAsp		AS Character
-	Local cAspAtu		AS Character
-	Local cFilAdv		AS Character
-	Local nX,nY,nZ		AS Integer
-	Local nPos			AS Integer
-	Local nTamStr		AS Integer
-	Local nPosStr		AS Integer
-	Local lIN			AS Logical
-	Local lAbriuPar		AS Logical
-	Local lLetraAntes	AS Logical
-	Local lStringAntes	AS Logical
+	Local aCharSpc				AS Array
+	Local cFilSQL				AS Character
+	Local cTrecho				AS Character
+	Local cTrecho2				AS Character
+	Local cAnt					AS Character
+	Local cMeio					AS Character
+	Local cChAsp				AS Character
+	Local cAspAtu				AS Character
+	Local cFilAdv				AS Character
+	Local nX,nY,nZ				AS Integer
+	Local nPos					AS Integer
+	Local nTamStr				AS Integer
+	Local nPosStr				AS Integer
+	Local lIN					AS Logical
+	Local lAbriuPar				AS Logical
+	Local lLetraAntes			AS Logical
+	Local lStringAntes			AS Logical
+	Local lAdicParent	:= .F.	AS Logical
 
 	//Posicoes do array aProcAdv
 	Local cORG			:= 01	AS Integer
@@ -91,6 +94,8 @@ User Function CXAdv2Sql(uFilAdv	,;	//01 uFilAdv
 		cFilAdv	:= uFilAdv
 	EndIf	
 	
+	lAdicParent	:= At('.AND.',Upper(cFilAdv)) .Or. At('.OR.',Upper(cFilAdv))
+	
 	//---------------------------------------------------------------------------------------------
 	If Len(cCharSpc) == 0 //Vazio
 		aCharSpc	:= StrTokArr2(GetMV('MX_CHRESP',.F.,'32,10,13,09,160'),',',.F.) //Caracteres identificados como espaco
@@ -98,7 +103,7 @@ User Function CXAdv2Sql(uFilAdv	,;	//01 uFilAdv
 			cCharSpc	+= Chr(Val(aCharSpc[nX]))
 		Next
 	EndIf
-
+	
 	//Expressões para conversão--------------------------------------------------------------------
 	If ValType(aProcAdv) <> 'A'
 		aProcAdv	:= {}
@@ -285,5 +290,9 @@ User Function CXAdv2Sql(uFilAdv	,;	//01 uFilAdv
 	Next
 	
 	cFilSQL	:= StrTran(cAnt,"FORMAT(GETDATE(),'YYYYMMDD')","FORMAT(GETDATE(),'yyyyMMdd')")	//Preciso fazer esse ajuste porque a função format é case sensitive!!!
-
+	
+	If lAdicParent
+		cFilSQL	:= '('+cFilSQL+')'
+	EndIf
+	
 Return cFilSQL
