@@ -17,6 +17,7 @@
 //##| 12/10/21 | Cirilo R. | Pequena revisão (release 33)                   |##
 //##| 14/12/21 | Cirilo R. | Pequena revisão (release 33)                   |##
 //##| 16/03/23 | Cirilo R. | Pequena revisão no fonte                       |##
+//##| 22/10/23 | Cirilo R. | Ajuste na rotina para usar a função padrão     |##
 //##|          |           |                                                |##
 //##|          |           |                                                |##
 //##+----------+-----------+------------------------------------------------+##
@@ -25,12 +26,12 @@ Static nSizeFil := FwTamSX3('RCC_FIL')[1] 	AS Numeric	//FWSizeFilial()
 Static aCpoTab	:= {} 						AS Array	//Cache de otimizacao
 
 //Posicoes do array aCpoTab
-Static nRC_CPO	:= 01	AS Integer
-Static nRC_INI	:= 02	AS Integer
-Static nRC_TAM	:= 03	AS Integer
-Static nRC_TIP	:= 04	AS Integer
-
-Static nRC_TAR	:= 04	AS Integer
+//Static nRC_CPO	:= 01	AS Integer
+//Static nRC_INI	:= 02	AS Integer
+//Static nRC_TAM	:= 03	AS Integer
+//Static nRC_TIP	:= 04	AS Integer
+//
+//Static nRC_TAR	:= 04	AS Integer
 //-----------------------------------------------------------------------------
 User Function CXCpoRCC(	cCodTab	,;	// 01 Codigo da tabela
 						cCpoRet	,;	// 02 Campo para retorno
@@ -40,8 +41,8 @@ User Function CXCpoRCC(	cCodTab	,;	// 01 Codigo da tabela
 
 	//Declaracao de variaveis----------------------------------------------------------------------
 	Local oArea			AS Object
-	Local nPosAtu		AS Numeric
-	Local cTpRet		AS Character
+	//Local nPosAtu		AS Numeric
+	//Local cTpRet		AS Character
 	Local nPos			AS Numeric
 	Local aCpos			AS Array
 
@@ -49,7 +50,6 @@ User Function CXCpoRCC(	cCodTab	,;	// 01 Codigo da tabela
 	Local nPRet			AS Numeric
 	
 	Local uRet		:= ''		AS Variant //AS Character,Numeric,Date,Logical	//Campos dicionario
-	Local uRetRCC				AS Variant //Character
 
 	//Parametros da rotina-------------------------------------------------------------------------
 	ParamType 0		VAR cCodTab	 		AS Character
@@ -76,55 +76,62 @@ User Function CXCpoRCC(	cCodTab	,;	// 01 Codigo da tabela
 
 	//---------------------------------------------------------------------------------------------
 	cCodTab	:= AllTrim(cCodTab)
-	RCB->(dbSetOrder(1)) //RCB_FILIAL+RCB_CODIGO
-	If !RCB->(MsSeek(FWxFilial('RCB')+cCodTab))
-		lErro	:= .F.
-		U_CXMsgErro('Erro ao localizar a tabela '+cCodTab+'.',;
-					'INFORME O SETOR DE T.I.',lMsg,oArea)
-		Return uRet
-	EndIf
 
-	//---------------------------------------------------------------------------------------------
-
+	//Variaveis compartilhadas de mensagens de erro
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
 	nPos	:= aScan(aCpoTab,{|x| x[1] == cCodTab})
 
 	If nPos == 0 //Tabela nao carregada, faz a carga
+		RCB->(dbSetOrder(1)) //RCB_FILIAL+RCB_CODIGO
+		If !RCB->(MsSeek(FWxFilial('RCB')+cCodTab))
+			lErro	:= .F.
+			U_CXMsgErro('Erro ao localizar a tabela '+cCodTab+'.',;
+						'INFORME O SETOR DE T.I.',lMsg,oArea)
+			Return uRet
+		EndIf
+
+		//-----------------------------------------------------------------------------------------
 
 		aAdd(aCpoTab,{ cCodTab , {} })
 		nPos	:= len(aCpoTab)
 		aCpos	:= @aCpoTab[nPos][2]
 
-		nPosAtu	:= 1
-
+		//nPosAtu	:= 1
 		While 	RCB->(!EOF()) .And. ;
 				RCB->RCB_FILIAL == FWxFilial('RCB') .And. ;
 				RCB->RCB_CODIGO == cCodTab
 
-			aAdd(aCpos,Array(nRC_TAR))
-			aTail(aCpos)[nRC_CPO] := RTrim(RCB->RCB_CAMPOS)
-			aTail(aCpos)[nRC_INI] := nPosAtu
-			aTail(aCpos)[nRC_TAM] := RCB->RCB_TAMAN
-			aTail(aCpos)[nRC_TIP] := RCB->RCB_TIPO
-
-			nPosAtu	+= RCB->RCB_TAMAN
+			//aAdd(aCpos,Array(nRC_TAR))
+			//aTail(aCpos)[nRC_CPO] := RTrim(RCB->RCB_CAMPOS)
+			//aTail(aCpos)[nRC_INI] := nPosAtu
+			//aTail(aCpos)[nRC_TAM] := RCB->RCB_TAMAN
+			//aTail(aCpos)[nRC_TIP] := RCB->RCB_TIPO
+			//
+			//nPosAtu	+= RCB->RCB_TAMAN
+			aAdd(aCpos,Upper(RTrim(RCB->RCB_CAMPOS)))
 			RCB->(dbSkip())
 		EndDo
 
 	EndIf
 
 	//---------------------------------------------------------------------------------------------
-	cCpoRet	:= AllTrim(cCpoRet)
+	cCpoRet	:= Upper(AllTrim(cCpoRet))
 	cChave	:= AllTrim(cChave)
 
 	aCpos	:= @aCpoTab[nPos][2]
-
-	nPRet	:= aScan(aCpos, {|x| Upper(x[nRC_CPO]) == Upper(cCpoRet) })
+	
+	//nPRet	:= aScan(aCpos, {|x| Upper(x[nRC_CPO]) == Upper(cCpoRet) })
+	nPRet	:= aScan(aCpos, {|x| x == cCpoRet })
 
 	If cCpoChv == NIL //Default eh o primeiro campo
 		nPChv	:= 1
 	Else
-		cCpoChv	:= AllTrim(cCpoChv)
-		nPChv	:= aScan(aCpos, {|x| Upper(x[nRC_CPO]) == Upper(cCpoChv) })
+		cCpoChv	:= Upper(AllTrim(cCpoChv))
+		//nPChv	:= aScan(aCpos, {|x| Upper(x[nRC_CPO]) == Upper(cCpoChv) })
+		nPChv	:= aScan(aCpos, {|x| x == cCpoChv })
 	EndIf
 
 	If nPChv == 0
@@ -139,90 +146,93 @@ User Function CXCpoRCC(	cCodTab	,;	// 01 Codigo da tabela
 		Return uRet
 	EndIf
 
-	//---------------------------------------------------------------------------------------------
-
-	cTpRet	:= aCpos[nPRet][nRC_TIP]
-
-	//Valores Default
-	If cTpRet == 'D'
-		uRet	:= CtoD('')
-	ElseIf cTpRet == 'N'
-		uRet	:= 0
-	Else	//Caracter ou default eh caractere
-		uRet	:= ''
-	EndIf
-
-	//---------------------------------------------------------------------------------------------
-
-	//Busca primeiro pela filial
-	uRetRCC	:= BuscaRCC(FWxFilial("SRA")		,; // 01
-						cCodTab					,; // 02
-						cChave					,; // 03
-						aCpos[nPChv][nRC_INI]	,; // 04
-						aCpos[nPChv][nRC_TAM]	,; // 05
-						aCpos[nPRet][nRC_INI]	,; // 06
-						aCpos[nPRet][nRC_TAM]	)  // 07
-
-	//Se nao achar por filial busca pela empresa
-	If ValType(uRetRCC) == 'U'
-		uRetRCC	:= BuscaRCC(Space(nSizeFil)			,;	// 01
-							cCodTab					,;	// 02
-							cChave					,;	// 03
-							aCpos[nPChv][nRC_INI]	,;	// 04
-							aCpos[nPChv][nRC_TAM]	,;	// 05
-							aCpos[nPRet][nRC_INI]	,;	// 06
-							aCpos[nPRet][nRC_TAM]	)	// 07
-	EndIf
-
-	If ValType(uRetRCC) == 'C' 	//Se achou faz a conversao dos tipos de dados corretos
-		If cTpRet == 'D'
-			uRet	:= StoD(uRetRCC)
-		ElseIf cTpRet == 'N'
-			uRet	:= Val(uRetRCC)
-		Else	//Caracter ou default eh caractere
-			uRet	:= AllTrim(uRetRCC)
-		EndIf
-	EndIf
+	////---------------------------------------------------------------------------------------------
+	//
+	//cTpRet	:= aCpos[nPRet][nRC_TIP]
+	//
+	////Valores Default
+	//If cTpRet == 'D'
+	//	uRet	:= CtoD('')
+	//ElseIf cTpRet == 'N'
+	//	uRet	:= 0
+	//Else	//Caracter ou default eh caractere
+	//	uRet	:= ''
+	//EndIf
+	//
+	////---------------------------------------------------------------------------------------------
+	//
+	////Busca primeiro pela filial
+	//uRetRCC	:= BuscaRCC(FWxFilial("SRA")		,; // 01
+	//					cCodTab					,; // 02
+	//					cChave					,; // 03
+	//					aCpos[nPChv][nRC_INI]	,; // 04
+	//					aCpos[nPChv][nRC_TAM]	,; // 05
+	//					aCpos[nPRet][nRC_INI]	,; // 06
+	//					aCpos[nPRet][nRC_TAM]	)  // 07
+	//
+	////Se nao achar por filial busca pela empresa
+	//If ValType(uRetRCC) == 'U'
+	//	uRetRCC	:= BuscaRCC(Space(nSizeFil)			,;	// 01
+	//						cCodTab					,;	// 02
+	//						cChave					,;	// 03
+	//						aCpos[nPChv][nRC_INI]	,;	// 04
+	//						aCpos[nPChv][nRC_TAM]	,;	// 05
+	//						aCpos[nPRet][nRC_INI]	,;	// 06
+	//						aCpos[nPRet][nRC_TAM]	)	// 07
+	//EndIf
+	//
+	//If ValType(uRetRCC) == 'C' 	//Se achou faz a conversao dos tipos de dados corretos
+	//	If cTpRet == 'D'
+	//		uRet	:= StoD(uRetRCC)
+	//	ElseIf cTpRet == 'N'
+	//		uRet	:= Val(uRetRCC)
+	//	Else	//Caracter ou default eh caractere
+	//		uRet	:= AllTrim(uRetRCC)
+	//	EndIf
+	//EndIf
+	
+	//				     cTab ,uCont1,cOp1,nColtab1,uCont2,cOp2,nColtab2,nColret,,,,cFilseek,uCont3,cOper3,nColtab3,dDttab,aAsort,aTabdef,lOnlytab,lCarnew
+	uRet	:= fPosTab(cCodTab,cChave,'==',nPChv+3,         ,    ,        ,nPRet+3)
 
 	oArea:RestArea()		//Restaura area
 
 Return uRet
 
-//-------------------------------------------------------------------------------------------------
-Static Function BuscaRCC(	cFilRCC	,;	//01
-							cCodTab	,;	//02
-							cChave	,;	//03
-							nPChv	,;	//04
-							nTChv	,;	//05
-							nPRet	,;	//06
-							nTRet	)	//07
-
-	//Declaracao de variaveis----------------------------------------------------------------------
-	Local uRet		AS Variant
-
-	//Parametros da rotina-------------------------------------------------------------------------
-	ParamType 0		VAR cFilRCC			AS Character
-	ParamType 1		VAR cCodTab			AS Character
-	ParamType 2		VAR cChave			AS Character
-	ParamType 3		VAR nPChv			AS Numeric
-	ParamType 4		VAR nTChv			AS Numeric
-	ParamType 5		VAR nPRet			AS Numeric
-	ParamType 6		VAR nTRet			AS Numeric
-	
-	//---------------------------------------------------------------------------------------------
-	RCC->(dbSetOrder(1)) //RCC_FILIAL+RCC_CODIGO+RCC_FIL+RCC_CHAVE+RCC_SEQUEN
-	RCC->(MsSeek(FWxFilial("RCC")+cCodTab+cFilRCC))
-	While 	RCC->(!Eof()) .And. ;
-			RCC->RCC_FILIAL == FWxFilial("RCC") .And. ;
-			RCC->RCC_CODIGO == cCodTab .And. ;
-			RCC->RCC_FIL == cFilRCC
-
-		If Alltrim(Substr(RCC->RCC_CONTEU,nPChv,nTChv)) == cChave //Localiza a chave
-			uRet := Substr(RCC->RCC_CONTEU,nPRet,nTRet)
-			Exit
-		EndIf
-
-		RCC->(dBSkip())
-	EndDo
-
-Return uRet
+////-------------------------------------------------------------------------------------------------
+//Static Function BuscaRCC(	cFilRCC	,;	//01
+//							cCodTab	,;	//02
+//							cChave	,;	//03
+//							nPChv	,;	//04
+//							nTChv	,;	//05
+//							nPRet	,;	//06
+//							nTRet	)	//07
+//
+//	//Declaracao de variaveis----------------------------------------------------------------------
+//	Local uRet		AS Variant
+//
+//	//Parametros da rotina-------------------------------------------------------------------------
+//	ParamType 0		VAR cFilRCC			AS Character
+//	ParamType 1		VAR cCodTab			AS Character
+//	ParamType 2		VAR cChave			AS Character
+//	ParamType 3		VAR nPChv			AS Numeric
+//	ParamType 4		VAR nTChv			AS Numeric
+//	ParamType 5		VAR nPRet			AS Numeric
+//	ParamType 6		VAR nTRet			AS Numeric
+//	
+//	//---------------------------------------------------------------------------------------------
+//	RCC->(dbSetOrder(1)) //RCC_FILIAL+RCC_CODIGO+RCC_FIL+RCC_CHAVE+RCC_SEQUEN
+//	RCC->(MsSeek(FWxFilial("RCC")+cCodTab+cFilRCC))
+//	While 	RCC->(!Eof()) .And. ;
+//			RCC->RCC_FILIAL == FWxFilial("RCC") .And. ;
+//			RCC->RCC_CODIGO == cCodTab .And. ;
+//			RCC->RCC_FIL == cFilRCC
+//
+//		If Alltrim(Substr(RCC->RCC_CONTEU,nPChv,nTChv)) == cChave //Localiza a chave
+//			uRet := Substr(RCC->RCC_CONTEU,nPRet,nTRet)
+//			Exit
+//		EndIf
+//
+//		RCC->(dBSkip())
+//	EndDo
+//
+//Return uRet
