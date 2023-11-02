@@ -58,6 +58,8 @@
 //##|          |           |  para execução                                 |##
 //##| 25/11/22 | Cirilo R. | Melhoria para buscar informações de classes    |##
 //##| 19/04/23 | Cirilo R. | Melhoria para também informar a database       |##
+//##| 02/11/23 | Cirilo R. | Correção na tela de seleção de filiais para    |##
+//##|          |           |  gestão corporativa                            |##
 //##|          |           |                                                |##
 //##|          |           |                                                |##
 //##+==========+===========+================================================+##
@@ -77,16 +79,11 @@ User Function CXTestFunc()
 //	Local aParam            AS Array
 	Local nSvSx8Len         AS Numeric
 	Local nRecSM0           AS Numeric
-	Local aSM0				AS Array
-	Local nPos				AS Numeric
-	Local nTamEmp			AS Numeric
-	Local dDtBak			AS Date
 
 	Local cModAnt		    AS Character
 	Local nModAnt		    AS Numeric
 	Local cMenuAnt		    AS Character
 
-	Local cEmpAtu		    AS Character
 	Local nX                AS Numeric
 	Local lAchou            AS Logical
 	Local cMsg              AS Character
@@ -162,24 +159,6 @@ User Function CXTestFunc()
 		Private cEmp_			:= ''
 		Private cFil_			:= ''
 
-		OpenSm0()	//Abre o sigamat
-
-		aSM0	:= FWLoadSM0()
-		For nX := 1 to len(aSM0)
-			nTamEmp	:= Len(aSM0[nX][SM0_GRPEMP])
-			cEmpAtu	:= aSM0[nX][SM0_GRPEMP]+'-'+aSM0[nX][SM0_NOMECOM]
-			nPos	:= aScan(aSM0EmpFil,{|x| Left(x[1],nTamEmp) == aSM0[nX][SM0_GRPEMP] })
-			If 	nPos == 0
-				aAdd(aSM0EmpFil,{cEmpAtu,{}})
-				nPos	:= len(aSM0EmpFil)
-			EndIf
-			
-			aAdd(aSM0EmpFil[nPos][2],aSM0[nX][SM0_CODFIL]+'-'+Rtrim(aSM0[nX][SM0_NOMRED]))
-		Next
-
-		cEmp_ 	:= Left(aSM0EmpFil[1][1],2)
-		cFil_	:= Space(2)
-
 		//Seleciona a empresa / filial
 		If !SelEmpFil()
 			Return
@@ -205,6 +184,18 @@ User Function CXTestFunc()
 		__cInternet	:= NIL		//Preciso colocar aqui para forçar mostrar mensagens
 
 		lCarrAmb		:= .T. //Carregou o ambiente
+
+		//PRECISO ABRIR OS SX'S AQUI PARA FUNCIONAR CORRETAMENTE
+		SIX->(dbSetOrder(1))
+		SX1->(dbSetOrder(1))
+		SX2->(dbSetOrder(1))
+		SX3->(dbSetOrder(1))
+		SX5->(dbSetOrder(1))
+		SX6->(dbSetOrder(1))
+		SX7->(dbSetOrder(1))
+		SX9->(dbSetOrder(1))
+		SXA->(dbSetOrder(1))
+		SXB->(dbSetOrder(1))
 		
 		//Cria uma janela principal para trabalho
 //		Public oMainWnd := TWorkSpace():New("CXTestFunc-oMainWnd")
@@ -532,21 +523,24 @@ Static Function SelEmpFil();
 						AS Logical
 
 	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aSM0			AS Array
 	Local aEmp		    AS Array
 	Local aFil		    AS Array
+	Local nPosEmp		AS Numeric
+	Local nPosFil		AS Numeric
 	Local oDlg			AS Object
-	Local oEmp          AS Object
 	Local oBOK			AS Object
 
 	Local nX            AS Numeric
-	Local nPos          AS Numeric
 	Local lRet		    AS Logical
 
 	Local nLarBt		AS Numeric
 	Local nAltBt		AS Numeric
 	Local aPosBt		AS Array
 
+	Private oEmp        AS Object
 	Private oFil		AS Object
+	Private aSM0EmpFil	:= {}			AS Array
 
 	//Inicializa Variaveis-------------------------------------------------------------------------
 	aEmp		:= {}
@@ -557,28 +551,41 @@ Static Function SelEmpFil();
 	nLarBt		:= 050
 	nAltBt		:= 015
 
-	//Preenche array de empresas
-	For nX := 1 to len(aSM0EmpFil)
-		aAdd(aEmp,AllTrim(aSM0EmpFil[nX][1]))
+	OpenSm0()	//Abre o sigamat
+	aSM0	:= FWLoadSM0()
+	For nX := 1 to len(aSM0)
+		nPosEmp	:= aScan(aSM0EmpFil,{|x| x[1] == RTrim(aSM0[nX][SM0_GRPEMP]) })
+		If 	nPosEmp == 0
+			aAdd(aSM0EmpFil,{RTrim(aSM0[nX][SM0_GRPEMP]),{},{}})
+			nPosEmp	:= len(aSM0EmpFil)
+			aAdd(aEmp,RTrim(aSM0[nX][SM0_GRPEMP])+'-'+RTrim(aSM0[nX][SM0_NOMECOM]))
+		EndIf
+		
+		aAdd(aSM0EmpFil[nPosEmp][2],RTrim(aSM0[nX][SM0_CODFIL])+'-'+Rtrim(aSM0[nX][SM0_NOMRED]))
+		aAdd(aSM0EmpFil[nPosEmp][3],RTrim(aSM0[nX][SM0_CODFIL]))	//Códigos de filial
 	Next
 
 	//Carrega parametros
 	aParam	:= GetParam('CXTestFuncE.par')
+	nPosEmp	:= 1	//Primeira empresa
+	nPosFil	:= 1	//Primeira filial
 	If len(aParam) == 2
-		cEmp_	:= AllTrim(aParam[1])
-		cFil_	:= aParam[2]
-
-		nPos		:= aScan(aEmp,{|X| X == cEmp_ })
-		If nPos > 0
-			aFil	:= aSM0EmpFil[nPos][2]
+		nPosEmp		:= aScan(aSM0EmpFil,{|x| x[1] == AllTrim(aParam[1]) })
+		If nPosEmp > 0
+			nPosFil	:= aScan(aSM0EmpFil[nPosEmp][3],{|x| x == AllTrim(aParam[2]) })
+			If nPosFil <= 0
+				nPosFil	:= 1
+			EndIf
 		Else
-			cEmp_	:= AllTrim(aEmp[1])
-			aFil	:= aSM0EmpFil[1][2]
+			nPosEmp	:= 1	//Primeira empresa
+			nPosFil	:= 1	//Primeira filial
 		EndIf
-	Else
-		//Preenche array de filiais
-		aFil	:= aSM0EmpFil[1][2]
 	EndIf
+	cEmp_ 	:= aEmp[nPosEmp]
+	cFil_	:= aSM0EmpFil[nPosEmp][2][nPosFil]
+
+	//Preenche array de filiais
+	aFil	:= aSM0EmpFil[nPosEmp][2]
 
 	//---------------------------------------------------------------------------------------------
 	oDlg	:= MSDialog():New(	000,000,160,350,U_CXTxtMsg()+'Selecione a empresa e filial',,,,DS_MODALFRAME,;
@@ -588,11 +595,13 @@ Static Function SelEmpFil();
 		
 		oEmp	:= tComboBox():New(10,05,bSetGet(cEmp_),aEmp,165,20,oDlg,,,;
 										{|| VldEmp(oEmp:nAt)},,,.T.,,,,,,,,,'cEmp_')
+		oEmp:Select(nPosEmp)
 
 		oFil	:= tComboBox():New(30,05,bSetGet(cFil_),aFil,165,20,oDlg,,,,,,.T.,,,,,,,,,'cFil_')
+		oFil:Select(nPosFil)
 
 		tButton():New(aPosBt[1],aPosBt[5][1],'Cancelar'		,oDlg,{|| lRet := .F. , oDlg:End() },nLarBt,nAltBt,,,,.T.)
-		oBOK	:= tButton():New(aPosBt[1],aPosBt[5][5],'OK'			,oDlg,{|| lRet := .T. , oDlg:End() },nLarBt,nAltBt,,,,.T.)
+		oBOK	:= tButton():New(aPosBt[1],aPosBt[5][5],'OK'			,oDlg,{|| lRet := sfVldEmpFil() , oDlg:End() },nLarBt,nAltBt,,,,.T.)
 		oBOK:SetFocus()
 		
 	// ativa diálogo centralizado
@@ -604,15 +613,34 @@ Static Function SelEmpFil();
 
 Return lRet
 
+/*=================================================================================================
+Autor      : Cirilo Rocha
+Data       : 02/11/2023 
+Info       : Validação do OK da tela de seleção de empresa e filial, usado para setar as variáveis
+=================================================================================================*/
+Static Function sfVldEmpFil();
+					AS Logical
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local lRet	:= .T.				AS Logical
+
+	//Seta a empresa e filial selecionados
+	cEmp_:= aSM0EmpFil[oEmp:nAt][1]	
+	cFil_:= aSM0EmpFil[oEmp:nAt][3][oFil:nAt]
+
+Return lRet
+
 //-------------------------------------------------------------------------------------------------
 //Funcao para validar a combo da empresa e preencher o combo a filiais
 //-------------------------------------------------------------------------------------------------
-Static Function VldEmp(nPos	AS Numeric) AS Logical
+Static Function VldEmp(nPosEmp	AS Numeric) AS Logical
 
 	//Parametros da rotina-------------------------------------------------------------------------
-	ParamObg 0		VAR nPos
+	ParamType 0		VAR nPosEmp		AS Numeric
+//	ParamObg 0		VAR nPosEmp
 
-	oFil:aItems := aSM0EmpFil[nPos][2]
+	oFil:aItems := aSM0EmpFil[nPosEmp][2]
+	oFil:Select(1)	//Seleciona a primeira filial da lista
 
 Return .T.
 
