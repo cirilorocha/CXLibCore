@@ -317,6 +317,7 @@ User Function CXTestFunc()
 
 		__cInternet	:= NIL 
 		VAR_IXB		:= NIL
+		aPergunta	:= NIL //Variavel de perguntas
 
 		//Tratamentos de erro de execucao
 		Begin Sequence
@@ -335,7 +336,7 @@ User Function CXTestFunc()
 		ALTERA		:= NIL
 		VAR_IXB		:= NIL
 		__cInternet	:= NIL
-		aPergunta	:= {} //Variavel de perguntas
+		aPergunta	:= NIL //Variavel de perguntas
 		dDataBase	:= dDtBak
 		RestInter() // Restauro variaveis publicas
 
