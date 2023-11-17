@@ -559,7 +559,7 @@ Static Function SelEmpFil();
 		If 	nPosEmp == 0
 			aAdd(aSM0EmpFil,{RTrim(aSM0[nX][SM0_GRPEMP]),{},{}})
 			nPosEmp	:= len(aSM0EmpFil)
-			aAdd(aEmp,RTrim(aSM0[nX][SM0_GRPEMP])+'-'+RTrim(aSM0[nX][SM0_NOMECOM]))
+			aAdd(aEmp,RTrim(aSM0[nX][SM0_GRPEMP])+'-'+RTrim(IIF(Empty(aSM0[nX][SM0_NOMECOM]),aSM0[nX][SM0_NOME],aSM0[nX][SM0_NOMECOM])))
 		EndIf
 		
 		aAdd(aSM0EmpFil[nPosEmp][2],RTrim(aSM0[nX][SM0_CODFIL])+'-'+Rtrim(aSM0[nX][SM0_NOMRED]))
