@@ -182,10 +182,11 @@ User Function CXTestFunc()
 
 		U_CXSetUsr('000000')
 		__cInternet	:= NIL		//Preciso colocar aqui para forçar mostrar mensagens
-
-		lCarrAmb		:= .T. //Carregou o ambiente
+		lMsHelpAuto := .F.		//Preciso colocar aqui para forçar mostrar mensagens
+		lCarrAmb	:= .T. 		//Carregou o ambiente
 
 		//PRECISO ABRIR OS SX'S AQUI PARA FUNCIONAR CORRETAMENTE
+		OpenSm0()	//Abre o sigamat
 		SIX->(dbSetOrder(1))
 		SX1->(dbSetOrder(1))
 		SX2->(dbSetOrder(1))
