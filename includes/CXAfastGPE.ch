@@ -4,11 +4,19 @@ Static nDA_DIAPG	:= 02	AS Integer	//Qtd Dias a Pagar
 Static cDA_NUMID	:= 03	AS Integer	//Numero ID (R8_NUMID)
 Static nDA_DFGTS	:= 04	AS Integer	//Dias para FGTS
 Static nDA_DENC	    := 05	AS Integer	//Dias para Encargos
-Static nDA_DAUX_AFA	:= 05	AS Integer	//Total dias afastados
-Static cDA_CODSEF	:= 06	AS Integer	//Codigo SEFIP (RCM_CODSEF)
-Static dDA_DTINI	:= 07	AS Integer	//Data Inicial do Afastamento (R8_DATAINI)
-Static nDA_MESMED	:= 08	AS Integer	//Quantidade de meses para calculo de media
-Static dDA_DTFIM	:= 09	AS Integer	//Data Final do Afastamento (R8_DATAFIM)
+Static nDA_DAUX_AFA	:= 06	AS Integer	//Total dias afastados
+Static cDA_CODSEF	:= 07	AS Integer	//Codigo SEFIP (RCM_CODSEF)
+Static dDA_DTINI	:= 08	AS Integer	//Data Inicial do Afastamento (R8_DATAINI)
+Static nDA_MESMED	:= 09	AS Integer	//Quantidade de meses para calculo de media
+Static dDA_DTFIM	:= 10	AS Integer	//Data Final do Afastamento (R8_DATAFIM)
+Static cDA_TPEFD	:= 11	AS Integer	//Tipo de afastamento eSocial (RCM_TPEFD)
+Static cDA_PDSUP	:= 12	AS Integer	//Verba Sup. (RCM_PDSUP)
+Static nDA_DIASEM	:= 13	AS Integer	//Dias Pg Empr (RCM_DIASEM)
+Static cDA_SEQ		:= 14	AS Integer	//Sequência (R8_SEQ)
+Static cDA_CONTAFA	:= 15	AS Integer	//Nr.Sequencia (R8_CONTAFA)
+Static nDA_DTOTAFA	:= 16	AS Integer	//Total dias afastados
+Static nDA_DIAPG2	:= 17	AS Integer	//Qtd Dias a Pagar
+Static cDA_TIPOAFA	:= 18	AS Integer	//Tipo de afastamento (R8_TIPOAFA)
 
 //Array aAfast função fRetAfasBra (GpeXFun1.prx)
 Static nAF_AVOSAP	    := 01	AS Integer	//Avos afastados 
