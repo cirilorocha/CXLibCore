@@ -208,9 +208,8 @@ User Function CXTestFunc()
 		Public oMainWnd					AS Object
 		
 		oMainWnd := TWindow():New( 0, 0, 1000, 1000, U_CXTxtMsg()+"CXTestFunc-oMainWnd",,,,,,,,,,,,.T.,.T.,.T.,.T.,.F.)
-			U_CXTestFunc()
 		oMainWnd:Activate( "MAXIMIZED", oMainWnd:bLClicked, oMainWnd:bRClicked, oMainWnd:bMoved,;
-							oMainWnd:bResized, oMainWnd:bPainted, oMainWnd:bKeyDown, oMainWnd:bInit,;
+							oMainWnd:bResized, oMainWnd:bPainted, oMainWnd:bKeyDown, oMainWnd:bInit := { | Self | (U_CXTestFunc(),oMainWnd:End()) },;
 							,,,,,,,,,, oMainWnd:bLButtonUp )
 
 		//Fecha o ambiente
