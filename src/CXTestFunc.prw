@@ -167,24 +167,28 @@ User Function CXTestFunc()
 		// Não consome licensa de uso
 		RPCSetType(3)
 		// Abre ambiente de trabalho
-		RPCSetEnv(	Left(cEmp_,2)	,;	//01 Empresa
-					Left(cFil_,2)	,;	//02 Filial
-					/*cEnvUser*/	,;	//03 Usuario
-					/*cEnvPass*/	,;	//04 Senha de Usuario
-					/*cMod*/		,;	//05 Modulo (3ch)
-					'CXTestFunc'	,;	//06 Nome da Funcao
-					/*aTables*/		,;	//07 Tabelas para abrir
-					/*lShowFinal*/	,;	//08 Alimenta a variavel lMsFinalAuto
-					.T.				,;	//09 Gera mensagem de erro ao ocorrer erro ao checar a licenca
-					.T.				,;	//10 Pega a primeira filial do arquivo SM0 quando não passar a filial e realiza a abertura dos SXs
-					.T.				) 	//11 Faz a abertura da conexao com servidor do banco
+		FWMsgRun(/*oSay*/,;
+				{||lRet := RPCSetEnv(	cEmp_			,;	//01 Empresa
+										cFil_			,;	//02 Filial
+										'000000'		,;	//03 Usuario
+										/*cEnvPass*/	,;	//04 Senha de Usuario
+										'FAT'			,;	//05 Modulo (3ch)
+										'CXTestFunc'	,;	//06 Nome da Funcao
+										/*aTables*/		,;	//07 Tabelas para abrir
+										/*lShowFinal*/	,;	//08 Alimenta a variavel lMsFinalAuto
+										.F.				,;	//09 Gera mensagem de erro ao ocorrer erro ao checar a licenca
+										.T.				,;	//10 Pega a primeira filial do arquivo SM0 quando não passar a filial e realiza a abertura dos SXs
+										.T.				);	//11 Faz a abertura da conexao com servidor do banco
+							},;
+				U_CXTxtMsg()+" Montando Ambiente. Empresa [" + cEmp_ + "] Filial [" + cFil_ +"].",;
+				"Aguarde...")
 //		PREPARE ENVIRONMENT EMPRESA Left(cEmp_,2) FILIAL Left(cFil_,2)
 
 		U_CXSetUsr('000000')
-		__cInternet	:= NIL		//Preciso colocar aqui para forçar mostrar mensagens
-		lMsHelpAuto := .F.		//Preciso colocar aqui para forçar mostrar mensagens
-		lCarrAmb	:= .T. 		//Carregou o ambiente
-
+		__cInternet	:= NIL			//Preciso colocar aqui para forçar mostrar mensagens
+		lMsHelpAuto := .F.			//Preciso colocar aqui para forçar mostrar mensagens
+		lCarrAmb	:= .T. //Carregou o ambiente
+		
 		//PRECISO ABRIR OS SX'S AQUI PARA FUNCIONAR CORRETAMENTE
 		OpenSm0()	//Abre o sigamat
 		SIX->(dbSetOrder(1))
@@ -197,14 +201,20 @@ User Function CXTestFunc()
 		SX9->(dbSetOrder(1))
 		SXA->(dbSetOrder(1))
 		SXB->(dbSetOrder(1))
-		
-		//Cria uma janela principal para trabalho
-//		Public oMainWnd := TWorkSpace():New("CXTestFunc-oMainWnd")
-		
+
 		_lRecursivo	:= .F.	//Desativa o controle de recursividade
+
+		//Cria uma janela principal para trabalho
+		Public oMainWnd					AS Object
 		
-		DEFINE WINDOW oMainWnd FROM 001,001 TO 400,500 TITLE OemToAnsi( "CXTestFunc-oMainWnd" ) 
-		ACTIVATE WINDOW oMainWnd MAXIMIZED ON INIT ( U_CXTestFunc() , oMainWnd:End() ) 
+		oMainWnd := TWindow():New( 0, 0, 1000, 1000, U_CXTxtMsg()+"CXTestFunc-oMainWnd",,,,,,,,,,,,.T.,.T.,.T.,.T.,.F.)
+			U_CXTestFunc()
+		oMainWnd:Activate( "MAXIMIZED", oMainWnd:bLClicked, oMainWnd:bRClicked, oMainWnd:bMoved,;
+							oMainWnd:bResized, oMainWnd:bPainted, oMainWnd:bKeyDown, oMainWnd:bInit,;
+							,,,,,,,,,, oMainWnd:bLButtonUp )
+
+		//Fecha o ambiente
+		RpcClearEnv()
 		
 		Return
 	EndIf
