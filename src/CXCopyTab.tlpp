@@ -57,7 +57,7 @@ User Function CXCopyTab(cFileSource	,; 	//01 Arquivo de origem (ex: \system\sx30
 	Local cIndice		AS Character
 	Local cArqMemo		AS Character
 	Local cNmSrc		AS Character
-	Local cQry			AS Character
+	//Local cQry			AS Character
 	Local cQuery		AS Character
 	Local cSource		AS Character
 	Local cTarget		AS Character
@@ -297,7 +297,7 @@ User Function CXCopyTab(cFileSource	,; 	//01 Arquivo de origem (ex: \system\sx30
 			//nTotal	:= (cQry)->TOTAL
 			nTotal	:= MpSysExecScalar(cQuery,'TOTAL',/*aBindParam*/)	//Executa uma consulta e retorna a primeira linha no conjunto de resultados retornados pela consulta
 
-			(cQry)->(dbCloseArea()) //Fecha a query
+			//(cQry)->(dbCloseArea()) //Fecha a query
 		Else
 //   		dbSelectArea('SOURCE')
 //	   		Count To nTotal
