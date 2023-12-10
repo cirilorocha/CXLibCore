@@ -1,0 +1,115 @@
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#INCLUDE "CXInclude.ch"
+
+//#############################################################################
+//##+----------+----------+-------+---------------------+------+------------+##
+//##|Programa  | CxFilSql | Autor | Cirilo Rocha        | Data | 30/11/2010 |##
+//##+----------+----------+-------+---------------------+------+------------+##
+//##|Descr.    | Função para retorar uma expressão para ser utilizada em um |##
+//##|          |  Inner Join considerando a relação entre as tabelas se ex- |##
+//##|          |  clusiva ou compartilhada.                                 |##
+//##|          | Semelhante a função FWJoinFilial, porém com otimização para|##
+//##|          |  tabelas compartilhadas, é mais performático A1_FILIAL = ''|##
+//##|          |  que A1_FILIAL = A2_FILIAL por exemplo                     |##
+//##+----------+-----------+------------------------------------------------+##
+//##|   DATA   |Programador| Manutenção efetuada                            |##
+//##+----------+-----------+------------------------------------------------+##
+//##| 21/11/13 | Cirilo R. | Melhoria geral no fonte                        |##
+//##|          |           | Tratamento de erros                            |##
+//##| 14/04/14 | Cirilo R. | Ajuste no tratamento quando a primeira tabela  |##
+//##|          |           |  é exclusiva e a segunda compartilhada         |##
+//##| 24/10/16 | Cirilo R. | Pequena otimização na query quando as duas ta- |##
+//##|          |           |  belas são compartilhadas, nesse caso deixa a  |##
+//##|          |           |  filial = '' mesmo é mais rápido               |##
+//##| 07/04/17 | Cirilo R. | Modificado para usar a função FWModeAccess     |##
+//##| 05/04/22 | Cirilo R. | Pequena revisão no fonte                       |##
+//##|          |           |                                                |##
+//##|          |           |                                                |##
+//##+----------+-----------+------------------------------------------------+##
+//#############################################################################
+User Function CxFilSql(	cAlias1		,;	//01
+						cAlias2		,;	//02
+						cApelido1	,;	//03
+						cApelido2	,;	//04
+						lFltFil		); 	//05
+								AS Character
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+//	Local aArea			:= U_CXGetArea({'SX2'})
+	Local lExc1
+	Local lExc2
+	Local cRet
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cAlias1				AS Character
+	ParamType 1		VAR cAlias2				AS Character
+	ParamType 2		VAR cApelido1			AS Character					Optional Default ''	//cAlias1
+	ParamType 3		VAR cApelido2			AS Character					Optional Default ''	//cAlias2
+	ParamType 4		VAR lFltFil				AS Logical						Optional Default .F.
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+
+	If !Empty(cApelido1)
+		cApelido1 += '.'
+	EndIf
+	
+	If !Empty(cApelido2)
+		cApelido2 += '.'
+	EndIf
+	
+/*	SX2->(dbSetOrder(1))
+	
+	If SX2->(MsSeek(cAlias1))
+		If SX2->X2_MODO == 'C'
+			lExc1 := .F.
+		Else
+			lExc1 := .T.
+		EndIf
+	Else
+		ApMsgAlert( 'CxFilSql-001: Erro ao localizar o alias '+cAlias1+CRLF+;
+						'Informe ao Setor de T.I.')
+		Return
+	EndIf
+	
+	If SX2->(MsSeek(cAlias2))
+		If SX2->X2_MODO == 'C'
+			lExc2 := .F.
+		Else
+			lExc2 := .T.
+		EndIf
+	Else
+		ApMsgAlert( 'CxFilSql-002: Erro ao localizar o alias '+cAlias2+CRLF+;
+						'Informe ao Setor de T.I.')
+		Return
+	EndIf
+*/
+
+	If FWModeAccess(cAlias1) == 'E' //Retorna se a tabela é exclusiva
+		lExc1	:= .T.
+	Else
+		lExc1	:= .F.
+	EndIf
+
+	If FWModeAccess(cAlias2) == 'E' //Retorna se a tabela é exclusiva
+		lExc2	:= .T.
+	Else
+		lExc2	:= .F.
+	EndIf
+
+	//Se as duas tabelas forem EXCLUSIVAS ou COMPARTILHADAS
+	If lExc1 .And.	lExc2		
+		cRet := cApelido2+FwPrefixoCpo(cAlias2)+"_FILIAL = "+cApelido1+FwPrefixoCpo(cAlias1)+"_FILIAL "
+	ElseIf 	( lExc1 .And. !lExc2 ) .Or. ; //A segunda tabela for compartilhada
+			( !lExc1 .And. !lExc2 )			 //Ou as duas sao compartilhadas (otimizacao)
+		cRet := cApelido2+FwPrefixoCpo(cAlias2)+"_FILIAL = '' "
+	ElseIf lFltFil //Filtra filial se a tabela for exclusivaca
+		cRet := cApelido2+FwPrefixoCpo(cAlias2)+"_FILIAL = '"+FWxFilial(cAlias2)+"' "
+	Else 	//Nao filtra nada
+		cRet := "1 = 1 "
+	EndIf
+	
+//	U_CXRestArea(aArea)
+	
+Return cRet
