@@ -35,7 +35,6 @@ User Function CXValAtrib(cAtributo);
     //Parametros da rotina-------------------------------------------------------------------------
     ParamType 0		VAR cAtributo		AS Character
     
-
 	//Inicialização de Variáveis--------------------------------------------------------------------
 	If At(':',cAtributo) == 0 //Não tem subObjetos, tratamento caso seja usado em um Type normal mesmo
 		cTipo	:= Type(cAtributo)
