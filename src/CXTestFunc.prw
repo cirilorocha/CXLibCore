@@ -167,8 +167,10 @@ User Function CXTestFunc()
 		// Não consome licensa de uso
 		RPCSetType(3)
 		// Abre ambiente de trabalho
-		FWMsgRun(/*oSay*/,;
-				{||lRet := RPCSetEnv(	cEmp_			,;	//01 Empresa
+		MsgRun('Aguarde...',U_CXTxtMsg()+"Montando Ambiente. Empresa [" + cEmp_ + "] Filial [" + cFil_ +"].",;
+		;//FWMsgRun(/*oSay*/,;
+				{||	;
+					lRet := RPCSetEnv(	cEmp_			,;	//01 Empresa
 										cFil_			,;	//02 Filial
 										'000000'		,;	//03 Usuario
 										/*cEnvPass*/	,;	//04 Senha de Usuario
@@ -179,9 +181,10 @@ User Function CXTestFunc()
 										.F.				,;	//09 Gera mensagem de erro ao ocorrer erro ao checar a licenca
 										.T.				,;	//10 Pega a primeira filial do arquivo SM0 quando não passar a filial e realiza a abertura dos SXs
 										.T.				);	//11 Faz a abertura da conexao com servidor do banco
-							},;
-				U_CXTxtMsg()+" Montando Ambiente. Empresa [" + cEmp_ + "] Filial [" + cFil_ +"].",;
-				"Aguarde...")
+							})
+		//					},;
+		//		U_CXTxtMsg()+" Montando Ambiente. Empresa [" + cEmp_ + "] Filial [" + cFil_ +"].",;
+		//		"Aguarde...")
 //		PREPARE ENVIRONMENT EMPRESA Left(cEmp_,2) FILIAL Left(cFil_,2)
 
 		U_CXSetUsr('000000')
