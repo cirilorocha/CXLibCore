@@ -20,6 +20,12 @@
 //Verifica se a execução está em ambiente MDI
 #Define CXIsMDI	( Type("oApp") == "O" .And. oApp:lMDI )
 
+#xTranslate _CXFieldGet(<cCampo>) => ;
+	FieldGet(FieldPos(<cCampo>))
+
+#xTranslate _CXFieldPut(<cCampo>,<uConteudo>) => ;
+	FieldPut(FieldPos(<cCampo>),<uConteudo>)
+
 #Define AMBIENTE_CARREGADO	(	Type('cEmpAnt') == 'C' .And. ;
 								Type('cFilAnt') == 'C' .And. ;
 								Select('SX2') > 0 )
