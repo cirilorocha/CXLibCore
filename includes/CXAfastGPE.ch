@@ -31,7 +31,7 @@ Static cAF_PROVFE	    := 09	AS Integer	//RCM_PROVFE Tratamento Provisão de Féria
 Static cAF_PROV13	    := 10	AS Integer	//RCM_PROV13 Tratamento de Provisão de 13º Salário (1=Congela;2=Não Congela)
 Static nAF_DIASAFA	    := 11	AS Integer	//Duração do afastamento
 Static cAF_PD	        := 12	AS Integer	//RCM_PD     Verba
-Static cAF_TIPO	        := 13	AS Integer	//RCM_TIPO   Tipo da ausência (código)
+Static cAF_TIPO	        := 13	AS Integer	//RCM_TIPO/R8_TIPOAFA   Tipo da ausência (código)
 Static nAF_AVOSTOT	    := 14	AS Integer	//nAvosTot
 Static nAF_DIASEMP	    := 15	AS Integer	//RCM_DIASEM Dias pagos pela empresa
 Static cAF_CODSEF	    := 16	AS Integer	//RCM_CODSEF Código Sefip
@@ -53,7 +53,7 @@ Static nA1_DIASEM		:= 09	AS Integer	//RCM_DIASEM Dias Pagos pela Empresa
 Static cA1_CONTAFA		:= 10	AS Integer	//R8_CONTAFA Continuacao da Sequencia
 Static nA1_DURACAO		:= 11	AS Integer	//R8_DURACAO Numero Dias
 Static cA1_PD			:= 12	AS Integer	//RCM_PD     Verba	
-Static cA1_TIPO			:= 13	AS Integer	//RCM_TIPO   Codigo da Ausencia
+Static cA1_TIPO			:= 13	AS Integer	//RCM_TIPO/R8_TIPOAFA   Codigo da Ausencia
 Static cA1_PLR			:= 14	AS Integer	//RCM_PLR	 Abate Avos PLR (1=Sim;2=Não)
 Static cA1_SEQ			:= 15	AS Integer	//R8_SEQ			
 Static cA1_DEPFGT		:= 16	AS Integer	//RCM_DEPFGT Deposito FGTS. (1=Cálculo Integral;2=Cálculo pelos dias pagos)
