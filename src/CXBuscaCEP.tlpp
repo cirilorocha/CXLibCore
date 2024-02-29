@@ -173,10 +173,10 @@ Static Function BuscaCEP(	cCEP	,;	//01
 	// Envia a mensagem SOAP ao servidor
 	lRet := oWsdl:SendSoapMsg()
 	If .Not. lRet
-		If 'CEP NAO ENCONTRADO' $ FwNoAccent(Upper(oWsdl:cError))
+		If 'CEP NAO ENCONTRADO' $ FwNoAccent(Upper(oWsdl:_oWSDL:cError:cError))
 			U_CXMsgErro('CEP '+cCEP+' não encontrado nos Correios.',/*cSolucao*/,lMsg,/*oArea*/,,,,,.T.)
 		Else
-			U_CXMsgErro('Erro: '+oWsdl:cError,;
+			U_CXMsgErro(oWsdl:_cError,;
 						'INFORME O SETOR DE T.I.',lMsg,/*oArea*/,,,,,.T.)
 		EndIf
 		Return NIL
