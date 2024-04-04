@@ -301,3 +301,41 @@
 //			<oFWBrowse>:SetX3Tela(<cTela>);;
 //		EndIf
 
+#Define _NomeProg_		FileNoExt(ProcSource())
+#Define _MsgLinha_		_NomeProg_+'('+StrZero(ProcLine(),5)+')'
+
+//FUNÇÕES PARA USO COM A REGUA DE PROCESSAMENTO--------------------------------
+#Define _nSteps		200
+
+#xTranslate _InicRegua() => ;
+	SetPrvt('_nPasso,_nCont,_nQtdReg')	
+
+#xTranslate __ProcRegua(<nQtRg>,<cFunc>) => ;
+	_nCont	:= 0;;
+	_nQtdReg:= <nQtRg>;;
+	_nPasso	:= Ceiling(_nQtdReg/_nSteps);;
+	<cFunc>(_nSteps);;
+	ProcessMessages()
+
+#xTranslate __IncProc(<cTxtProc>,<cFunc>) => ;
+	If (_nCont++ % _nPasso) == 0 ;;
+		<cFunc>(<cTxtProc>+' - '+Transform(_nCont,'@E 999,999,999')+' / '+;
+				LTrim(Transform(_nQtdReg,'@E 999,999,999'))+;
+				' ('+LTrim(Transform(NoRound((_nCont/_nQtdReg)*100,0),'@E 999'))+' %)');;
+		ProcessMessages();;
+	EndIf
+
+#xTranslate _ProcRegua(<nQtRg>) => ;
+	__ProcRegua(<nQtRg>,ProcRegua)
+
+#xTranslate _IncProc(<cTxtProc>) => ;
+	__IncProc(<cTxtProc>,IncProc)
+
+#xTranslate _SetRegua(<nQtRg>) => ;
+	__ProcRegua(<nQtRg>,SetRegua)
+
+#xTranslate _IncRegua() => ;
+	If (_nCont++ % _nPasso) == 0 ;;
+		IncRegua();;
+		ProcessMessages();;
+	EndIf
