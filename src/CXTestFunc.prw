@@ -133,6 +133,12 @@ User Function CXTestFunc()
 	aDate		:= {}
 	aTime		:= {}
 
+	//Tive que fazer essa proteção porque o padrão está chamando esse fonte recursivamente por
+	// conta da função EvalTrigger()->EvalGeneric() dentro do ExecAuto
+	If FWIsInCallStack('EVALGENERIC')
+		Return
+	EndIf
+
 	//---------------------------------------------------------------------------------------------
     //Controle de chamadas recursivas
     If Type('_lRecursivo') <> 'L'
