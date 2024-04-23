@@ -25,10 +25,15 @@
 //##|          |           | Adicionado tipo JSon                           |##
 //##| 12/11/21 | Cirilo R. | Pequena revisão no fonte                       |##
 //##| 20/05/22 | Cirilo R. | Melhoria na impressão de valores numéricos     |##
-//##|          |           |                                                |##
+//##| 23/04/24 | Cirilo R. | Melhoria para tratar recursividade!            |##
 //##|          |           |                                                |##
 //##+----------+-----------+------------------------------------------------+##
 //#############################################################################
+Static nP_NOM	:= 01								AS Numeric
+Static nP_OBJ	:= 02								AS Numeric
+
+Static nP_TAM	:= 02								AS Numeric
+//-------------------------------------------------------------------------------------------------
 User Function CXMostraTipo(	xParam		,; 	//01 Variavel que sera exibida
 							nTamanho	,; 	//02 Tamanho para impressao de campos numericos (def 16)
 							nDecimais	,; 	//03 Decimais para impressao de campos numericos (def 2)
@@ -38,7 +43,9 @@ User Function CXMostraTipo(	xParam		,; 	//01 Variavel que sera exibida
 							nNivel		,; 	//07 Nivel para impressao (recuo) usado as chamadas recursivas (def 0)
 							cNmVariav	,; 	//08 Nome do array usado para impressao (def 'SEM NOME')
 							lMostraTipo	,;	//09 Se deve mostrar o tipo da variavel (def .T.)
-							lNomeArr	);	//10 Se imprime este nivel do array (def se nv > 0)
+							lNomeArr	,;	//10 Se imprime este nivel do array (def se nv > 0)
+							aLstObj		,;	//11 Lista de objetos para evitar recursividade
+							cNomeSup	);	//12 Nome da variável superior
 									AS Character
 	
 	//Declaracao de variaveis----------------------------------------------------------------------
@@ -74,6 +81,8 @@ User Function CXMostraTipo(	xParam		,; 	//01 Variavel que sera exibida
 	ParamType 7		VAR cNmVariav			AS Character				Optional Default 'SEM NOME'
 	ParamType 8		VAR lMostraTipo			AS Logical					Optional Default .T.
 	ParamType 9		VAR lNomeArr			AS Logical					Optional Default ( nNivel > 0 )
+	ParamType 10	VAR aLstObj				AS Array					Optional Default {}
+	ParamType 11	VAR cNomeSup			AS Character				Optional Default cNmVariav
 
 	//Inicializa Variaveis-------------------------------------------------------------------------
 	nTab		:= 2
@@ -305,7 +314,11 @@ User Function CXMostraTipo(	xParam		,; 	//01 Variavel que sera exibida
 //			EndIf
 			cRet	+= GetClassName(xParam) //Nome da Clase
 			cRet	+= CRLF
-
+			
+			aAdd(aLstObj,Array(nP_TAM))	//-- Guardo lista de objetos para evitar recursividade!
+			aTail(aLstObj)[nP_NOM]	:= cNomeSup+':'+cNmVariav
+			aTail(aLstObj)[nP_OBJ]	:= xParam
+			
 			If Len(aMethClass)
 				cRet	+= cEspInic+'MÉTODOS'+CRLF
 				aSort(aMethClass,,, { |x, y| x[1] < y[1] } )	//Crescente
@@ -332,19 +345,25 @@ User Function CXMostraTipo(	xParam		,; 	//01 Variavel que sera exibida
 			If Len(aDataClass) > 0
 
 				cRet	+= cEspInic+'ATRIBUTOS'+CRLF
-				aSort(aDataClass,,, { |x, y| x[1] < y[1] } )	//Crescente
+				aSort(aDataClass,,, { |x, y| x[nP_NOM] < y[nP_NOM] } )	//Crescente
 				For nX := 1 to len(aDataClass)
-
-					cStrTmp	:=	U_CXMostraTipo(	@aDataClass[nX][2]	,;	//01 Variavel
-												/*nTamanho*/		,;	//02 
-												/*nDecimais*/		,;	//03 
-												/*lX3Combo*/		,;	//04 
-												/*cCampo*/			,;	//05 
-												/*aCombo*/			,;	//06 
-												nNivel+1			,;	//07
-												aDataClass[nX][1]	,; 	//08 Nome variavel
-												lMostraTipo			,;	//09
-												.F.					)  	//10 Nao imprime se for array
+					nPos	:= aScan(aLstObj,{|x| x[nP_OBJ] == aDataClass[nX][nP_OBJ] })	//-- Busco se já foi listado esse Objeto!
+					If nPos > 0
+						cStrTmp	:= aDataClass[nX][nP_NOM]+' -> ##### RECURSIVO ##### -> '+aLstObj[nPos][nP_NOM]
+					Else
+						cStrTmp	:=	U_CXMostraTipo(	@aDataClass[nX][nP_OBJ]	,;	//01 Variavel
+													/*nTamanho*/			,;	//02 
+													/*nDecimais*/			,;	//03 
+													/*lX3Combo*/			,;	//04 
+													/*cCampo*/				,;	//05 
+													/*aCombo*/				,;	//06 
+													nNivel+1				,;	//07
+													aDataClass[nX][nP_NOM]	,; 	//08 Nome variavel
+													lMostraTipo				,;	//09
+													.F.						,; 	//10 Nao imprime se for array
+													aLstObj					,;	//11 aLstObj
+													cNomeSup+':'+cNmVariav	)	//12 cNomeSup
+					EndIf
 
 					If .Not. Empty(cStrTmp)
 						cRet	+= cEspInic+Space(nTab)+cStrTmp+CRLF

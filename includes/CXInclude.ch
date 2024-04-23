@@ -304,6 +304,8 @@
 #Define _NomeProg_		FileNoExt(ProcSource())
 #Define _MsgLinha_		_NomeProg_+'('+StrZero(ProcLine(),5)+')'
 
+#Define _MostraVer_		oMainWnd:cTitle(Left(oMainWnd:cTitle,Rat(' [',oMainWnd:cTitle))+'['+_NomeProg_+'_v'+cVersao+'_'+cDtVersao+']')		//-- Mostra versão no título da janela
+
 //FUNÇÕES PARA USO COM A REGUA DE PROCESSAMENTO--------------------------------
 #Define _nSteps		200
 

@@ -1,0 +1,87 @@
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+#INCLUDE 'CXInclude.ch'
+
+/*=================================================================================================
+Autor      : Cirilo Rocha
+Data       : 22/03/2024 
+Info       : Função baseada na função padrão FormBatch, acrescentando opção de usar texto customizado
+				nos botões.
+=================================================================================================*/
+#DEFINE LARGURA_DO_SBUTTON 50
+//-------------------------------------------------------------------------------------------------
+User Function CXFormBatch(	cTitle		AS Character,;	//01 cTitle
+							aSays		AS Array	,;	//02 aSays
+							aButtons	AS Array	,;	//03 aButtons
+							bValid					,;	//04 bValid
+							nAltura					,;	//05 nAltura
+							nLargura				)	//06 nLargura
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aTxtBtn	:= {'Ok'		,;
+						'Cancelar'	,;
+						'Excluir'	,;
+						'Incluir'	,;
+						'Param.'	}			AS Array
+	Local cCaption								AS Character
+	Local cTextSay								AS Character
+	Local nButtons	:= Len(aButtons)			AS Numeric
+	Local nSays		:= Len(aSays)				AS Numeric
+	Local i										AS Numeric
+	Local nTop									AS Numeric
+	Local lEnabled								AS Logical
+	Local nLarguraBox							AS Numeric
+	Local nAlturaBox							AS Numeric
+	Local nLarguraSay							AS Numeric
+	Local oFont									AS Object
+	Local oBtn									AS Object
+	
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamObg 0		VAR cTitle
+	ParamObg 1		VAR aSays
+	ParamObg 2		VAR aButtons		
+	ParamType 3		VAR bValid			AS Block				Optional Default NIL
+	ParamType 4		VAR nAltura			AS Numeric				Optional Default 250
+	ParamType 5		VAR nLargura		AS Numeric				Optional Default 520
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	oFont	:= TFont():New( "Arial", 0, -11,.F.,,,,,,,,,,,, )
+
+	oDlg	:= MsDialog():New( 0, 0, nAltura, nLargura, cTitle,,,.F.,,,,,,.T.,, ,.F. )
+		nAlturaBox	:= (nAltura-60)/2
+		nLarguraBox	:= (nLargura-20)/2
+
+		TGroup():New( 10, 10, nAlturaBox, nLarguraBox,, oDlg,,,.T., )
+
+		//Monta Says-----------------------------------------------------------------------------------
+		nTop:=20
+		nLarguraSay:= nLarguraBox-25
+		For i:=1 to nSays
+			cTextSay:= "{||'"+aSays[i]+"'}"
+			TSay():New(nTop,20,MontaBlock(cTextSay),oDlg,,oFont,.F.,.F.,.F.,.T.,,,nLarguraSay,10,.F.,.F.,.F.,.F.,.F.)
+			nTop+= 10
+		Next
+
+		//Monta Botões---------------------------------------------------------------------------------
+		nPosIni := 010 //((nLargura-20)/2) - (nButtons* LARGURA_DO_SBUTTON )
+		nAlturaButton:= nAlturaBox+10
+
+		For i := 1 to nButtons
+			If ValType(aButtons[i][1]) == 'N'	//-- Compatibilidade com a função padrão!
+				cCaption:= aTxtBtn[aButtons[i][1]]
+			Else
+				cCaption:= aButtons[i][1]
+			EndIf			
+			lEnabled	:= aButtons[i,2]
+			lEnabled	:= If(ValType(lEnabled) == "U",.T.,lEnabled)
+
+			oBtn	:= TButton():New(nAlturaButton,nPosIni,cCaption,oDlg,aButtons[i,3],LARGURA_DO_SBUTTON,15,;
+									,,.F.,.T.,.F.,,.F.,MontaBlock('{|| '+IIF(lEnabled,'.T.','.F.')+' }'),,.F.)
+
+			nPosIni += LARGURA_DO_SBUTTON+013
+		Next
+
+	oDlg:Activate( ,,, .T. ,bValid,,,, )
+	
+Return
