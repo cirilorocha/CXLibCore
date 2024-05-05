@@ -5,6 +5,10 @@
 #include 'FWCommand.CH'
 #Include "ParmType.ch"
 #Include "CXInclude.ch"
+
+Static cVersao := "1.50"
+Static cDtVersao := "05/05/2024"
+
 // MANTER EM .PRW PARA PODER EXECUTAR STATICCALL
 //#############################################################################
 //##+==========+============+=======+===================+======+============+##
@@ -235,6 +239,8 @@ User Function CXTestFunc()
 	EndIf
 
 	//---------------------------------------------------------------------------------------------
+	
+	oMainWnd:cTitle(Left(oMainWnd:cTitle,Rat(' [',oMainWnd:cTitle))+'['+FileNoExt(ProcSource())+'_v'+cVersao+' | '+cDtVersao+']')		//-- Mostra versão no título da janela
 
 	Private lExecuta	:= .T.
 
