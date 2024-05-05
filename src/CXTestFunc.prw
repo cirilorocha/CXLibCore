@@ -88,6 +88,7 @@ User Function CXTestFunc()
 	Local lAchou            AS Logical
 	Local cMsg              AS Character
 	Local lCarrAmb		    AS Logical
+	Local lRet			    AS Logical
 
 	Local bErroBak          AS CodeBlock
 	
@@ -193,22 +194,28 @@ User Function CXTestFunc()
 				"Aguarde...")
 //		PREPARE ENVIRONMENT EMPRESA Left(cEmp_,2) FILIAL Left(cFil_,2)
 
-		U_CXSetUsr('000000')
-		__cInternet	:= NIL			//Preciso colocar aqui para forçar mostrar mensagens
-		lMsHelpAuto := .F.			//Preciso colocar aqui para forçar mostrar mensagens
-		lCarrAmb	:= .T. //Carregou o ambiente
+        If .Not. lRet
+			FwAlertWarning(	'Não foi possível montar o ambiente selecionado.',_MsgLinha_)
+            Return
+        EndIf
+
+		//-- Single Sign-On
+		If .Not. sfSingleSignOn(@__cUserID)
+			//-- Fecha o ambiente
+			RpcClearEnv()
+			Return
+		EndIf
+
+		U_CXSetUsr(__cUserID)
+		__cInternet	:= NIL			//-- Preciso colocar aqui para forçar mostrar mensagens
+		lMsHelpAuto := .F.			//-- Preciso colocar aqui para forçar mostrar mensagens
+		lCarrAmb	:= .T. 			//-- Carregou o ambiente
 		
 		//PRECISO ABRIR OS SX'S AQUI PARA FUNCIONAR CORRETAMENTE
 		OpenSm0()	//Abre o sigamat
-		SIX->(dbSetOrder(1))
-		SX1->(dbSetOrder(1))
-		SX2->(dbSetOrder(1))
-		SX3->(dbSetOrder(1))
-		SX5->(dbSetOrder(1))
-		SX6->(dbSetOrder(1))
-		SX7->(dbSetOrder(1))
-		SX9->(dbSetOrder(1))
-		SXA->(dbSetOrder(1))
+		SIX->(dbSetOrder(1))	;	SX1->(dbSetOrder(1))	;		SX2->(dbSetOrder(1))
+		SX3->(dbSetOrder(1))	;	SX5->(dbSetOrder(1))	;		SX6->(dbSetOrder(1))
+		SX7->(dbSetOrder(1))	;	SX9->(dbSetOrder(1))	;		SXA->(dbSetOrder(1))
 		SXB->(dbSetOrder(1))
 
 		_lRecursivo	:= .F.	//Desativa o controle de recursividade
@@ -1166,3 +1173,72 @@ Static Function MsgErroCst(oErr);
 	Break
 
 Return .F.
+
+/*=================================================================================================
+Autor      : Cirilo Rocha
+Data       : 05/05/2024
+Info       : Função para salvar o login do usuário baseado nas credenciais do windows cliente
+=================================================================================================*/
+Static Function sfSingleSignOn(cUser)	/*@cUser*/		AS Logical
+
+	//-- Declaracao de variaveis ----------------------------------------------
+	Local aConInfo	:= FWGetTopInfo()				AS Array		//-- Retorna informações da conexão
+	Local aUserInfo									AS Array
+	Local cArqCred									AS Character
+	Local cJson										AS Character
+	Local cHashAtual								AS Character
+	Local jCredUsr	:= JsonObject():New()			AS Json
+	Local lOK		:= .F.							AS Logical
+	Local ucMsgErr									AS Variant
+
+	//-- Posições da do retorno da função FWGetTopInfo()
+	Local nIP		:= 01							AS Numeric
+	Local nNmBco	:= 07							AS Numeric
+
+	//-------------------------------------------------------------------------
+	cArqCred	:= GetTempPath()+SHA1(aConInfo[nIP]+'|'+aConInfo[nNmBco])+'.dat'
+	If File(cArqCred)
+		cJson	:= MemoRead(cArqCred)
+		ucMsgErr:= jCredUsr:FromJson(cJson) //-- Converte texto Json em Objeto, se erro retorna uErro a mensagem
+		If ValType(ucMsgErr) == 'C'
+			FwAlertError(	'Erro na leitura do arquivo de credenciais.'+CRLF+;
+							'Será recriado.'+CRLF+;
+							ucMsgErr,_MsgLinha_)
+		EndIf
+	EndIf
+
+	//-------------------------------------------------------------------------
+	//-- Chave = Data Atual + Credencial do Windows Cliente + Usuário Windows -- Validade só de 1 dia por isso a data atual
+	cHashAtual	:= Sha1(Dtos(Date())+'|'+GetCredential()+'|'+LogUserName(),2)
+	If 	jCredUsr:hasProperty('hash') .And. ;
+		jCredUsr:hasProperty('user')
+		If cHashAtual == jCredUsr['hash']
+			cUser	:= Decode64(jCredUsr['user'])	//-- Decodifica o código de usuário!
+
+			PswOrder(1)	//-- Ordem por codigo
+			If PswSeek(cUser)
+				aUserInfo	:= FWSFAllUsers({cUser},{'USR_MSBLQL'})
+				If aUserInfo[1][3] <> '1'	//-- Usuário NÃO bloqueado!
+					lOK			:= .T.
+				EndIf
+			EndIf
+		EndIf
+	EndIf
+
+	//-- Não bateu a credencial salva, solicita uma nova ----------------------
+	If .Not. lOK
+		If FWAuthUser(@cUser) 	//-- Solicita a senha do usuário
+			If FWIsAdmin(cUser) //-- Usuário é administrador
+				lOK	:= .T.
+				jCredUsr['hash']	:= cHashAtual
+				jCredUsr['user']	:= Encode64(cUser)
+				cJson	:= jCredUsr:toJson()
+				MemoWrite(cArqCred,cJson)
+			Else
+				FwAlertError(	'Usuário sem acesso a rotina. Apenas administradores podem '+;
+								'utilizar a ferramenta.',_MsgLinha_)
+			EndIf
+		EndIf
+	EndIf
+
+Return lOK
