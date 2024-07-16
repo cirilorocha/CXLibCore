@@ -20,6 +20,7 @@
 //##| 13/10/21 | Cirilo R. | Pequena revisão no fonte                       |##
 //##| 14/10/21 | Cirilo R. | Correção no tratamento MVC!                    |##
 //##| 21/09/23 | Cirilo R. | Melhoria no tratamento de erros no MVC         |##
+//##| 15/07/24 | Cirilo R. | Correção no tratamento MVC                     |##
 //##|          |           |                                                |##
 //##|          |           |                                                |##
 //##+----------+-----------+------------------------------------------------+##
@@ -57,14 +58,15 @@ User Function CXGetCpo(	cCampo	,;	//01 Campo para leitura
 			Type('oModel:aModelStruct[1][3]:aDataModel[1][1][1]') == 'C'	//Proteção de erros!
 
 			//Tabela do modelo é a mesma do campo solicitado
-			lMVC	:= FwTabPref(oModel:aModelStruct[1][3]:aDataModel[1][1][1]) == FwTabPref(cCampo)
+			//lMVC	:= FwTabPref(oModel:aModelStruct[1][3]:aDataModel[1][1][1]) == FwTabPref(cCampo)
+			lMVC	:= ValType(FWFldGet(FwTabPref(cCampo)+'_FILIAL',nPos,oModel)) <> 'U'
 		EndIf
 	EndIf
 
 	If lGrid
 		//If fwModelActive() <> NIL
 		If lMVC
-			uRet	:= FWFldGet(cCampo,nPos,/*oModel*/) //Obtem valor do MVC
+			uRet	:= FWFldGet(cCampo,nPos,oModel) //Obtem valor do MVC
 		EndIf
 		
 		If ValType(uRet) == 'U'	//Tenta corrigir tratamento do MVC
@@ -82,7 +84,7 @@ User Function CXGetCpo(	cCampo	,;	//01 Campo para leitura
 		
 		//If fwModelActive() <> NIL
 		If lMVC
-			uRet	:= FWFldGet(cCampo,/*nLin*/,/*oModel*/) //Obtem valor do MVC
+			uRet	:= FWFldGet(cCampo,/*nLin*/,oModel) //Obtem valor do MVC
 		EndIf
 		
 		If ValType(uRet) == 'U'	//Tenta corrigir tratamento do MVC
