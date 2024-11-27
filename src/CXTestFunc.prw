@@ -1199,7 +1199,7 @@ Static Function sfSingleSignOn(cUser)	/*@cUser*/		AS Logical
 
 	//-- Posições da do retorno da função FWGetTopInfo()
 	Local nIP		:= 01							AS Numeric
-	Local nNmBco	:= 07							AS Numeric
+	Local nNmBco	:= 05							AS Numeric
 
 	//-------------------------------------------------------------------------
 	cArqCred	:= GetTempPath()+SHA1(aConInfo[nIP]+'|'+aConInfo[nNmBco])+'.dat'
