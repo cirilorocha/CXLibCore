@@ -6,8 +6,8 @@
 #Include "ParmType.ch"
 #Include "CXInclude.ch"
 
-Static cVersao := "1.50"
-Static cDtVersao := "05/05/2024"
+Static cVersao := "1.57"							AS Character
+Static cDtVersao := "31/01/2025"					AS Character
 
 // MANTER EM .PRW PARA PODER EXECUTAR STATICCALL
 //#############################################################################
@@ -83,12 +83,14 @@ User Function CXTestFunc()
 //	Local aParam            AS Array
 	Local nSvSx8Len         AS Numeric
 	Local nRecSM0           AS Numeric
+	Local dDtBak			AS Date
 
 	Local cModAnt		    AS Character
 	Local nModAnt		    AS Numeric
 	Local cMenuAnt		    AS Character
 
 	Local nX                AS Numeric
+	Local nPos				AS Numeric
 	Local lAchou            AS Logical
 	Local cMsg              AS Character
 	Local lCarrAmb		    AS Logical
@@ -162,21 +164,47 @@ User Function CXTestFunc()
 		Next
 	EndIf
 	
+	Private aModulos	:= RetModName()
+
+	Private aCbMod		:= {}
+
+	//Acrescenta o modulo configurador pois este nao vem na funcao padrao
+	aAdd(aModulos,{99,'SIGACFG','Configurador',.F.,'',99})
+
+	//Ordena por nome do modulo
+	ASort ( aModulos, , , { |x,y| x[3] < y[3] } )
+
+	//Preenche combo
+	For nX := 1 to len(aModulos)
+		aAdd(aCbMod,aModulos[nX][3])
+	Next
+
 	//---------------------------------------------------------------------------------------------
-	//Se foi executado a partir do configurador
+	//Se NÃO foi executado a partir do configurador
 	If Type('cFilAnt') == 'U'
 		Private aSM0EmpFil	:= {}
 
 		Private cEmp_			:= ''
 		Private cFil_			:= ''
+		Private cMod_			:= ''
 
 		//Seleciona a empresa / filial
 		If !SelEmpFil()
 			Return
 		EndIf
 
+		nPos		:= aScan(aCbMod,{|x| AllTrim(x) == AllTrim(cMod_) })
+		If nPos == 0
+			cMod_	:= 'FAT'
+		Else
+			cMod_	:= Rtrim(SubStr(aModulos[nPos][2],5))
+		EndIf
+
+		RpcClearEnv()
+
 		// Não consome licensa de uso
 		RPCSetType(3)
+
 		// Abre ambiente de trabalho
 		//MsgRun('Aguarde...',U_CXTxtMsg()+"Montando Ambiente. Empresa [" + cEmp_ + "] Filial [" + cFil_ +"].",;
 		MsAguarde(;
@@ -186,7 +214,7 @@ User Function CXTestFunc()
 										cFil_			,;	//02 Filial
 										'000000'		,;	//03 Usuario
 										/*cEnvPass*/	,;	//04 Senha de Usuario
-										'FAT'			,;	//05 Modulo (3ch)
+										cMod_			,;	//05 Modulo (3ch)
 										'CXTestFunc'	,;	//06 Nome da Funcao
 										/*aTables*/		,;	//07 Tabelas para abrir
 										/*lShowFinal*/	,;	//08 Alimenta a variavel lMsFinalAuto
@@ -232,7 +260,7 @@ User Function CXTestFunc()
 							oMainWnd:bResized, oMainWnd:bPainted, oMainWnd:bKeyDown, oMainWnd:bInit := { | Self | (U_CXTestFunc(),oMainWnd:End()) },;
 							,,,,,,,,,, oMainWnd:bLButtonUp )
 
-		//Fecha o ambiente
+		//-- Fecha o ambiente
 		RpcClearEnv()
 		
 		Return
@@ -242,6 +270,7 @@ User Function CXTestFunc()
 	
 	oMainWnd:cTitle(Left(oMainWnd:cTitle,Rat(' [',oMainWnd:cTitle))+'['+FileNoExt(ProcSource())+'_v'+cVersao+' | '+cDtVersao+']')		//-- Mostra versão no título da janela
 
+	//---------------------------------------------------------------------------------------------
 	Private lExecuta	:= .T.
 
 	If Type('cArqMnu') == 'U'
@@ -297,6 +326,13 @@ User Function CXTestFunc()
 	//	If ! pergunte(cPerg,.T.)
 	//		Return
 	//	EndIf
+
+		//Limpa as variaveis publicas
+		MV_PAR01 := ''
+		MV_PAR02 := ''
+		MV_PAR03 := ''
+		MV_PAR04 := ''
+		MV_PAR05 := ''
 
 		//Salva variaveis de ambiente
 		cEmpBak		:= cEmpAnt	//Salvo para comparar depois
@@ -374,7 +410,7 @@ User Function CXTestFunc()
 
 		If inTransact() //Esta dentro de uma transacao
 			DisarmTransaction()
-			ApMsgStop(	"A função executada deixou a transação pendente."+CRLF+;
+			FwAlertError("A função executada deixou a transação pendente."+CRLF+;
 						"Um RollBack foi executado.",U_CXTxtMsg(,,.T.))
 		EndIf
 		//Libera transacoes e arquivo de impressao
@@ -382,23 +418,23 @@ User Function CXTestFunc()
 		MS_FLUSH()
 
 		If GetSx8Len() > nSvSx8Len
-			ApMsgStop(	"A função executada deixou confirmações de numeração pendentes."+CRLF+;
+			FwAlertError("A função executada deixou confirmações de numeração pendentes."+CRLF+;
 						"Um RollBack das numerações pendentes foi executado.",U_CXTxtMsg(,,.T.))
 		EndIf
 
 		If cEmpAnt <> cEmpBak
-			ApMsgAlert(	"ATENÇÃO! A função alterou a variável de sistema cEmpAnt."+CRLF+;
+			FwAlertWarning(	"ATENÇÃO! A função alterou a variável de sistema cEmpAnt."+CRLF+;
 						"ISSO PODE GERAR PROBLEMAS NAS ROTINAS.",U_CXTxtMsg(,,.T.))
 		EndIf
 		If cFilAnt <> cFilBak
-			ApMsgAlert(	"ATENÇÃO! A função alterou a variável de sistema cFilAnt."+CRLF+;
+			FwAlertWarning(	"ATENÇÃO! A função alterou a variável de sistema cFilAnt."+CRLF+;
 						"ISSO PODE GERAR PROBLEMAS NAS ROTINAS.",U_CXTxtMsg(,,.T.))
 		EndIf
 
 		If Select('SM0') == 0
 			cMsg	:= U_CXTxtMsg()+"ERRO: A ROTINA "+Upper(cComando)+" LIMPOU O AMBIENTE DE EXECUÇÃO"
 			U_CXConOut(ANSIToOEM(cMsg))
-			ApMsgAlert(cMsg,U_CXTxtMsg(,,.T.))
+			FwAlertWarning(cMsg,U_CXTxtMsg(,,.T.))
 
 			// Não consome licensa de uso
 			RPCSetType(3)
@@ -416,7 +452,7 @@ User Function CXTestFunc()
 						.T.				,;	//10 Pega a primeira filial do arquivo SM0 quando não passar a filial e realiza a abertura dos SXs
 						.T.				) 	//11 faz a abertura da conexao com servidor do banco
 		ElseIf nRecSM0 <> SM0->(Recno())
-			ApMsgAlert(	"ATENÇÃO! A função desposicionou o Sigamat."+CRLF+;
+			FwAlertWarning(	"ATENÇÃO! A função desposicionou o Sigamat."+CRLF+;
 						"ISSO PODE GERAR PROBLEMAS NAS ROTINAS.",U_CXTxtMsg(,,.T.))
 		EndIf
 
@@ -563,6 +599,7 @@ Static Function SelEmpFil();
 	Local nPosFil		AS Numeric
 	Local oDlg			AS Object
 	Local oBOK			AS Object
+	Local oFont			AS Object
 
 	Local nX            AS Numeric
 	Local lRet		    AS Logical
@@ -602,7 +639,7 @@ Static Function SelEmpFil();
 	aParam	:= GetParam('CXTestFuncE.par')
 	nPosEmp	:= 1	//Primeira empresa
 	nPosFil	:= 1	//Primeira filial
-	If len(aParam) == 2
+	If len(aParam) == 3
 		nPosEmp		:= aScan(aSM0EmpFil,{|x| x[1] == AllTrim(aParam[1]) })
 		If nPosEmp > 0
 			nPosFil	:= aScan(aSM0EmpFil[nPosEmp][3],{|x| x == AllTrim(aParam[2]) })
@@ -613,25 +650,33 @@ Static Function SelEmpFil();
 			nPosEmp	:= 1	//Primeira empresa
 			nPosFil	:= 1	//Primeira filial
 		EndIf
+		cMod_	:= aParam[3]
 	EndIf
 	cEmp_ 	:= aEmp[nPosEmp]
 	cFil_	:= aSM0EmpFil[nPosEmp][2][nPosFil]
 
 	//Preenche array de filiais
 	aFil	:= aSM0EmpFil[nPosEmp][2]
-
+	oFont	:= TFont():New('Arial',, -11, .T., .T.)
 	//---------------------------------------------------------------------------------------------
-	oDlg	:= MSDialog():New(	000,000,160,350,U_CXTxtMsg()+'Selecione a empresa e filial',,,,DS_MODALFRAME,;
+	oDlg	:= MSDialog():New(	000,000,240,350,U_CXTxtMsg()+'Selecione a empresa e filial',,,,DS_MODALFRAME,;
 								/*CLR_BLACK*/,/*CLR_WHITE*/,,/*oWnd*/,.T.,,,,/*lTransparent*/)
 		
 		aPosBt	:= U_CXPosBtn(oDlg,nLarBt,nAltBt)
 		
-		oEmp	:= tComboBox():New(10,05,bSetGet(cEmp_),aEmp,165,20,oDlg,,,;
+		TSay():New( 005, 005,{|| "Selecione a Empresa:" },oDlg,,oFont,.F.,.F.,.F.,.T.,,,,,.F.,.F.,.F.,.F.,.F.,.F. )
+		oEmp	:= tComboBox():New(013,05,bSetGet(cEmp_),aEmp,165,20,oDlg,,,;
 										{|| VldEmp(oEmp:nAt)},,,.T.,,,,,,,,,'cEmp_')
 		oEmp:Select(nPosEmp)
 
-		oFil	:= tComboBox():New(30,05,bSetGet(cFil_),aFil,165,20,oDlg,,,,,,.T.,,,,,,,,,'cFil_')
+		TSay():New( 030, 005,{|| "Selecione a Filial:" },oDlg,,oFont,.F.,.F.,.F.,.T.,,,,,.F.,.F.,.F.,.F.,.F.,.F. )
+		oFil	:= tComboBox():New(038,05,bSetGet(cFil_),aFil,165,20,oDlg,,,,,,.T.,,,,,,,,,'cFil_')
 		oFil:Select(nPosFil)
+
+		TSay():New( 055, 005,{|| "Selecione o Módulo (licença):" },oDlg,,oFont,.F.,.F.,.F.,.T.,,,,,.F.,.F.,.F.,.F.,.F.,.F. )
+		tComboBox():New(063,005,bSetGet(cMod_),aCbMod,165,20,oDlg,,,,,,.T.,,,,,,,,,'cMod_')
+		
+		TSay():New( 080, 110,{||  "Versão: "+cVersao+' | '+cDtVersao},oDlg,,,.F.,.F.,.F.,.T.,,,,,.F.,.F.,.F.,.F.,.F.,.F. )
 
 		tButton():New(aPosBt[1],aPosBt[5][1],'Cancelar'		,oDlg,{|| lRet := .F. , oDlg:End() },nLarBt,nAltBt,,,,.T.)
 		oBOK	:= tButton():New(aPosBt[1],aPosBt[5][5],'OK'			,oDlg,{|| lRet := sfVldEmpFil() , oDlg:End() },nLarBt,nAltBt,,,,.T.)
@@ -641,7 +686,7 @@ Static Function SelEmpFil();
 	oDlg:Activate(,,,.T.,/*{|Self| Valid }*/,,/*{|Self| Init }*/ )
 
 	If lRet
-		SlvParam({cEmp_,cFil_},'CXTestFuncE.par')
+		SlvParam({cEmp_,cFil_,cMod_},'CXTestFuncE.par')
 	EndIf
 
 Return lRet
@@ -778,7 +823,7 @@ Static Function Parametros() AS Logical
 			dDataBase	:= MV_PAR05
 		EndIf
 
-		SlvParam({MV_PAR01,MV_PAR02,MV_PAR03,MV_PAR04,DtoS(MV_PAR05)},'CXTestFuncP.par')
+		SlvParam({MV_PAR01,MV_PAR02,MV_PAR03,MV_PAR04,DToS(MV_PAR05)},'CXTestFuncP.par')
 	EndIf
 
 	//Restaura tecla de atalho
@@ -856,7 +901,7 @@ Static Function VldFunc();
 			lOK			:= .T.
 			lBuscaRPO	:= .T.
 		Else
-			ApMsgAlert("Função não compilada, digite uma função válida.",U_CXTxtMsg(,,.T.))
+			FwAlertWarning("Função não compilada, digite uma função válida.",U_CXTxtMsg(,,.T.))
 			lOK := .F.
 		EndIf
 	EndIf
@@ -867,7 +912,7 @@ Static Function VldFunc();
 			If Len(aFile) > 0
 				cTxtLin1	:= aFile[1]+' - '+DtoC(aDate[1])+' '+aTime[1]
 			Else
-				ApMsgAlert(	"Erro ao localizar informações da função "+cComando,U_CXTxtMsg(,,.T.))
+				FwAlertWarning(	"Erro ao localizar informações da função "+cComando,U_CXTxtMsg(,,.T.))
 				cTxtLin1	:= 'ERRO AO LOCALIZAR INFORMAÇÕES'
 			EndIf
 
