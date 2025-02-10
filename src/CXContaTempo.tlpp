@@ -1,0 +1,33 @@
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+
+/*=================================================================================================
+Autor		: Cirilo Rocha
+Data		: 07/02/2025
+Info		: Conta o tempo para execução de um bloco de código para medida de performance
+=================================================================================================*/
+User Function CXContaTempo(	bExec	AS CodeBlock,;
+							lMsg	AS Logical	)	AS Numeric
+	
+	//-- Declaração de Variáveis ----------------------------------------------
+	Local cTexto									AS Character
+	Local nInicio									AS Numeric
+
+	//-- Parâmetros da Rotina -------------------------------------------------
+	ParamType 0		VAR bExec		AS Block
+	Default lMsg	:= .T.
+	
+	nInicio	:= Seconds()
+	
+	eVal(bExec)
+	
+	nTempo	:= ( Seconds() - nInicio )
+
+	cTexto	:= 'Tempo execução '+GetCbSource(bExec)+' => '+cValToChar(nTempo)
+	ConOut(cTexto)
+	If lMsg
+		FwAlertInfo(cTexto,'CXContaTempo')
+	EndIf
+
+Return nTempo
