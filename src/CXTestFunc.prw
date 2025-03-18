@@ -6,8 +6,8 @@
 #Include "ParmType.ch"
 #Include "CXInclude.ch"
 
-Static cVersao := "1.57"							AS Character
-Static cDtVersao := "31/01/2025"					AS Character
+Static cVersao := "1.58"							AS Character
+Static cDtVersao := "18/03/2025"					AS Character
 
 // MANTER EM .PRW PARA PODER EXECUTAR STATICCALL
 //#############################################################################
@@ -295,10 +295,6 @@ User Function CXTestFunc()
 
 	Private cComando	:= ''
 	Private cArgumentos	:= ''
-
-	Private aModulos	:= RetModName()
-
-	Private aCbMod		:= {}
 
 	//Acrescenta o modulo configurador pois este nao vem na funcao padrao
 	aAdd(aModulos,{99,'SIGACFG','Configurador',.F.,'',99})
@@ -595,6 +591,7 @@ Static Function SelEmpFil();
 	Local aSM0			AS Array
 	Local aEmp		    AS Array
 	Local aFil		    AS Array
+	Local nEmpTst := 1	AS Numeric
 	Local nPosEmp		AS Numeric
 	Local nPosFil		AS Numeric
 	Local oDlg			AS Object
@@ -629,6 +626,9 @@ Static Function SelEmpFil();
 			aAdd(aSM0EmpFil,{RTrim(aSM0[nX][SM0_GRPEMP]),{},{}})
 			nPosEmp	:= len(aSM0EmpFil)
 			aAdd(aEmp,RTrim(aSM0[nX][SM0_GRPEMP])+'-'+RTrim(IIF(Empty(aSM0[nX][SM0_NOMECOM]),aSM0[nX][SM0_NOME],aSM0[nX][SM0_NOMECOM])))
+			If aSM0[nX][SM0_GRPEMP] == '99'	//-- Guardo a empresa teste se existir
+				nEmpTst	:= nPosEmp
+			EndIF
 		EndIf
 		
 		aAdd(aSM0EmpFil[nPosEmp][2],RTrim(aSM0[nX][SM0_CODFIL])+'-'+Rtrim(aSM0[nX][SM0_NOMRED]))
@@ -637,21 +637,20 @@ Static Function SelEmpFil();
 
 	//Carrega parametros
 	aParam	:= GetParam('CXTestFuncE.par')
-	nPosEmp	:= 1	//Primeira empresa
-	nPosFil	:= 1	//Primeira filial
-	If len(aParam) == 3
-		nPosEmp		:= aScan(aSM0EmpFil,{|x| x[1] == AllTrim(aParam[1]) })
-		If nPosEmp > 0
-			nPosFil	:= aScan(aSM0EmpFil[nPosEmp][3],{|x| x == AllTrim(aParam[2]) })
-			If nPosFil <= 0
-				nPosFil	:= 1
-			EndIf
-		Else
-			nPosEmp	:= 1	//Primeira empresa
-			nPosFil	:= 1	//Primeira filial
-		EndIf
-		cMod_	:= aParam[3]
+	If Len(aParam) <> 3	//-- Inicializa parâmetros
+		aParam[1]	:= aSM0EmpFil[nEmpTst][1]
+		aParam[2]	:= '@#@#@'	//-- Para pegar a primeira empresa
+		aParam[3]	:= 'Faturamento'
 	EndIf
+
+	nPosEmp		:= aScan(aSM0EmpFil,{|x| x[1] == AllTrim(aParam[1]) })
+	If nPosEmp > 0
+		nPosFil	:= aScan(aSM0EmpFil[nPosEmp][3],{|x| x == AllTrim(aParam[2]) })
+		If nPosFil <= 0
+			nPosFil	:= 1
+		EndIf
+	EndIf
+	cMod_	:= aParam[3]
 	cEmp_ 	:= aEmp[nPosEmp]
 	cFil_	:= aSM0EmpFil[nPosEmp][2][nPosFil]
 
