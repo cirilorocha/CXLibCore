@@ -164,12 +164,12 @@ User Function CXTestFunc()
 		Next
 	EndIf
 	
-	Private aModulos	:= RetModName()
+	Private aModulos	:= RetModName(.T.)
 
 	Private aCbMod		:= {}
 
 	//Acrescenta o modulo configurador pois este nao vem na funcao padrao
-	aAdd(aModulos,{99,'SIGACFG','Configurador',.F.,'',99})
+	//aAdd(aModulos,{99,'SIGACFG','Configurador',.F.,'',99})
 
 	//Ordena por nome do modulo
 	ASort ( aModulos, , , { |x,y| x[3] < y[3] } )
@@ -295,17 +295,6 @@ User Function CXTestFunc()
 
 	Private cComando	:= ''
 	Private cArgumentos	:= ''
-
-	//Acrescenta o modulo configurador pois este nao vem na funcao padrao
-	aAdd(aModulos,{99,'SIGACFG','Configurador',.F.,'',99})
-
-	//Ordena por nome do modulo
-	ASort ( aModulos, , , { |x,y| x[3] < y[3] } )
-
-	//Preenche combo
-	For nX := 1 to len(aModulos)
-		aAdd(aCbMod,aModulos[nX][3])
-	Next
 
 //	aPerm			:= PswRet(3)
 
