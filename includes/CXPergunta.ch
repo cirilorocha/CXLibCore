@@ -18,5 +18,7 @@ Static nCX_CNT01   	:= 11
 Static nCX_HELP		:= 12
 Static nCX_APELIDO	:= 13
 Static nCX_PICTURE	:= 14
+Static nCX_CHELP	:= 15
+Static nCX_DEFRANGE	:= 16
 
-Static nCX_TAMARR	:= 14
+Static nCX_TAMARR	:= 16
