@@ -6,8 +6,8 @@
 #Include "ParmType.ch"
 #Include "CXInclude.ch"
 
-Static cVersao := "1.58"							AS Character
-Static cDtVersao := "18/03/2025"					AS Character
+Static cVersao := "1.59"							AS Character
+Static cDtVersao := "24/04/2025"					AS Character
 
 // MANTER EM .PRW PARA PODER EXECUTAR STATICCALL
 //#############################################################################
@@ -627,6 +627,7 @@ Static Function SelEmpFil();
 	//Carrega parametros
 	aParam	:= GetParam('CXTestFuncE.par')
 	If Len(aParam) <> 3	//-- Inicializa parâmetros
+		aParam		:= Array(3)
 		aParam[1]	:= aSM0EmpFil[nEmpTst][1]
 		aParam[2]	:= '@#@#@'	//-- Para pegar a primeira empresa
 		aParam[3]	:= 'Faturamento'
