@@ -24,6 +24,7 @@
 //##| 19/05/18 | Cirilo R. | Migrada gravação de log para tCXLog            |##
 //##|          |           | Ajustes nas dimensões dinâmicas                |##
 //##| 29/07/19 | Cirilo R. | Revisão no fonte                               |##
+//##| 03/05/25 | Cirilo R. | Correção na função U_cGetFile                  |##
 //##|          |           |                                                |##
 //##|          |           |                                                |##
 //##+----------+-----------+------------------------------------------------+##
@@ -266,7 +267,7 @@ Static Function SalvaMemo(cMemo);	//01
 								U_CXTxtMsg()+'Selecione o local e nome do arquivo:'	,;	//02
 								/*nMascpadrao*/										,;	//03
 								/*cDirinicial*/										,;	//04
-								.T.													,;	//05
+								.F.													,;	//05
 								GETF_LOCALHARD+GETF_NETWORKDRIVE					,;	//06
 								.F.													) 	//07
 

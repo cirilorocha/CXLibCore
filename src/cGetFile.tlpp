@@ -16,58 +16,51 @@
 //##| 12/10/21 | Cirilo R.| Pequena revisão (release 33)                    |##
 //##| 17/04/22 | Cirilo R.| Adequação para o SmartClient Webapp             |##
 //##| 14/12/22 | Cirilo R.| Melhoria para salvar o diretório inicial        |##
-//##|          |          |                                                 |##
+//##| 03/05/25 | Cirilo R.| Alinhamento com o 5º parâmetro da função padrão |##
+//##|          |          |  era para ser lAbrir, estava documentado errado |##
 //##|          |          |                                                 |##
 //##|          |          |                                                 |##
 //##+==========+==========+=================================================+##
 //#############################################################################
-User Function cGetFile(	cMascara	,;	//01 cMascara
-						cTitulo		,;	//02 cTitulo
-						nMascPadrao	,;	//03 nMascPadrao
-						cDirInicial	,;	//04 cDirInicial
-						lSalvar		,;	//05 lSalvar
-						nOpcoes		,;	//06 nOpcoes
-						lServer		,;	//07 lServer
-						lKeepCase	);	//08 lKeepCase
-                            AS Character
+User Function cGetFile(	cMascara	AS Character,;	//01 cMascara
+						cTitulo		AS Character,;	//02 cTitulo
+						nMascPadrao	AS Numeric	,;	//03 nMascPadrao
+						cDirInicial	AS Character,;	//04 cDirInicial
+						lAbrir		AS Logical	,;	//05 lAbrir
+						nOpcoes		AS Numeric	,;	//06 nOpcoes
+						lServer		AS Logical	,;	//07 lServer
+						lKeepCase	AS Logical	);	//08 lKeepCase
+													AS Character
 
-	//Declaracao de variaveis----------------------------------------------------------------------
-	Local uRet          AS Variant
-	Local aMasc			AS Array
-	Local nX			AS Numeric
-	Local cMascProc		AS Variant
-	Local cTemp			AS Character
-	Local cSession		AS Character
-	Local cDrive		AS Character
-	Local cDiretorio	AS Character	
+	//-- Declaração de Variáveis ----------------------------------------------
+	Local uRet          							AS Variant
+	Local aMasc										AS Array
+	Local nX										AS Numeric
+	Local cMascProc									AS Variant
+	Local cTemp										AS Character
+	Local cSession	:= FunName()					AS Character
+	Local cDrive									AS Character
+	Local cDiretorio:= ''							AS Character	
 	
-	//Parametros da rotina-------------------------------------------------------------------------
-    ParamType 0		VAR cMascara		AS Character			Optional Default NIL
-    ParamType 1		VAR cTitulo			AS Character			Optional Default NIL
-    ParamType 2		VAR nMascPadrao		AS Numeric				Optional Default NIL
-    ParamType 3		VAR cDirInicial		AS Character			Optional Default NIL
-    ParamType 4		VAR lSalvar			AS Logical				Optional Default NIL
-    ParamType 5		VAR nOpcoes			AS Numeric				Optional Default NIL
-    ParamType 6		VAR lServer			AS Logical				Optional Default .T.
-    ParamType 7		VAR lKeepCase		AS Logical				Optional Default .F.
+	//-- Parâmetros da Rotina -------------------------------------------------
+    Default lAbrir		:= .F.
+    Default lServer		:= .T.
+    Default lKeepCase	:= .F.
 
-    //---------------------------------------------------------------------------------------------
-	cSession	:= FunName()
-	cDiretorio	:= ''
+    //-------------------------------------------------------------------------
 	If ValType(cDirInicial) == 'C'
 		cDiretorio	:= cDirInicial
 	EndIf
 	cDirInicial	:= fwGetProfString(cSession,"CGETFILE",cDiretorio,.T.)
 
-	//---------------------------------------------------------------------------------------------
-	If  GetRpoRelease() >= '12.1.027' .And. ;
-        .Not. lServer .And. ;
-		GetRemoteType() <> 5 .And. ;	//Não pode ser via webapp
+	//-------------------------------------------------------------------------
+	If  .Not. lServer .And. ;
         (ValType(nOpcoes) == 'U' .Or. BitAnd(nOpcoes,GETF_NETWORKDRIVE) )
+		//GetRemoteType() <> 5 	.And. ; //Não pode ser via webapp		//-- JÁ FUNCIONA NO WEBAPP
 		
         If BitAnd(nOpcoes,GETF_RETDIRECTORY)
             cMascProc   := NIL
-            lSalvar     := .F.  //Para diretórios essa função sempre precisa ser Abrir!
+            lAbrir     	:= .T.  //-- Para diretórios essa função sempre precisa ser Abrir!
         Else
             cMascProc	:= ''
             If ValType(cMascara) == 'C'
@@ -101,7 +94,7 @@ User Function cGetFile(	cMascara	,;	//01 cMascara
                                 cTitulo		,;	//02
                                 nMascPadrao	,;	//03
                                 cDirInicial	,;	//04
-                                lSalvar		,;	//05
+                                .Not.lAbrir	,;	//05	//-- lSalvar
                                 nOpcoes	    )	//06
 
         If .Not. lKeepCase
@@ -121,13 +114,13 @@ User Function cGetFile(	cMascara	,;	//01 cMascara
                             cTitulo		,;	//02
                             nMascPadrao	,;	//03
                             cDirInicial	,;	//04
-                            lSalvar		,;	//05
+                            lAbrir		,;	//05
                             nOpcoes		,;	//06
                             lServer		,;	//07
                             lKeepCase	 )	//08
 	EndIf
 		
-	//Salva o diretório atual que o usuário utilizou-----------------------------------------------
+	//-- Salva o diretório atual que o usuário utilizou -----------------------
 	If .Not. Empty(uRet)
 		SplitPath( U_CXSeparaArq(uRet)[1],@cDrive,@cDiretorio,/*@cFile*/,/*@cExt*/ )
 		cDirInicial	:= cDrive+cDiretorio

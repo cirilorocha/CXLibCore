@@ -12,6 +12,7 @@
 //##+========+==========+========================================================================+##
 //##|  DATA  | ANALISTA | MANUTENÇÃO EFETUADA                                                    |##
 //##+========+==========+========================================================================+##
+//##|03/05/25| Cirilo R.| Correção na função U_cGetFile                                          |##
 //##|        |          |                                                                        |##
 //##|        |          |                                                                        |##
 //##|        |          |                                                                        |##
@@ -119,7 +120,7 @@ Static Function CopiaArq(	lArq	AS Logical	,;
 							U_CXTxtMsg()+cTitOrg					,;	//02 cTitulo
 							1										,;	//03 nMascPadrao
 							'\'										,;	//04 cDirInicial
-							.F.										,;	//05 lSalvar
+							.T.										,;	//05 lAbrir
 							nOpcoes									,;	//06 nOpcoes
 							.Not.lDstSrv							,;	//07 lServer
 							.T.										)	//08 lKeepCase
@@ -145,7 +146,7 @@ Static Function CopiaArq(	lArq	AS Logical	,;
 								U_CXTxtMsg()+cTitDst,;	//02 cTitulo
 								1					,;	//03 nMascPadrao
 								'c:\'				,;	//04 cDirInicial
-								.T.					,;	//05 lSalvar
+								.F.					,;	//05 lAbrir
 								GETF_RETDIRECTORY	,;	//06 nOpcoes
 								lDstSrv				,;	//07 lServer
 								.T.					)	//08 lKeepCase
@@ -355,7 +356,7 @@ Static Function DelArqDir(lArq	AS Logical)
 							cTitulo	,;	//02 cTitulo
 							1		,;	//03 nMascPadrao
 							'\'		,;	//04 cDirInicial
-							.T.		,;	//05 lSalvar
+							.F.		,;	//05 lAbrir
 							nOpcoes	,;	//06 nOpcoes
 							.T.		,;	//07 lServer
 							.T.		)	//08 lKeepCase
