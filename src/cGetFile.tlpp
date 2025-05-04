@@ -3,6 +3,8 @@
 #INCLUDE 'ParmType.ch'
 //#INCLUDE 'CXInclude.ch'
 
+#Define _MsgLinha_		FileNoExt(ProcSource())+'('+StrZero(ProcLine(),5)+')'
+
 //#############################################################################
 //##+==========+==========+=======+====================+======+=============+##
 //##|Programa  | cGetFile | Autor | Cirilo Rocha       | Data | 13/03/2020  |##
@@ -18,6 +20,7 @@
 //##| 14/12/22 | Cirilo R.| Melhoria para salvar o diretório inicial        |##
 //##| 03/05/25 | Cirilo R.| Alinhamento com o 5º parâmetro da função padrão |##
 //##|          |          |  era para ser lAbrir, estava documentado errado |##
+//##|          |          | Melhores tratamentos para WebApp                |##
 //##|          |          |                                                 |##
 //##|          |          |                                                 |##
 //##+==========+==========+=================================================+##
@@ -39,19 +42,19 @@ User Function cGetFile(	cMascara	AS Character,;	//01 cMascara
 	Local cMascProc									AS Variant
 	Local cTemp										AS Character
 	Local cSession	:= FunName()					AS Character
-	Local cDrive									AS Character
-	Local cDiretorio:= ''							AS Character	
+	Local cDrive,cDir,cFile,cExten					AS Character
 	
 	//-- Parâmetros da Rotina -------------------------------------------------
+    Default cDirInicial	:= ''
     Default lAbrir		:= .F.
     Default lServer		:= .T.
     Default lKeepCase	:= .F.
 
     //-------------------------------------------------------------------------
-	If ValType(cDirInicial) == 'C'
-		cDiretorio	:= cDirInicial
+	cDir	:= fwGetProfString(cSession,"CGETFILE",cDirInicial,.T.)
+	If ExistDir(cDir)
+		cDirInicial	:= cDir
 	EndIf
-	cDirInicial	:= fwGetProfString(cSession,"CGETFILE",cDiretorio,.T.)
 
 	//-------------------------------------------------------------------------
 	If  .Not. lServer .And. ;
@@ -119,12 +122,35 @@ User Function cGetFile(	cMascara	AS Character,;	//01 cMascara
                             lServer		,;	//07
                             lKeepCase	 )	//08
 	EndIf
-		
+
+	//-- Tratamento de erros para WebApp (pode não ser necessário no futuro)
+	If .Not. BitAnd(nOpcoes,GETF_MULTISELECT)
+		SplitPath( uRet, @cDrive, @cDir, @cFile, @cExten )
+		If BitAnd(nOpcoes,GETF_RETDIRECTORY)		//-- Diretórios
+			If .Not. ExistDir(uRet)
+				FwAlertError('Diretório informado '+uRet+' NÃO existe.',_MsgLinha_)
+				uRet	:= ''
+			EndIf		
+		Else										//-- Arquivos
+			If Empty(cFile)
+				FwAlertError('Nenhum nome de arquivo informado.',_MsgLinha_)
+				uRet	:= ''
+			ElseIf .Not. lAbrir
+				//If Empty(cExten)					//-- Acrescento a extensão (FUTURO)
+				//	cExten	:= cExtDef
+				//EndIf
+			ElseIf 	.Not. File(uRet)				//-- Valida se arquivo existe
+				FwAlertError('Arquivo informado '+uRet+' NÃO existe.',_MsgLinha_)
+				uRet	:= ''
+			EndIf
+		EndIf
+	EndIf
+
 	//-- Salva o diretório atual que o usuário utilizou -----------------------
 	If .Not. Empty(uRet)
-		SplitPath( U_CXSeparaArq(uRet)[1],@cDrive,@cDiretorio,/*@cFile*/,/*@cExt*/ )
-		cDirInicial	:= cDrive+cDiretorio
-		fwWriteProfString(cSession,"CGETFILE",cDirInicial,.T.) //Guarda o diretório atual
+		SplitPath( U_CXSeparaArq(uRet)[1],@cDrive,@cDir,/*@cFile*/,/*@cExt*/ )
+		cDir	:= cDrive+cDir
+		fwWriteProfString(cSession,"CGETFILE",cDir,.T.) //Guarda o diretório atual
 	EndIf
 
 Return uRet
