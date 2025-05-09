@@ -59,7 +59,7 @@ User Function cGetFile(	cMascara	AS Character,;	//01 cMascara
 	//-------------------------------------------------------------------------
 	If  .Not. lServer .And. ;
         (ValType(nOpcoes) == 'U' .Or. BitAnd(nOpcoes,GETF_NETWORKDRIVE) )
-		//GetRemoteType() <> 5 	.And. ; //Não pode ser via webapp		//-- JÁ FUNCIONA NO WEBAPP
+		//GetRemoteType() <> REMOTE_HTML 	.And. ; //Não pode ser via webapp		//-- JÁ FUNCIONA NO WEBAPP
 		
         If BitAnd(nOpcoes,GETF_RETDIRECTORY)
             cMascProc   := NIL
@@ -106,7 +106,7 @@ User Function cGetFile(	cMascara	AS Character,;	//01 cMascara
         If  .Not. Empty(uRet) .And. ;
             BitAnd(nOpcoes,GETF_RETDIRECTORY) .And. ;
             .Not. (Right(uRet,1) $ '\/')
-            If GetRemoteType() == 2
+            If GetRemoteType() == REMOTE_QT_LINUX
                 uRet    += '/'
             Else
                 uRet    += '\'
@@ -131,7 +131,7 @@ User Function cGetFile(	cMascara	AS Character,;	//01 cMascara
 				FwAlertError('Diretório informado '+uRet+' NÃO existe.',_MsgLinha_)
 				uRet	:= ''
 			EndIf		
-		Else										//-- Arquivos
+		ElseIf .Not. Empty(uRet)					//-- Arquivos
 			If Empty(cFile)
 				FwAlertError('Nenhum nome de arquivo informado.',_MsgLinha_)
 				uRet	:= ''
