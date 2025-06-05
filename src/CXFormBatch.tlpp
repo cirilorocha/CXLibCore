@@ -12,6 +12,7 @@ Info       : Função baseada na função padrão FormBatch, acrescentando opção de u
    Data   | Responsável   |Ticket| Manutenção Efetuada
 ==========+===============+======+=================================================================
 28/04/2025| Cirilo Rocha  |      | Modernização do visual da rotina
+05/06/2025| Cirilo Rocha  |      | Adicionados outros tipos de botão no PrxFormBatch
           |               |      | 
 ==========+===============+======+===============================================================*/
 User Function CXFormBatch(	cTitle		AS Character,;	//01 cTitle
@@ -22,11 +23,15 @@ User Function CXFormBatch(	cTitle		AS Character,;	//01 cTitle
 							nLargura	AS Numeric	)	//06 nLargura
 
 	//-- Declaração de Variáveis ----------------------------------------------
-	Local aTxtBtn	:= {'Ok'		,;
-						'Cancelar'	,;
-						'Excluir'	,;
-						'Incluir'	,;
-						'Param.'	}				AS Array
+	Local aTxtBtn	:= {/*01*/'Ok'			,/*02*/'Cancelar'	,	/*03*/'Excluir'		,;
+						/*04*/'Incluir'		,/*05*/'Parâmetros'	,	/*06*/'Imprimir'	,;
+						/*07*/'Susp. Impr.'	,/*08*/'Canc. Impr.',	/*09*/'Ordem'		,;
+						/*10*/'Prioridade'	,/*11*/'Editar'		,	/*12*/'Ouvir'		,;
+						/*13*/'Salvar'		,/*14*/'Abrir'		,	/*15*/'Visualizar'	,;
+						/*16*/'Cond. Neg.'	,/*17*/'Filtrar'	,	/*18*/'Financ.'		,;	
+						/*19*/'Avançar'		,/*20*/'Voltar'		,	/*21*/'Avançar'		,;	
+						/*22*/'Voltar'		,/*23*/'Gráfico'	;
+											}		AS Array
 	Local cCaption									AS Character
 	Local nX										AS Numeric
 	Local nTop										AS Numeric
@@ -41,11 +46,15 @@ User Function CXFormBatch(	cTitle		AS Character,;	//01 cTitle
 	ParamObg 1		VAR aSays
 	ParamObg 2		VAR aButtons
 
-	Default nAltura		:= 200
-	Default nLargura	:= 400
+	Default nAltura		:= 300
+	Default nLargura	:= 600
 
 	//-- Inicializa Variáveis -------------------------------------------------
 	oFont	:= TFont():New("Arial",,-14,,.F.)
+
+	//-- Ajustes de conversão de pixel
+	nAltura		/= 1.5
+	nLargura	/= 1.5
 
     oModal  := FWDialogModal():New()
 		oModal:SetEscClose(.T.)
