@@ -2,6 +2,7 @@
 #INCLUDE 'Totvs.ch'
 #INCLUDE 'ParmType.ch'
 #INCLUDE "Directry.ch"
+#INCLUDE "FileIO.ch"
 #INCLUDE 'CXInclude.ch'
 
 //##################################################################################################
@@ -175,7 +176,7 @@ User Function CXReadFile(	cFile	,;	//01 cFile
 	EndIf
 	
 	cFile	:= U_CXPrcFileNm(cFile)
-	nHdl	:= fOpen(cFile,0)
+	nHdl	:= fOpen(cFile,FO_READ)
 	
 	If nHdl == -1 //Erro ao abrir o arquivo
 		U_CXMsgErro("O arquivo "+cFile+" não pode ser aberto."+CRLF+;
@@ -184,9 +185,9 @@ User Function CXReadFile(	cFile	,;	//01 cFile
 		Return NIL
 	Endif
 	
-	nTamFile := fSeek(nHdl,0,2)
+	nTamFile := fSeek(nHdl,0,FS_END)
 	
-	fSeek(nHdl,0,0)
+	fSeek(nHdl,0,FS_SET)	//-- Volta para o início do arquivo
 	
 	cBuffer  := Space(nTamFile)                // Variavel para criacao da linha do registro para leitura
 	//nBtLidos := fRead(nHdl,@cBuffer,nTamFile)  // Leitura do arquivo XML
