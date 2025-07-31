@@ -255,7 +255,7 @@ User Function CXTestFunc()
 		//Cria uma janela principal para trabalho
 		Public oMainWnd					AS Object
 		
-		oMainWnd := TWindow():New( 0, 0, 1000, 1000, U_CXTxtMsg()+"CXTestFunc-oMainWnd",,,,,,,,,,,,.T.,.T.,.T.,.T.,.F.)
+		oMainWnd := TWindow():New( 0, 0, 600, 800, U_CXTxtMsg()+"CXTestFunc-oMainWnd",,,,,,,,,,,,.T.,.T.,.T.,.T.,.T.)
 		oMainWnd:Activate( "MAXIMIZED", oMainWnd:bLClicked, oMainWnd:bRClicked, oMainWnd:bMoved,;
 							oMainWnd:bResized, oMainWnd:bPainted, oMainWnd:bKeyDown, oMainWnd:bInit := { | Self | (U_CXTestFunc(),oMainWnd:End()) },;
 							,,,,,,,,,, oMainWnd:bLButtonUp )

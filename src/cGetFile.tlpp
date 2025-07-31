@@ -135,11 +135,8 @@ User Function cGetFile(	cMascara	AS Character,;	//01 cMascara
 			If Empty(cFile)
 				FwAlertError('Nenhum nome de arquivo informado.',_MsgLinha_)
 				uRet	:= ''
-			ElseIf .Not. lAbrir
-				//If Empty(cExten)					//-- Acrescento a extensão (FUTURO)
-				//	cExten	:= cExtDef
-				//EndIf
-			ElseIf 	.Not. File(uRet)				//-- Valida se arquivo existe
+			ElseIf 	lAbrir .And. ;
+					.Not. File(uRet)				//-- Valida se arquivo existe
 				FwAlertError('Arquivo informado '+uRet+' NÃO existe.',_MsgLinha_)
 				uRet	:= ''
 			EndIf
