@@ -2,7 +2,6 @@
 #INCLUDE 'Totvs.ch'
 #INCLUDE 'ParmType.ch'
 #INCLUDE "Directry.ch"
-#INCLUDE "FileIO.ch"
 #INCLUDE 'CXInclude.ch'
 
 //##################################################################################################
@@ -28,23 +27,23 @@
 //##+========+==========+========================================================================+##
 //##|  DATA  | ANALISTA | MANUTENÇÃO EFETUADA                                                    |##
 //##+========+==========+========================================================================+##
-//##|        |          |                                                                        |##
+//##|18/08/25|Cirilo R. | Correção no tratamento por causa da mudança no retorno da cGetFile     |##
 //##|        |          |                                                                        |##
 //##|        |          |                                                                        |##
 //##+========+==========+========================================================================+##
 //##################################################################################################
-User Function CXSeparaArq(cArquivos);	//01 cArquivos
-								AS Array
-	//Declaracao de variaveis----------------------------------------------------------------------
+User Function CXSeparaArq(cArquivos	AS Character);	//01 cArquivos
+													AS Array
+	//-- Declaração de Variáveis ----------------------------------------------
 	Local aArquivos	:= {}		AS Array
 	Local nPAtu					AS Integer
 	Local nPQueb				AS Integer
 	Local nPFim					AS Integer
 
-	//Parametros da rotina-------------------------------------------------------------------------
-	ParamType 0		VAR cArquivos		AS Character
+	//-- Parâmetros da Rotina -------------------------------------------------
+	ParamObg 0		VAR cArquivos
 
-	//---------------------------------------------------------------------------------------------
+	//-------------------------------------------------------------------------
 	//
 	////TESTE WINDOWS
 	//cArquivos:=	"c:\temp\carlitolima13.jpg;"+;
@@ -61,7 +60,7 @@ User Function CXSeparaArq(cArquivos);	//01 cArquivos
 	//			"/tmp/problema microsiga.jpg;"+;
 	//			"/tmp/rgperc29 - 2022-12-08-17;18;29.sql"
 
-	//---------------------------------------------------------------------------------------------
+	//-------------------------------------------------------------------------
 	If At('|',cArquivos)	//cGetFile antiga
 		aArquivos	:= StrTokArr2(cArquivos,'|',.F.)
 	Else
@@ -70,12 +69,12 @@ User Function CXSeparaArq(cArquivos);	//01 cArquivos
 		If nPQueb > 0					//Windows!
 			While .T.
 				//Busca proxima quebra
-				nPQueb	:= At(':',cArquivos,nPAtu+2)	//Pula o primeiro c:\
+				nPQueb	:= At(':',cArquivos,nPAtu+3)		//Pula o primeiro c:\
 				nPFim	:= Rat(';',Left(cArquivos,nPQueb))	//+3 para pular o próprio c:\ do arquivo atual
 				If nPFim == 0
 					Exit
 				Else
-					aAdd(aArquivos,U_CXSubStr(cArquivos,nPAtu,nPFim-1))
+					aAdd(aArquivos,AllTrim(U_CXSubStr(cArquivos,nPAtu,nPFim-1)))
 					nPAtu	:= nPFim+1
 				EndIf
 			EndDo
@@ -91,7 +90,7 @@ User Function CXSeparaArq(cArquivos);	//01 cArquivos
 				EndIf
 			EndDo
 		EndIf
-		aAdd(aArquivos,SubStr(cArquivos,nPAtu))	//Último arquivo ou 1 Arquivo
+		aAdd(aArquivos,AllTrim(SubStr(cArquivos,nPAtu)))	//Último arquivo ou 1 Arquivo
 	EndIf
 
 Return aArquivos
@@ -110,11 +109,11 @@ Return aArquivos
 //##|          |          |                                                 |##
 //##+----------+----------+-------------------------------------------------+##
 //#############################################################################
-User Function CXPrcFileNm(cFile);	//01
-							AS Character
+User Function CXPrcFileNm(cFile AS Character);	//01
+													AS Character
 	
-	//Parametros da rotina-------------------------------------------------------------------------
-	ParamType 0		VAR cFile	AS Character
+	//-- Parâmetros da Rotina -------------------------------------------------
+	ParamObg 0		VAR cFile
 
 	//Pre-processa o nome do arquivo para nao haverem erros
 	cFile	:= AllTrim(cFile)
@@ -148,22 +147,20 @@ Return cFile
 //##|          |           |                                                |##
 //##+----------+-----------+------------------------------------------------+##
 //#############################################################################
-User Function CXReadFile(	cFile	,;	//01 cFile
-							lMsg	)	//02 lMsg
+User Function CXReadFile(	cFile	AS Character,;	//01 cFile
+							lMsg	AS Logical	)	//02 lMsg
 
-	//Declaracao de variaveis----------------------------------------------------------------------
+	//-- Declaração de Variáveis ----------------------------------------------
 	Local cBuffer		AS Character
 	Local nHdl			AS Numeric
 	Local nTamFile		AS Numeric
 	//Local nBtLidos		AS Numeric
-	
-	//Parametros da rotina-------------------------------------------------------------------------
-	ParamType 0		VAR cFile  	  	AS Character
-	ParamType 1		VAR lMsg  	  	AS Logical					Optional Default .T.
 
-	//Inicializa Variaveis-------------------------------------------------------------------------
+	//-- Parâmetros da Rotina -------------------------------------------------
+	ParamObg 0		VAR cFile
+	Default lMsg := .T.
 
-	//Variaveis compartilhadas de mensagens de erro
+	//Variaveis compartilhadas de mensagens de erro ---------------------------
 	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
 	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
 	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
@@ -176,7 +173,7 @@ User Function CXReadFile(	cFile	,;	//01 cFile
 	EndIf
 	
 	cFile	:= U_CXPrcFileNm(cFile)
-	nHdl	:= fOpen(cFile,FO_READ)
+	nHdl	:= fOpen(cFile,0)
 	
 	If nHdl == -1 //Erro ao abrir o arquivo
 		U_CXMsgErro("O arquivo "+cFile+" não pode ser aberto."+CRLF+;
@@ -185,9 +182,9 @@ User Function CXReadFile(	cFile	,;	//01 cFile
 		Return NIL
 	Endif
 	
-	nTamFile := fSeek(nHdl,0,FS_END)
+	nTamFile := fSeek(nHdl,0,2)
 	
-	fSeek(nHdl,0,FS_SET)	//-- Volta para o início do arquivo
+	fSeek(nHdl,0,0)
 	
 	cBuffer  := Space(nTamFile)                // Variavel para criacao da linha do registro para leitura
 	//nBtLidos := fRead(nHdl,@cBuffer,nTamFile)  // Leitura do arquivo XML
@@ -220,13 +217,13 @@ Return cBuffer
 //##|          |           |                                                |##
 //##+----------+-----------+------------------------------------------------+##
 //#############################################################################
-User Function CXWriteFile(	cFile		,;	//01 cFile
-							cConteudo	,;	//02 cConteudo
-							lMsg		,;	//03 lMsg
-							lCriaDir	);	//04 lCriaDir
-								AS Logical
+User Function CXWriteFile(	cFile		AS Character,;	//01 cFile
+							cConteudo	AS Character,;	//02 cConteudo
+							lMsg		AS Logical	,;	//03 lMsg
+							lCriaDir	AS Logical	);	//04 lCriaDir
+													AS Logical
 	
-	//Declaracao de variaveis----------------------------------------------------------------------
+	//-- Declaração de Variáveis ----------------------------------------------
 	Local nHdl		AS Numeric
 	Local lOK		AS Logical
 	Local nIni		AS Integer
@@ -237,13 +234,13 @@ User Function CXWriteFile(	cFile		,;	//01 cFile
 	Local cArq	    AS Character
 	Local cExten	AS Character
 
-	//Parametros da rotina-------------------------------------------------------------------------
-	ParamType 0		VAR cFile  	  		AS Character
-	ParamType 1		VAR cConteudo  	  	AS Character
-	ParamType 2		VAR lMsg  	  		AS Logical				Optional Default .Not. U_CXRotAuto()
-	ParamType 3		VAR lCriaDir  		AS Logical				Optional Default .T.
+	//-- Parâmetros da Rotina -------------------------------------------------
+	ParamObg 0		VAR cFile
+	ParamObg 1		VAR cConteudo
+	Default lMsg  	  := .Not. U_CXRotAuto()
+	Default lCriaDir  := .T.
 	
-	//Inicializa Variaveis-------------------------------------------------------------------------
+	//-- Inicializa Variáveis -------------------------------------------------
 	lOK			:= .T.
 	cFileBak	:= cFile
 	
@@ -253,7 +250,7 @@ User Function CXWriteFile(	cFile		,;	//01 cFile
 	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
 	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
 	
-	//Pre-processa o nome do arquivo para nao haverem erros----------------------------------------
+	//Pre-processa o nome do arquivo para nao haverem erros--------------------
 	cFile	:= U_CXPrcFileNm(cFile)
 
 	If .Not. ( cFile == cFileBak )
@@ -262,7 +259,7 @@ User Function CXWriteFile(	cFile		,;	//01 cFile
 		Return .F.
 	EndIf
 	
-	//Tratamento para letras de unidade do windows para nao remover o :----------------------------
+	//Tratamento para letras de unidade do windows para nao remover o : -------
 	nIni	:= 1
 	If 	IsAlpha(Left(cFile,1)) .And. ;
 		SubStr(cFile,2,1) == ':' .And. ;
@@ -271,8 +268,8 @@ User Function CXWriteFile(	cFile		,;	//01 cFile
 		nIni	:= 4
 	EndIf
 	cFile	:= StrTran(cFile,':',';',nIni)
-	
-	//Cria caminho do arquivo senão existir--------------------------------------------------------
+
+	//Cria caminho do arquivo senão existir------------------------------------
 	SplitPath( cFile, @cDrive, @cDir, @cArq, @cExten )
 	If 	.Not. ExistDir(cDrive+cDir)
 		If .Not. lCriaDir .And. ;
@@ -324,27 +321,27 @@ Return lOK
 //##|Programa  | CXFileExt  | Autor | Cirilo Rocha     | Data | 03/05/2017  |##
 //##+----------+------------+-------+------------------+------+-------------+##
 //##|Descr.    | Retorna apenas extensão do arquivo                         |##
+//##|          | Poderia usar o padrão FileNoExt(), porém o mesmo se atra-  |##
+//##|          |  palha quando existe ponto no nome do arquivo              |##
 //##+----------+-----------+------------------------------------------------+##
 //##|   DATA   |Programador| Manutenção efetuada                            |##
 //##+----------+-----------+------------------------------------------------+##
 //##| 23/02/23 | Cirilo R. | Pequena revisão no fonte                       |##
-//##| 04/07/23 | Cirilo R. | Pequena revisão no fonte                       |##
 //##|          |           |                                                |##
 //##|          |           |                                                |##
 //##+----------+-----------+------------------------------------------------+##
 //#############################################################################
-User Function CXFileExt(cArquivo);	//01 cArquivo
-							AS Character
+User Function CXFileExt(cArquivo	AS Character);	//01 cArquivo
+													AS Character
 
-	//Declaracao de variaveis----------------------------------------------------------------------
+	//-- Declaração de Variáveis ----------------------------------------------
 	Local cRet	:= ''							AS Character
-	Local nPos									AS Integer
+	Local nPos	:= Rat(".",cArquivo)			AS Integer
 	
-	//Parametros da rotina-------------------------------------------------------------------------
-	ParamType 0		VAR cArquivo		AS Character
+	//-- Parametros da rotina -------------------------------------------------
+	ParamObg 0		VAR cArquivo
 
-	//---------------------------------------------------------------------------------------------
-	nPos	:= Rat(".",cArquivo)
+	//-------------------------------------------------------------------------
 	If nPos > 0
 		cRet	:= SubStr(cArquivo,nPos)
 	EndIf
@@ -365,25 +362,25 @@ Return cRet
 //##|          |           |                                                |##
 //##+==========+===========+================================================+##
 //#############################################################################
-User Function CXFile(	cArquivo,;	//01 cArquivo
-						lMsg	,;	//02 lMsg
-						lNoMsg	);	//03 lNoMsg	Não alimenta variáveis de erro (def .F.)
-							AS Logical
+User Function CXFile(	cArquivo		AS Character,;	//01 cArquivo
+						lMsg			AS Logical	,;	//02 lMsg
+						lNoMsg			AS Logical	);	//03 lNoMsg	Não alimenta variáveis de erro (def .F.)
+													AS Logical
 	
-	//Declaracao de variaveis----------------------------------------------------------------------
+	//-- Declaração de Variáveis ----------------------------------------------
 	Local lRet			AS Logical
 	Local aArq			AS Array
 	Local cMsgErrBak	AS Character
 	Local cCodErrBak	AS Character
 	Local cSolucBak		AS Character
 	Local cMsgBak		AS Character
-	
-	//Parametros da rotina-------------------------------------------------------------------------
-	ParamType 0		VAR cArquivo		AS Character
-	ParamType 1		VAR lMsg			AS Logical						Optional Default .F.
-	ParamType 1		VAR lNoMsg			AS Logical						Optional Default .F.
 
-	//Inicializa Variaveis-------------------------------------------------------------------------
+	//-- Parâmetros da Rotina -------------------------------------------------
+	ParamObg 0		VAR cArquivo
+	Default lMsg	:= .F.
+	Default lNoMsg	:= .F.
+
+	//-- Inicializa Variáveis -------------------------------------------------
 	lRet		:= .T.
 
 	//Variaveis compartilhadas de mensagens de erro
@@ -459,16 +456,16 @@ Return lRet
 //##|        |          |                                                                        |##
 //##+========+==========+========================================================================+##
 //##################################################################################################
-User Function CXRetFileName(cArquivo);	//01 cArquivo
-								AS Character
+User Function CXRetFileName(cArquivo	AS Character);	//01 cArquivo
+													AS Character
 
-	//Declaracao de variaveis----------------------------------------------------------------------
+	//-- Declaração de Variáveis ----------------------------------------------
 	Local nPosExt		AS Integer
 
-	//Parametros da rotina-------------------------------------------------------------------------
-	ParamType 0		VAR cArquivo		AS Character
+	//-- Parâmetros da rotina -------------------------------------------------
+	ParamObg 0		VAR cArquivo
 
-	//---------------------------------------------------------------------------------------------
+	//-------------------------------------------------------------------------
 	nPosExt		:= Rat('.',cArquivo)
 	If nPosExt > 0 	//Remove extenção do nome do arquivo
 		cArquivo	:= Left(cArquivo,nPosExt-1)
