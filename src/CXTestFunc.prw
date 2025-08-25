@@ -212,7 +212,7 @@ User Function CXTestFunc()
 				{||	;
 					lRet := RPCSetEnv(	cEmp_			,;	//01 Empresa
 										cFil_			,;	//02 Filial
-										'000000'		,;	//03 Usuario
+										/*cEnvUser*/	,;	//03 Usuario
 										/*cEnvPass*/	,;	//04 Senha de Usuario
 										cMod_			,;	//05 Modulo (3ch)
 										'CXTestFunc'	,;	//06 Nome da Funcao
