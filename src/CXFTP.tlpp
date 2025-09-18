@@ -99,13 +99,13 @@ Static Function CopiaArq(	lArq	AS Logical	,;
 	ParamObg 1		VAR lDstSrv
 
 	//---------------------------------------------------------------------------------------------
-	nOpcoes		:= GETF_HIDDENDIR + GETF_SYSDIR
+	nOpcoes		:= nOr(GETF_HIDDENDIR, GETF_SYSDIR)
 	If lArq
 		cTitulo	:= 'Selecione os arquivos'
-		nOpcoes	+= GETF_MULTISELECT
+		nOpcoes	:= nOr(nOpcoes, GETF_MULTISELECT)
 	Else
 		cTitulo	:= 'Selecione o diretório'
-		nOpcoes	+= GETF_RETDIRECTORY
+		nOpcoes	:= nOr(nOpcoes, GETF_RETDIRECTORY)
 	EndIf
 
 	If lDstSrv
@@ -343,13 +343,13 @@ Static Function DelArqDir(lArq	AS Logical)
 	ParamObg 0	VAR lArq
 
 	//---------------------------------------------------------------------------------------------
-	nOpcoes		:= GETF_HIDDENDIR + GETF_SYSDIR
+	nOpcoes		:= nOr(GETF_HIDDENDIR, GETF_SYSDIR)
 	If lArq
 		cTitulo	:= U_CXTxtMsg()+'Selecione os arquivos'
-		nOpcoes	+= GETF_MULTISELECT
+		nOpcoes	:= nOr(nOpcoes, GETF_MULTISELECT)
 	Else
 		cTitulo	:= U_CXTxtMsg()+'Selecione o diretório'
-		nOpcoes	+= GETF_RETDIRECTORY
+		nOpcoes	:= nOr(nOpcoes, GETF_RETDIRECTORY)
 	EndIf
 
 	cDir	:= U_cGetFile(	'*.*'	,;	//01 cMascara
