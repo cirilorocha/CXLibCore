@@ -6,8 +6,8 @@
 #Include "ParmType.ch"
 #Include "CXInclude.ch"
 
-Static cVersao := "1.59"							AS Character
-Static cDtVersao := "24/04/2025"					AS Character
+Static cVersao := "1.60"							AS Character
+Static cDtVersao := "13/10/2025"					AS Character
 
 // MANTER EM .PRW PARA PODER EXECUTAR STATICCALL
 //#############################################################################
@@ -780,7 +780,7 @@ Static Function Parametros() AS Logical
 								{|| Vazio() .Or. UsrExist(MV_PAR04) },,,,,,.T.,,,,,,,,,,'MV_PAR04')
 		oGtUsr:cF3	:= 'USR'
 		tSay():New(052,110,{|| 'DataBase:'	},oDlg,,/*oFont*/,,,,.T.,,,050,010)
-		tGet():New(050,140,bSetGet(MV_PAR05), oDlg, 060,010,,;
+		tGet():New(050,140,{ | u | If( PCount() == 0 .Or. ValType(u) <> 'D' , MV_PAR05, MV_PAR05 := u ) }, oDlg, 060,010,,;	//-- FEITA PROTEÇÃO DA VARIÁVEL POR CAUSA DA CONSULTA DO CAMPO ANTERIOR!
 					,,,,,,.T.,,,,,,,,,,'MV_PAR05')
 
 		tSay():New(070,010,{|| cFunType	},oDlg,,/*oFont*/,,,,.T.,,,190,10)
@@ -1282,3 +1282,5 @@ Static Function sfSingleSignOn(cUser)	/*@cUser*/		AS Logical
 	EndIf
 
 Return lOK
+
+
