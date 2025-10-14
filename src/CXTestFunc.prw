@@ -268,7 +268,7 @@ User Function CXTestFunc()
 
 	//---------------------------------------------------------------------------------------------
 	
-	oMainWnd:cTitle(Left(oMainWnd:cTitle,Rat(' [',oMainWnd:cTitle))+'['+FileNoExt(ProcSource())+'_v'+cVersao+' | '+cDtVersao+']')		//-- Mostra versão no título da janela
+	oMainWnd:cTitle(Left(oMainWnd:cTitle,IIF('['$oMainWnd:cTitle,At('[',oMainWnd:cTitle)-1,99))+'['+RetFileName(ProcSource())+'_v'+_cVersao+' | '+_cDtVersao+']')		//-- Mostra versão no título da janela
 
 	//---------------------------------------------------------------------------------------------
 	Private lExecuta	:= .T.

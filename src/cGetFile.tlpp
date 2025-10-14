@@ -3,7 +3,7 @@
 #INCLUDE 'ParmType.ch'
 //#INCLUDE 'CXInclude.ch'
 
-#Define _MsgLinha_		FileNoExt(ProcSource())+'('+StrZero(ProcLine(),5)+')'
+#Define _MsgLinha_		RetFileName(ProcSource())+'('+StrZero(ProcLine(),5)+')'
 
 //#############################################################################
 //##+==========+==========+=======+====================+======+=============+##
