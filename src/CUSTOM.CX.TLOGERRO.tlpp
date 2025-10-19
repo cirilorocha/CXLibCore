@@ -1,0 +1,882 @@
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
+#INCLUDE 'ParmType.ch'
+#INCLUDE 'tlpp-core.th'
+
+Static _cVersao		:= "1.00"							AS Character
+Static _cDtVersao	:= "19/10/2025"						AS Character
+
+#Define _NAMESPACE_		CUSTOM.CX.CLSLOG								//-- FEITO ASSIM PARA PODER UTILIZAR O NAMESPACE
+#Define _CNAMESPACE_	\'_NAMESPACE_\'									//-- PARA USO EM CHAMADAS STRING
+#Define _CNS_LOAD_		\'_NAMESPACE_\'+'.QUALQUERCOISA'				//-- NÃO ENTENDO PORQUE PRECISA TER ALGUM SUFIXO PARA FUNCIONAR!!!
+NAMESPACE	_NAMESPACE_
+Static _cPathCst	:= '\CUSTOMIZACOES\'			AS Character
+
+#xTranslate _MsgLinha(<nNivel>) => ;
+	RetFileName(ProcSource(<nNivel>))+'('+StrZero(ProcLine(<nNivel>),5)+')'
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} tLogErro
+@author		Cirilo Rocha
+@since		19/10/2025
+@finalidade	Classe para controle de logs de erros, alertas e sucessos
+/*/
+//-------------------------------------------------------------------------------------------------
+//FUTURO -> 
+//	GRAVAÇÃO EM TABELA
+//-------------------------------------------------------------------------------------------------
+#Define _lRotAuto_	(		FWIsInCallStack('FWMVCRotAuto') ;	//-- Execauto MVC
+					.Or.	FWIsInCallStack('MSExecAuto') 	;	//-- Execauto padrão
+					.Or.	FWIsInCallStack('EnchAuto') 	;	//-- Execauto enchoice
+					.Or.	FWIsInCallStack('mBrowseAuto')	;	//-- Execauto browser
+					.Or.	IsBlind() 						;	//-- Sem Interface
+					.Or.	GetRemoteType() == NO_REMOTE 	;	//-- Se SmartClient (-1)
+					.Or.	(Type('__cInterNet') == 'C' .And. __cInterNet == 'AUTOMATICO') ;	//-- Rotina automática
+					)
+//-------------------------------------------------------------------------------------------------
+Class tLogErro
+
+   	//-- Variáveis Compartilhadas ---------------------------------------------
+	PUBLIC DATA cClassName							AS Character
+
+	//-- Variáveis Internas ---------------------------------------------------
+	PRIVATE DATA aErros								AS Array
+	PRIVATE DATA aAlertas							AS Array
+	PRIVATE DATA aSucessos							AS Array
+	PRIVATE DATA aInfos								AS Array
+	PRIVATE DATA cArqLog							AS Character
+	PRIVATE DATA cLogCompleto						AS Character
+	PRIVATE DATA cProcesso							AS Character
+	PRIVATE DATA lMostraMsg							AS Logical
+	PRIVATE DATA lConsole							AS Logical
+	PRIVATE DATA lErro								AS Logical
+	PRIVATE DATA nHdlArqLog							AS Numeric
+	PRIVATE DATA nThreadId							AS Numeric
+
+	//-- Métodos --------------------------------------------------------------
+	PUBLIC METHOD New()           Constructor
+	PUBLIC METHOD ClassName()              			AS Character
+	PUBLIC METHOD GetVersao()						AS Character
+    PUBLIC METHOD Destroy()
+
+	PUBLIC METHOD NovoProcesso()
+	PUBLIC METHOD RetArqLog()						AS Character
+	PUBLIC METHOD RetLogCompleto()					AS Character
+	PUBLIC METHOD RetErros()						AS Array
+	PUBLIC METHOD RetAlertas()						AS Array
+	PUBLIC METHOD RetSucessos()						AS Array
+	PUBLIC METHOD MostraMsg()						AS Logical
+	PUBLIC METHOD MsgErro()
+	PUBLIC METHOD MsgAlerta()
+	PUBLIC METHOD MsgSucesso()
+	PUBLIC METHOD MsgInfo()
+	PUBLIC METHOD ResetErro()
+	PUBLIC METHOD MsgYesNo()						AS Logical
+	PUBLIC METHOD MsgNoYes()						AS Logical
+
+	STATIC METHOD CXMsgErro()
+	STATIC METHOD CXMsgHelp()
+	STATIC METHOD CXMsgAlerta()
+	STATIC METHOD CXMsgSucesso()
+	STATIC METHOD CXMsgInfo()
+	STATIC METHOD CXMsgYesNo()						AS Logical
+	STATIC METHOD CXMsgNoYes()						AS Logical
+
+	//-- Métodos Internos -----------------------------------------------------
+	PRIVATE METHOD WriteLog()
+
+ENDCLASS
+
+//******************************************************************************
+//** INICIALIZADOR *************************************************************
+//******************************************************************************
+//------------------------------------------------------------------------------
+/*/{Protheus.doc} New
+@Return   	Self
+@author		Cirilo Rocha
+@since		04/05/2025
+@finalidade	Método construtor da classe
+@parameters	lMostraMsg	- Indica se deve mostrar mensagens no console
+			cArqLog		- Caminho e nome do arquivo de log (se não informado, cria um padrão)
+							aceita passagem por referência, se vazio não grava log em arquivo
+			lConsole	- Indica se deve mostrar mensagens no console
+			lUsaHelp	- Indica se deve usar help nas mensagens
+/*/
+//------------------------------------------------------------------------------
+METHOD New(	lMostraMsg	AS Logical	;
+		,	cArqLog 	AS Character;
+		,	lConsole	AS Logical	;
+		,	lUsaHelp	AS Logical	;
+		) CLASS tLogErro
+
+	//-- Declaração de Variáveis ----------------------------------------------
+	Local cPrograma	:= RetFileName(ProcSource(1))	AS Character
+
+	//-- Parâmetros da Rotina -------------------------------------------------
+	Default lMostraMsg	:=	.Not. _lRotAuto_
+
+	Default lConsole	:= .F.
+	Default lUsaHelp	:= .F.
+
+	//-- Inicializa Variáveis -------------------------------------------------
+	::cClassName	:= GetClassName(self)
+	::lMostraMsg	:= lMostraMsg
+	::lConsole		:= lConsole
+	::cLogCompleto	:= ''
+	::cProcesso		:= ''
+	::cArqLog		:= ''
+	::nThreadId		:= ThreadId()
+	::nHdlArqLog	:= -1
+	::lErro			:= .F.
+
+	::aErros		:= {}
+	::aAlertas		:= {}
+	::aSucessos		:= {}
+
+	LogMsg(	RetFileName(ProcSource())	;	//01 cFunc
+		,	22 /*FAC_FRAME_*/			;	//02 nFacility
+		,	6 /*SEV_INFORM_*/			;	//03 nSeverity
+		,	1							;	//04 nVersao
+		,	StrZero(ProcLine(),5)		;	//05 cMsgId
+		,	''							;	//06 cStrData
+		,	'INICIALIZANDO CLASSE DE CX.TLOGERRO - V'+_cVersao+' | '+_cDtVersao	;	//07 cMsg
+		)
+
+	//-- Cria arquivo e diretório para gravação dos logs ----------------------
+	If	cArqLog == NIL
+		If 		.Not. ExistDir(_cPathCst) ;
+		.And.	.Not. FWMakeDir(_cPathCst,.F.)
+			::MsgErro('Erro '+cValToChar(fError())+' ao criar diretório de logs: '+_cPathCst,,1)
+		Else
+		cArqLog		:= 	_cPathCst					;
+					+	cPrograma					;
+					+	'-'+DtoS(Date())			;
+					+	'-'+StrTran(Time(),':',';')	;
+					+	'-'+cValToChar(::nThreadId)	;
+					+	'.log'						;
+
+		EndIf
+	EndIf
+
+	//-- Abre ou cria arquivo para gravação -----------------------------------
+	If .Not. Empty(cArqLog)
+		::nHdlArqLog := IIf( File( cArqLog ) , FOpen( cArqLog, 2/*FO_READWRITE*/ ) , FCreate( cArqLog ) )
+		If ::nHdlArqLog == -1 
+			::MsgErro('Erro '+cValToChar(fError())+' ao criar/abrir arquivo de logs: '+cArqLog,,1)
+		Else
+			::cArqLog		:= cArqLog
+		EndIf
+	EndIf
+
+Return Self
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} GetVersao
+@description	Retorna a versão da classe de Log
+@autor			Cirilo Rocha
+@since			19/10/2025
+/*/
+//-------------------------------------------------------------------------------------------------
+METHOD GetVersao() CLASS tLogErro
+Return _cVersao + ' | ' + _cDtVersao
+
+//******************************************************************************
+//** DESTRUTOR *****************************************************************
+//******************************************************************************
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} Destroy
+@author		Cirilo Rocha
+@since		19/10/2025
+@finalidade	Método destrutor da classe
+/*/
+//-------------------------------------------------------------------------------------------------
+Method Destroy() Class tLogErro
+
+	If ::nHdlArqLog <> -1
+		FClose(::nHdlArqLog)
+		::nHdlArqLog := -1
+	EndIf
+
+	FwFreeArray(::aErros)
+	FwFreeArray(::aAlertas)
+	FwFreeArray(::aSucessos)
+
+Return
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} ClassName
+@Return   	nome da classe
+@author		Cirilo Rocha
+@since		04/05/2025
+@finalidade	Método para retornar o nome da classe atual
+/*/
+//-------------------------------------------------------------------------------------------------
+METHOD ClassName()	CLASS tLogErro
+
+Return ::cClassName
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} RetArqLog
+@Return   	cArqLog - Caminho e nome do arquivo de log
+@author		Cirilo Rocha
+@since		04/05/2025
+@finalidade	Método para retornar o caminho e nome do arquivo de log
+/*/
+//-------------------------------------------------------------------------------------------------
+METHOD RetArqLog() CLASS tLogErro
+
+Return ::cArqLog
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} RetLogCompleto
+@autor			Cirilo Rocha
+@since			19/10/2025
+@finalidade		Retorna o log completo das mensagens registradas
+@Return   		cLogCompleto - Log completo das mensagens registradas
+/*/
+//-------------------------------------------------------------------------------------------------
+Method RetLogCompleto() CLASS tLogErro
+Return ::cLogCompleto
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} MostraMsg
+@author		Cirilo Rocha
+@since		19/10/2025
+@finalidade	Registra uma mensagem de erro / alerta / sucesso
+@param		cMsg - Mensagem de erro a ser registrada
+@param		cTipo - Tipo da mensagem: E=Erro | A=Alerta | S=Sucesso | I=Info | Y=YesNo | N=NoYes
+@param		cCodErr - Código do Erro
+@param		lDefault - Valor default para mensagens do tipo YesNo ou NoYes
+@param		cLog - Variável para retorno do log (por referência)
+/*/
+//-------------------------------------------------------------------------------------------------
+METHOD MostraMsg(cMsg		AS Character;
+				,cTipo 		AS Character;
+				,cCodErr	AS Character;
+				,lMostraMsg	AS Logical	;
+				,lDefault	AS Logical	;
+				,cLog		AS Character;
+				,nNivel		AS Numeric	;
+				) AS Logical		CLASS tLogErro
+
+	//-- Declaração de Variáveis ----------------------------------------------
+	Local cCodMsg	:= ''							AS Character
+	Local lRet		:= .F.							AS Logical
+	Local nI, nF									AS Numeric
+
+	//-- Parâmetros da Rotina -------------------------------------------------
+	Default cMsg		:= ''
+	Default cTipo		:= 'E'	//-- E=Erro | A=Alerta | S=Sucesso | I=Info | Y=YesNo | N=NoYes 
+	Default cCodErr		:= ''	//-- Código do Erro
+	Default lMostraMsg	:= ::lMostraMsg
+	Default cLog		:= ''	//-- Por Referência
+	Default nNivel		:= 0	//-- Nível de log (não utilizado)
+
+	//-------------------------------------------------------------------------
+	Do Case
+		Case cTipo == 'Y'	; Default lDefault := .T.
+		Case cTipo == 'N'	; Default lDefault := .F.
+	EndCase
+
+	//-------------------------------------------------------------------------
+	If ::lConsole
+		LogMsg(	::cPrograma					;	//01 cFunc
+			,	22 /*FAC_FRAME_*/			;	//02 nFacility
+			,	6 /*SEV_INFORM_*/			;	//03 nSeverity
+			,	1							;	//04 nVersao
+			,	StrZero(ProcLine(nNivel+1),5);	//05 cMsgId
+			,	''							;	//06 cStrData
+			,	ANSIToOEM(cMsg)				;	//07 cMsg
+			)
+	EndIf
+
+	//-------------------------------------------------------------------------
+	If Empty(cCodErr)	;	cCodErr	:= _MsgLinha(nNivel+1)		;	EndIf
+
+	If .Not. Empty(cCodErr)		//-- Obtem código entre parênteses
+		nI := At('(',cCodErr)+1
+		nF := At(')',cCodErr,nI)-1
+		If nI>1 .And. nF>nI
+			cCodMsg := SubStr(cCodErr,nI,nF-nI+1)
+		EndIf
+	EndIf
+	If Empty(cCodMsg)		;	cCodMsg	:= StrZero(ProcLine(nNivel+1),5)		; 		EndIf
+	
+	//-- Registra mensagem conforme o tipo --------------------------------------
+	Do Case
+		Case cTipo == 'S'	; aAdd(::aSucessos	, {::cProcesso,'S'+cCodMsg,cMsg})
+		Case cTipo == 'A'	; aAdd(::aAlertas	, {::cProcesso,'A'+cCodMsg,cMsg})
+		Case cTipo == 'I'	; aAdd(::aInfos		, {::cProcesso,'I'+cCodMsg,cMsg})
+		Case cTipo $ 'Y/N'	//-- YesNo ou NoYes - NÃO FAZ NADA
+		Otherwise			; aAdd(::aErros		, {::cProcesso,'E'+cCodMsg,cMsg}) ; ::lErro := .T.
+	EndCase
+
+	//-------------------------------------------------------------------------
+	If .Not. ( cTipo $ 'Y/N' )	//-- YesNo ou NoYes - GRAVA LOG APÓS A RESPOSTA
+		::WriteLog( cMsg )	//-- Grava log progressivamente!
+	EndIf
+
+	//-------------------------------------------------------------------------
+	If 		lMostraMsg ;
+	.And.	cTipo <> 'I'		//-- Info NUNCA MOSTRA MENSAGEM
+
+		Do Case
+			Case cTipo == 'S'	; FWAlertSuccess( cMsg ,cCodErr)
+			Case cTipo == 'A'	; FWAlertWarning( cMsg ,cCodErr)
+			//Case cTipo == 'I'	; FWAlertInfo( cMsg ,cCodErr)
+			Case cTipo == 'Y'	; lRet := FWAlertYesNo( cMsg ,cCodErr)
+			Case cTipo == 'N'	; lRet := FWAlertNoYes( cMsg ,cCodErr)
+			Case ::lUsaHelp		; Help('',1,cCodErr,,cMsg,1,,,,,,,/*{'Solucao'}*/)
+			Otherwise			; FWAlertError( cMsg ,cCodErr)
+		EndCase
+
+		If cTipo $ 'Y/N'
+			cMsg	+= CRLF+'RESPOSTA USUÁRIO: '+IIf(lRet,'SIM','NÃO')
+		EndIf
+	Else
+		If cTipo $ 'Y/N'
+			lRet	:= lDefault
+			cMsg	+= CRLF+'RESPOSTA PADRÃO: '+IIf(lRet,'SIM','NÃO')
+		EndIf
+	EndIf
+
+	If cTipo $ 'Y/N'
+		aAdd(::aAlertas	, {::cProcesso,'A'+cCodMsg,cMsg})	//-- Registra como alertas
+		::WriteLog( cMsg )	//-- Grava log progressivamente!
+	EndIf
+
+	//-------------------------------------------------------------------------
+	cLog	+= cMsg+CRLF
+
+Return lRet
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} MsgErro
+@author		Cirilo Rocha
+@since		19/10/2025
+@finalidade	Registra uma mensagem de erro
+@param		cMsg - Mensagem de erro a ser registrada
+@param		cLog - Variável para retorno do log (por referência)
+@param		nNivel - Nível de log
+/*/
+//-------------------------------------------------------------------------------------------------
+METHOD MsgErro(	cMsg 		AS Character;
+			,	cCodErr		AS Character;
+			,	lMostraMsg	AS Logical	;
+			,	cLog 		AS Character;
+			,	nNivel 		AS Numeric	;
+				) CLASS tLogErro
+
+	//-- Parâmetros da Rotina -------------------------------------------------
+	Default cMsg	:= ''
+	Default cCodErr	:= ''
+	Default lMostraMsg	:= .T.
+	Default cLog	:= ''
+	Default nNivel	:= 0
+
+	::MostraMsg(cMsg,'E',cCodErr,lMostraMsg,cLog,nNivel+1)
+
+Return
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} MsgAlerta
+@author		Cirilo Rocha
+@since		04/05/2025
+@finalidade	Registra uma mensagem de alerta
+@param		cMsg - Mensagem de alerta a ser registrada
+@param		cLog - Variável para retorno do log (por referência)
+@param		nNivel - Nível de log
+/*/
+//-------------------------------------------------------------------------------------------------
+METHOD MsgAlerta(cMsg 		AS Character;
+				,cCodErr	AS Character;
+				,lMostraMsg	AS Logical	;
+				,cLog 		AS Character;
+				,nNivel 	AS Numeric	;
+				) CLASS tLogErro
+
+	//-- Parâmetros da Rotina -------------------------------------------------
+	Default cMsg		:= ''
+	Default cCodErr		:= ''
+	Default lMostraMsg	:= .T.
+	Default cLog		:= ''
+	Default nNivel		:= 0
+
+	::MostraMsg(cMsg,'A',cCodErr,lMostraMsg,cLog,nNivel+1)
+
+Return
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} MsgSucesso
+@author		Cirilo Rocha
+@since		19/10/2025
+@finalidade	Registra uma mensagem de sucesso
+@param		cMsg - Mensagem de sucesso a ser registrada
+/*/
+//-------------------------------------------------------------------------------------------------
+METHOD MsgSucesso(	cMsg 		AS Character;
+				,	cCodErr		AS Character;
+				,	lMostraMsg	AS Logical	;
+				,	cLog 		AS Character;
+				,	nNivel 		AS Numeric	;
+				) CLASS tLogErro
+
+	//-- Parâmetros da Rotina -------------------------------------------------
+	Default cMsg		:= ''
+	Default cCodErr		:= ''
+	Default lMostraMsg	:= .T.
+	Default cLog		:= ''
+	Default nNivel		:= 0
+
+	::MostraMsg(cMsg,'S',cCodErr,lMostraMsg,cLog,nNivel+1)
+
+Return
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} MsgInfo
+@author		Cirilo Rocha
+@since		19/10/2025
+@finalidade	Registra uma mensagem de informação, não é mosrtrada na tela
+@param		cMsg - Mensagem de informação a ser registrada
+/*/
+//-------------------------------------------------------------------------------------------------
+METHOD MsgInfo(	cMsg 	AS Character;
+			,	cCodErr	AS Character;
+			,	cLog 	AS Character;
+			,	nNivel 	AS Numeric	;
+				) CLASS tLogErro
+
+	//-- Parâmetros da Rotina -------------------------------------------------
+	Default cMsg	:= ''
+	Default cCodErr	:= ''
+	Default cLog	:= ''
+	Default nNivel	:= 0
+
+	::MostraMsg(cMsg,'I',cCodErr,cLog,nNivel+1)
+
+Return
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} WriteLog
+@author		Cirilo Rocha
+@since		19/10/2025
+@finalidade	Grava uma mensagem no arquivo de log
+@param		cMsg - Mensagem a ser gravada
+/*/
+//-------------------------------------------------------------------------------------------------
+METHOD WriteLog(cMsg AS Character) CLASS tLogErro
+	
+	//-- Declaração de Variáveis ----------------------------------------------
+	Local cMsgLog									AS Character
+
+	//-- Monta a mensagem com data e hora
+	cMsgLog := DtoC(Date())+' | '+Time()+' | '+cValToChar(nThreadId)+' | '+cValToChar(cMsg)+CRLF
+
+	::cLogCompleto += cMsgLog					//-- Adiciona a mensagem ao log completo em memória
+
+	If ::nHdlArqLog <> -1
+		FSeek(::nHdlArqLog, 0, 2 /*FS_END*/)
+		FWrite(::nHdlArqLog, cMsgLog )
+	EndIf
+
+Return
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} RetErros
+@Return   	aErros - Array com os erros registrados
+@author		Cirilo Rocha
+@since		19/10/2025
+@finalidade	Método para retornar o array de erros
+/*/
+//-------------------------------------------------------------------------------------------------
+METHOD RetErros() CLASS tLogErro
+
+Return ::aErros
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} RetAlertas
+@Return   	aAlertas - Array com os alertas registrados
+@author		Cirilo Rocha
+@since		19/10/2025
+@finalidade	Método para retornar o array de alertas
+/*/
+//-------------------------------------------------------------------------------------------------
+METHOD RetAlertas() CLASS tLogErro
+
+Return ::aAlertas
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} RetSucessos
+@Return   	aSucessos - Array com os sucessos registrados
+@author		Cirilo Rocha
+@since		19/10/2025
+@finalidade	Método para retornar o array de sucessos
+/*/
+//-------------------------------------------------------------------------------------------------
+METHOD RetSucessos() CLASS tLogErro
+
+Return ::aSucessos
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} NovoProcesso
+@author		Cirilo Rocha
+@since		19/10/2025
+@finalidade	Define o nome do processo atual para registro no log
+@param		cNomeProc - Nome do processo
+/*/
+//-------------------------------------------------------------------------------------------------
+METHOD NovoProcesso(cNomeProc AS Character) CLASS tLogErro
+
+	//-- Parâmetros da Rotina -------------------------------------------------
+	ParamType 0		VAR cNomeProc		AS Character
+	
+	::cProcesso := cNomeProc
+
+Return
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} ResetErro
+@author		Cirilo Rocha
+@since		19/10/2025
+@finalidade	Limpa limpar o flag de erro interno da classe
+/*/
+//-------------------------------------------------------------------------------------------------
+METHOD ResetErro() CLASS tLogErro
+
+	::lErro		:= .F.
+
+Return
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} MsgYesNo
+@author		Cirilo Rocha
+@since		19/10/2025
+@finalidade	Mostra uma mensagem do tipo Yes/No e registra a resposta
+@param		cMsg - Mensagem a ser exibida
+@param		cCodErr - Código do erro/mensagem
+@param		lDefault - Resposta padrão caso a mensagem não seja exibida
+@param		cLog - Variável para retorno do log (por referência)
+@param		nNivel - Nível de log
+@return		lRet - Resposta do usuário (.T. para Sim, .F. para Não)
+/*/
+//-------------------------------------------------------------------------------------------------
+METHOD MsgYesNo(cMsg 		AS Character;
+			,	cCodErr		AS Character;
+			,	lMostraMsg	AS Logical	;
+			,	lDefault	AS Logical	;
+			,	cLog 		AS Character;
+			,	nNivel 		AS Numeric	;
+			) AS Logical CLASS tLogErro
+
+	//-- Declaração de Variáveis ----------------------------------------------
+	Local lRet		:= .T.							AS Logical
+
+	//-- Parâmetros da Rotina -------------------------------------------------
+	Default cMsg		:= ''
+	Default cCodErr		:= ''
+	Default lMostraMsg	:= .T.
+	Default lDefault	:= .T.
+	Default cLog		:= ''
+	Default nNivel		:= 0
+
+	lRet := ::MostraMsg(cMsg,'Y',cCodErr,lMostraMsg,lDefault,@cLog,nNivel+1)
+
+Return lRet
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} MsgNoYes
+@author		Cirilo Rocha
+@since		19/10/2025
+@finalidade	Mostra uma mensagem do tipo No/Yes e registra a resposta
+@param		cMsg - Mensagem a ser exibida
+@param		cCodErr - Código do erro/mensagem
+@param		lDefault - Resposta padrão caso a mensagem não seja exibida
+@param		cLog - Variável para retorno do log (por referência)
+@param		nNivel - Nível de log
+@return		lRet - Resposta do usuário (.T. para Sim, .F. para Não)
+/*/
+//-------------------------------------------------------------------------------------------------
+METHOD MsgNoYes(cMsg 		AS Character;
+			,	cCodErr		AS Character;
+			,	lMostraMsg	AS Logical	;
+			,	lDefault	AS Logical	;
+			,	cLog 		AS Character;
+			,	nNivel 		AS Numeric	;
+			) AS Logical CLASS tLogErro
+
+	//-- Declaração de Variáveis ----------------------------------------------
+	Local lRet		:= .F.							AS Logical
+
+	//-- Parâmetros da Rotina -------------------------------------------------
+	Default cMsg		:= ''
+	Default cCodErr		:= ''
+	Default lMostraMsg	:= .T.
+	Default lDefault	:= .F.
+	Default cLog		:= ''
+	Default nNivel		:= 0
+
+	lRet := ::MostraMsg(cMsg,'N',cCodErr,lMostraMsg,lDefault,@cLog,nNivel+1)
+
+Return lRet
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//             ##
+// ##   ##  ######  ######   ####   #####    ####    ####  
+// ### ###  ##        ##    ##  ##  ##  ##  ##  ##  ##     
+// ## # ##  ####      ##    ##  ##  ##  ##  ##  ##   ####  
+// ##   ##  ##        ##    ##  ##  ##  ##  ##  ##      ## 
+// ##   ##  ######    ##     ####   #####    ####    ####  
+//                            ##                                          
+// ######   ####   ######   ####   ######  ######   ####    ####    ####  
+// ##      ##        ##    ##  ##    ##      ##    ##  ##  ##  ##  ##     
+// ####     ####     ##    ######    ##      ##    ##      ##  ##   ####  
+// ##          ##    ##    ##  ##    ##      ##    ##  ##  ##  ##      ## 
+// ######   ####     ##    ##  ##    ##    ######   ####    ####    ####  
+//                                                                        
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} CXMsgErro (ESTÁTICO)
+@author		Cirilo Rocha
+@since		19/10/2025
+@finalidade	Registra uma mensagem de erro
+@param		cMsg - Mensagem de erro a ser registrada
+@param		cLog - Variável para retorno do log (por referência)
+@param		nNivel - Nível de log
+/*/
+//-------------------------------------------------------------------------------------------------
+METHOD	CXMsgErro(	cMsg 		AS Character;
+				,	cCodErr		AS Character;
+				,	lMostraMsg	AS Logical	;
+				,	cLog 		AS Character;
+				,	nNivel 		AS Numeric	;
+					) CLASS tLogErro
+
+	//-- Parâmetros da Rotina -------------------------------------------------
+	Default cMsg		:= ''
+	Default cCodErr		:= ''
+	Default lMostraMsg	:= .T.
+	Default cLog		:= ''
+	Default nNivel		:= 0
+
+	If Empty(cCodErr)			;	cCodErr	:= _MsgLinha(nNivel+1)		;	EndIf
+
+	If Type('oLogErro')=='O'	;	oLogErro:MsgErro(cMsg,'E',cCodErr,lMostraMsg,@cLog,nNivel+1)
+	ElseIf lMostraMsg			;	FwAlertError(cMsg,cCodErr)
+	EndIf
+
+Return
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} CXMsgHelp (ESTÁTICO)
+@author		Cirilo Rocha
+@since		19/10/2025
+@finalidade	Mostra uma mensagem de ajuda
+@param		cMsg - Mensagem de ajuda a ser registrada
+@param		cCodErr - Código do erro/mensagem
+@param		cLog - Variável para retorno do log (por referência)
+@param		nNivel - Nível de log
+/*/
+//-------------------------------------------------------------------------------------------------
+METHOD CXMsgHelp(	cMsg 		AS Character;
+				,	cCodErr		AS Character;
+				,	lMostraMsg	AS Logical	;
+				,	cLog 		AS Character;
+				,	nNivel 		AS Numeric	;
+				) CLASS tLogErro
+
+	//-- Parâmetros da Rotina -------------------------------------------------
+	Default cMsg		:= ''
+	Default cCodErr		:= ''
+	Default lMostraMsg	:= .T.
+	Default cLog		:= ''
+	Default nNivel		:= 0
+
+	If Empty(cCodErr)			;	cCodErr	:= _MsgLinha(nNivel+1)		;	EndIf
+
+	If Type('oLogErro')=='O'	;	oLogErro:MsgAlerta(cMsg, cCodErr,lMostraMsg, @cLog, nNivel+1) // Help usa o alerta
+	ElseIf lMostraMsg			;	Help('',1,cCodErr,,cMsg,1,,,,,,,/*{'Solucao'}*/)
+	EndIf
+
+Return
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} CXMsgAlerta (ESTÁTICO)
+@author		Cirilo Rocha
+@since		19/10/2025
+@finalidade	Registra uma mensagem de alerta
+@param		cMsg - Mensagem de alerta a ser registrada
+@param		cCodErr - Código do erro/mensagem
+@param		cLog - Variável para retorno do log (por referência)
+@param		nNivel - Nível de log
+/*/
+//-------------------------------------------------------------------------------------------------
+METHOD CXMsgAlerta(	cMsg 		AS Character;
+				,	cCodErr		AS Character;
+				,	lMostraMsg	AS Logical	;
+				,	cLog 		AS Character;
+				,	nNivel 		AS Numeric	;
+					) CLASS tLogErro
+
+	//-- Parâmetros da Rotina -------------------------------------------------
+	Default cMsg		:= ''
+	Default cCodErr		:= ''
+	Default lMostraMsg	:= .T.
+	Default cLog		:= ''
+	Default nNivel		:= 0
+
+	If Empty(cCodErr)			;	cCodErr	:= _MsgLinha(nNivel+1)		;	EndIf
+
+	If Type('oLogErro')=='O'	;	oLogErro:MsgAlerta(cMsg, cCodErr, lMostraMsg, @cLog, nNivel+1)
+	ElseIf lMostraMsg			;	FWAlertWarning(cMsg,cCodErr)
+	EndIf
+
+Return
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} CXMsgSucesso (ESTÁTICO)
+@author		Cirilo Rocha
+@since		19/10/2025
+@finalidade	Registra uma mensagem de sucesso
+@param		cMsg - Mensagem de sucesso a ser registrada
+@param		cCodErr - Código do erro/mensagem
+@param		cLog - Variável para retorno do log (por referência)
+@param		nNivel - Nível de log
+/*/
+//-------------------------------------------------------------------------------------------------
+METHOD CXMsgSucesso(cMsg 		AS Character;
+				,	cCodErr		AS Character;
+				,	lMostraMsg	AS Logical	;
+				,	cLog 		AS Character;
+				,	nNivel 		AS Numeric	;
+					) CLASS tLogErro
+
+	//-- Parâmetros da Rotina -------------------------------------------------
+	Default cMsg		:= ''
+	Default cCodErr		:= ''
+	Default lMostraMsg	:= .T.
+	Default cLog		:= ''
+	Default nNivel		:= 0
+
+	If Empty(cCodErr)			;	cCodErr	:= _MsgLinha(nNivel+1)		;	EndIf
+
+	If Type('oLogErro')=='O'	;	oLogErro:MsgSucesso(cMsg, cCodErr, lMostraMsg, @cLog, nNivel+1)
+	ElseIf lMostraMsg			;	FWAlertSuccess(cMsg,cCodErr)
+	EndIf
+
+Return
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} CXMsgInfo (ESTÁTICO)
+@author		Cirilo Rocha
+@since		19/10/2025
+@finalidade	Registra uma mensagem de informação
+@param		cMsg - Mensagem de informação a ser registrada
+@param		cCodErr - Código do erro/mensagem
+@param		cLog - Variável para retorno do log (por referência)
+@param		nNivel - Nível de log
+/*/
+//-------------------------------------------------------------------------------------------------
+METHOD CXMsgInfo(	cMsg 		AS Character;
+				,	cCodErr		AS Character;
+				,	lMostraMsg	AS Logical	;
+				,	cLog 		AS Character;
+				,	nNivel 		AS Numeric	;
+					) CLASS tLogErro
+
+	//-- Parâmetros da Rotina -------------------------------------------------
+	Default cMsg		:= ''
+	Default cCodErr		:= ''
+	Default lMostraMsg	:= .T.
+	Default cLog		:= ''
+	Default nNivel		:= 0
+
+	If Empty(cCodErr)			;	cCodErr	:= _MsgLinha(nNivel+1)		;	EndIf
+
+	If Type('oLogErro')=='O'	;	oLogErro:MsgInfo(cMsg, cCodErr, lMostraMsg, @cLog, nNivel+1)
+	ElseIf lMostraMsg			;	FWAlertInfo(cMsg,cCodErr)
+	EndIf
+
+Return
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} CXMsgYesNo (ESTÁTICO)
+@author		Cirilo Rocha
+@since		19/10/2025
+@finalidade	Mostra uma mensagem do tipo Yes/No e registra a resposta
+@param		cMsg - Mensagem a ser exibida
+@param		cCodErr - Código do erro/mensagem
+@param		lDefault - Resposta padrão caso a mensagem não seja exibida
+@param		cLog - Variável para retorno do log (por referência)
+@param		nNivel - Nível de log
+@return		lRet - Resposta do usuário (.T. para Sim, .F. para Não)
+/*/
+//-------------------------------------------------------------------------------------------------
+METHOD CXMsgYesNo(	cMsg 		AS Character;
+				,	cCodErr		AS Character;
+				,	lMostraMsg	AS Logical	;
+				,	lDefault	AS Logical	;
+				,	cLog 		AS Character;
+				,	nNivel 		AS Numeric	;
+				) AS Logical CLASS tLogErro
+
+	//-- Declaração de Variáveis ----------------------------------------------
+	Local lRet		:= .T.							AS Logical
+
+	//-- Parâmetros da Rotina -------------------------------------------------
+	Default cMsg		:= ''
+	Default cCodErr		:= ''
+	Default lMostraMsg	:= .T.
+	Default lDefault	:= .T.
+	Default cLog		:= ''
+	Default nNivel		:= 0
+
+	If Empty(cCodErr)			;	cCodErr	:= _MsgLinha(nNivel+1)		;	EndIf
+
+	If Type('oLogErro')=='O'	;	lRet := oLogErro:MsgYesNo(cMsg, cCodErr, lMostraMsg, lDefault, @cLog, nNivel+1)
+	ElseIf lMostraMsg			;	lRet := FWAlertYesNo(cMsg,cCodErr)
+	Else						;	lRet := lDefault
+	EndIf
+
+Return lRet
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} CXMsgNoYes (ESTÁTICO)
+@author		Cirilo Rocha
+@since		19/10/2025
+@finalidade	Mostra uma mensagem do tipo No/Yes e registra a resposta
+@param		cMsg - Mensagem a ser exibida
+@param		cCodErr - Código do erro/mensagem
+@param		lDefault - Resposta padrão caso a mensagem não seja exibida
+@param		cLog - Variável para retorno do log (por referência)
+@param		nNivel - Nível de log
+@return		lRet - Resposta do usuário (.T. para Sim, .F. para Não)
+/*/
+//-------------------------------------------------------------------------------------------------
+METHOD CXMsgNoYes(	cMsg 		AS Character;
+				,	cCodErr		AS Character;
+				,	lMostraMsg	AS Logical	;
+				,	lDefault	AS Logical	;
+				,	cLog 		AS Character;
+				,	nNivel 		AS Numeric	;
+				) AS Logical CLASS tLogErro
+
+	//-- Declaração de Variáveis ----------------------------------------------
+	Local lRet		:= .F.							AS Logical
+
+	//-- Parâmetros da Rotina -------------------------------------------------
+	Default cMsg		:= ''
+	Default cCodErr		:= ''
+	Default lMostraMsg	:= .T.
+	Default lDefault	:= .F.
+	Default cLog		:= ''
+	Default nNivel		:= 0
+
+	If Empty(cCodErr)			;	cCodErr	:= _MsgLinha(nNivel+1)		;	EndIf
+
+	If Type('oLogErro')=='O'	;	lRet := oLogErro:MsgNoYes(cMsg, cCodErr, lMostraMsg, lDefault, @cLog, nNivel+1)
+	ElseIf lMostraMsg			;	lRet := FWAlertNoYes(cMsg,cCodErr)
+	Else						;	lRet := lDefault
+	EndIf
+
+Return lRet
