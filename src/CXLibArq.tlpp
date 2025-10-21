@@ -3,6 +3,8 @@
 #INCLUDE 'ParmType.ch'
 #INCLUDE "Directry.ch"
 #INCLUDE 'CXInclude.ch'
+#INCLUDE 'FileIO.ch'
+#INCLUDE 'tlpp-core.th'
 
 //##################################################################################################
 //##+========+=================================+=======+====================+======+=============+##
@@ -13,7 +15,8 @@
 //##|  DATA  | ANALISTA | MANUTENÇÃO EFETUADA                                                    |##
 //##+========+==========+========================================================================+##
 //##|01/03/23| Cirilo R.| Unificados vários fontes aqui                                          |##
-//##|        |          |                                                                        |##
+//##|20/10/25| Cirilo R.| Criada função CXGetFileList como contorno para o problema da função    |##
+//##|        |          |  padrão Directory() e o WebApp                                         |##
 //##|        |          |                                                                        |##
 //##+========+==========+========================================================================+##
 //##################################################################################################
@@ -369,7 +372,8 @@ User Function CXFile(	cArquivo		AS Character,;	//01 cArquivo
 	
 	//-- Declaração de Variáveis ----------------------------------------------
 	Local lRet			AS Logical
-	Local aArq			AS Array
+//	Local aArq			AS Array
+	Local nTamArq		AS Numeric
 	Local cMsgErrBak	AS Character
 	Local cCodErrBak	AS Character
 	Local cSolucBak		AS Character
@@ -410,14 +414,21 @@ User Function CXFile(	cArquivo		AS Character,;	//01 cArquivo
 		cMsgErr	:= 'Nome do arquivo '+cArquivo+' contém caracteres inválidos.'
 		lRet	:= .F.
 	Else
-		aArq		:= Directory(cArquivo,/*cFlags*/)
-		If len(aArq) == 0 
-			cCodErr	:= U_CXTxtMsg(,,.T.)
-			cMsgErr	:= 'Arquivo '+cArquivo+' NÃO existe.'
-			lRet	:= .F.
-		ElseIf aArq[1][F_SIZE] == 0
+		//aArq		:= Directory(cArquivo,/*cFlags*/)
+		//If len(aArq) == 0 
+		//	cCodErr	:= U_CXTxtMsg(,,.T.)
+		//	cMsgErr	:= 'Arquivo '+cArquivo+' NÃO existe.'
+		//	lRet	:= .F.
+		//ElseIf aArq[1][F_SIZE] == 0
+		//	cCodErr	:= U_CXTxtMsg(,,.T.)
+		//	cMsgErr	:= 'Arquivo '+cArquivo+' sem conteúdo.'
+		//	lRet	:= .F.
+		//EndIf
+		If ( nTamArq := U_CXFileSize(cArquivo,.F.) ) == 0	//Somente para validar o arquivo
 			cCodErr	:= U_CXTxtMsg(,,.T.)
 			cMsgErr	:= 'Arquivo '+cArquivo+' sem conteúdo.'
+			lRet	:= .F.
+		ElseIf nTamArq < 0	//-- Erro ao obter o tamanho do arquivo
 			lRet	:= .F.
 		EndIf
 	EndIf
@@ -472,3 +483,72 @@ User Function CXRetFileName(cArquivo	AS Character);	//01 cArquivo
 	EndIf
 
 Return cArquivo
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} CXFileSize
+@description	Retorna o tamanho (em bytes) de um arquivo abrindo em modo leitura. Usada como
+				substituta da função Directory() que apresenta problemas com o WebApp.
+@author			Cirilo Rocha
+@since			20/10/2025
+@param			cFile, character, Caminho completo do arquivo a verificar
+@param			lMsg, logical, Exibe mensagens de erro (default .T.)
+@return	numeric, Tamanho do arquivo em bytes; -1 em caso de erro
+/*/
+//-------------------------------------------------------------------------------------------------
+User Function CXFileSize(	cFile		AS Character;	//01 cFile
+						,	lMostraMsg	AS Logical	;	//02 lMostraMsg
+						)							AS Numeric
+
+	//-- Declaração de Variáveis ----------------------------------------------
+	Local nHdl										AS Numeric
+	Local nTamFile	:= -1							AS Numeric
+
+	//-- Parâmetros da Rotina -------------------------------------------------
+	ParamObg 0		VAR cFile
+	Default lMostraMsg := .T.
+
+	//Variáveis compartilhadas de mensagens de erro ---------------------------
+	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
+	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
+	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
+	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+	lErro		:= IIf(Type('lErro')<>'L',.F.,lErro)
+
+	//-- Validação de caracteres inválidos no nome do arquivo -----------------
+	If U_CXPrcFileNm(cFile) <> cFile
+		U_CXMsgErro('Nome do arquivo '+cFile+' contém caracteres inválidos.',;
+					'INFORME O SETOR DE T.I.',lMostraMsg,/*oArea*/)
+		Return -1
+	EndIf
+
+	cFile := U_CXPrcFileNm(cFile)
+
+	//-- Verifica existência do arquivo ---------------------------------------
+	If .Not. File(cFile)
+		U_CXMsgErro('O arquivo '+cFile+' não existe.',;
+					'Verifique o caminho informado.',lMostraMsg,/*oArea*/)
+		Return -1
+	EndIf
+
+	//-- Abre o arquivo em modo leitura ---------------------------------------
+	nHdl := FOpen(cFile, FO_READ+FO_SHARED)
+	If nHdl == -1 //Erro ao abrir o arquivo
+		U_CXMsgErro('O arquivo '+cFile+' não pode ser aberto.'+CRLF+;
+					'Erro: '+U_CXDescErro(),;
+					'INFORME O SETOR DE T.I.',lMostraMsg,/*oArea*/)
+		Return -1
+	EndIf
+
+	//-- Posiciona no final e obtém o tamanho ---------------------------------
+	nTamFile := FSeek(nHdl, 0, FS_END)
+	If nTamFile < 0
+		//-- Erro ao obter tamanho
+		FClose(nHdl)
+		U_CXMsgErro('Não foi possível obter o tamanho do arquivo '+cFile+'.',;
+					'INFORME O SETOR DE T.I.',lMostraMsg,/*oArea*/)
+		Return -1
+	EndIf
+
+	FClose(nHdl)
+
+Return nTamFile
