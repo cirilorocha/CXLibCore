@@ -4,8 +4,8 @@
 #INCLUDE 'tlpp-core.th'
 #INCLUDE 'FileIO.ch'
 
-Static _cVersao		:= "1.00"							AS Character
-Static _cDtVersao	:= "26/10/2025"						AS Character
+Static _cVersao		:= "1.05"							AS Character
+Static _cDtVersao	:= "29/10/2025"						AS Character
 #Define _NAMESPACE_		CUSTOM.CX								//-- FEITO ASSIM PARA PODER UTILIZAR O NAMESPACE EM OUTRAS PARTES DO FONTE
 //-------------------------------------------------------------------------------------------------
 /*/{Protheus.doc} ClsLog
@@ -33,7 +33,7 @@ Static _cPathCst	:= '\CUSTOMIZACOES\'			AS Character
 					.Or.	GetRemoteType() == NO_REMOTE 	;	//-- Se SmartClient (-1)
 					.Or.	(Type('__cInterNet') == 'C' .And. __cInterNet == 'AUTOMATICO') ;	//-- Rotina automática
 					)
-#Define _Timbre_		FormDate(Date(),.T.)+' | '+Time()+' | '+cValToChar(::nThreadId)
+#Define _Timbre_		FormDate(Date(),.T.)+' | '+Time()+' | '+cValToChar(ThreadId())
 //-------------------------------------------------------------------------------------------------
 Class ClsLog
 
@@ -49,13 +49,13 @@ Class ClsLog
 	PRIVATE DATA cArqLog							AS Character
 	PRIVATE DATA cLogCompleto						AS Character
 	PRIVATE DATA cProcesso							AS Character
+	PRIVATE DATA cPrograma							AS Character
 	PRIVATE DATA nProcesso							AS Numeric
 	PRIVATE DATA lMostraMsg							AS Logical
 	PRIVATE DATA lConsole							AS Logical
 	PRIVATE DATA lErro								AS Logical
 	PRIVATE DATA lUsaHelp							AS Logical
 	PRIVATE DATA nHdlArqLog							AS Numeric
-	PRIVATE DATA nThreadId							AS Numeric
 
 	//-- Métodos --------------------------------------------------------------
 	PUBLIC METHOD New()           Constructor
@@ -116,7 +116,6 @@ METHOD New(	lMostraMsg	AS Logical	;
 		) CLASS ClsLog
 
 	//-- Declaração de Variáveis ----------------------------------------------
-	Local cPrograma	:= RetFileName(ProcSource(1))	AS Character
 	Local cPathLog	:= ''							AS Character
 
 	//-- Parâmetros da Rotina -------------------------------------------------
@@ -126,6 +125,7 @@ METHOD New(	lMostraMsg	AS Logical	;
 
 	//-- Inicializa Variáveis -------------------------------------------------
 	::cClassName	:= GetClassName(self)
+	::cPrograma		:= RetFileName(ProcSource(1))
 	::lMostraMsg	:= lMostraMsg
 	::lConsole		:= lConsole
 	::lUsaHelp		:= lUsaHelp
@@ -133,7 +133,6 @@ METHOD New(	lMostraMsg	AS Logical	;
 	::cProcesso		:= ''
 	::nProcesso		:= 1
 	::cArqLog		:= ''
-	::nThreadId		:= ThreadId()
 	::nHdlArqLog	:= -1
 	::lErro			:= .F.
 	::alErros		:= {{'',.F.}}
@@ -155,11 +154,11 @@ METHOD New(	lMostraMsg	AS Logical	;
 
 	//-- Cria arquivo e diretório para gravação dos logs ----------------------
 	If	cArqLog == NIL
-		cArqLog		:= 	_cPathCst					;
-					+	'LOG_' + cPrograma			;
+		cArqLog		:= 	_cPathCst+'\LOGS\'			;
+					+	'LOG_' + ::cPrograma		;
 					+	'-'+FWDateTo8601(Date())	;	//-- AAAA-MM-DD
 					+	'-'+StrTran(Time(),':',';')	;	//-- HH;MM;SS
-					+	'-'+cValToChar(::nThreadId)	;
+					+	'-'+cValToChar(ThreadId())	;
 					+	'.log'						;
 
 	EndIf
@@ -176,7 +175,7 @@ METHOD New(	lMostraMsg	AS Logical	;
 				::MsgErro('Erro '+cValToChar(fError())+' ao criar/abrir arquivo de logs: '+cArqLog,,,,1)
 			Else
 				::cArqLog		:= cArqLog
-				FSeek(::nHdlArqLog, 0, 2 /*FS_END*/)
+				FSeek(::nHdlArqLog, 0, FS_END)
 				FWrite(::nHdlArqLog, Replicate('#',80)+CRLF)
 				FWrite(::nHdlArqLog, PadC(' INÍCIO PROCESSO DE LOG - CX.CLSLOG - V'+_cVersao+' | '+_cDtVersao+' ',80,'*')+CRLF)
 				FWrite(::nHdlArqLog, PadC(_Timbre_,80,'*')+CRLF)
@@ -495,7 +494,7 @@ METHOD WriteLog(cMsg AS Character) CLASS ClsLog
 	::cLogCompleto += cMsgLog					//-- Adiciona a mensagem ao log completo em memória
 
 	If ::nHdlArqLog <> -1
-		FSeek(::nHdlArqLog, 0, 2 /*FS_END*/)
+		FSeek(::nHdlArqLog, 0, FS_END)
 		FWrite(::nHdlArqLog, cMsgLog )
 	EndIf
 
