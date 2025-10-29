@@ -2,21 +2,13 @@
 #INCLUDE 'Totvs.ch'
 #INCLUDE 'ParmType.ch'
 #INCLUDE 'tlpp-core.th'
+#INCLUDE 'FileIO.ch'
 
 Static _cVersao		:= "1.00"							AS Character
-Static _cDtVersao	:= "19/10/2025"						AS Character
-
-#Define _NAMESPACE_		CUSTOM.CX.CLSLOG								//-- FEITO ASSIM PARA PODER UTILIZAR O NAMESPACE
-#Define _CNAMESPACE_	\'_NAMESPACE_\'									//-- PARA USO EM CHAMADAS STRING
-#Define _CNS_LOAD_		\'_NAMESPACE_\'+'.QUALQUERCOISA'				//-- NÃO ENTENDO PORQUE PRECISA TER ALGUM SUFIXO PARA FUNCIONAR!!!
-NAMESPACE	_NAMESPACE_
-Static _cPathCst	:= '\CUSTOMIZACOES\'			AS Character
-
-#xTranslate _MsgLinha(<nNivel>) => ;
-	RetFileName(ProcSource(<nNivel>))+'('+StrZero(ProcLine(<nNivel>),5)+')'
-
+Static _cDtVersao	:= "26/10/2025"						AS Character
+#Define _NAMESPACE_		CUSTOM.CX								//-- FEITO ASSIM PARA PODER UTILIZAR O NAMESPACE EM OUTRAS PARTES DO FONTE
 //-------------------------------------------------------------------------------------------------
-/*/{Protheus.doc} tLogErro
+/*/{Protheus.doc} ClsLog
 @author		Cirilo Rocha
 @since		19/10/2025
 @finalidade	Classe para controle de logs de erros, alertas e sucessos
@@ -25,6 +17,14 @@ Static _cPathCst	:= '\CUSTOMIZACOES\'			AS Character
 //FUTURO -> 
 //	GRAVAÇÃO EM TABELA
 //-------------------------------------------------------------------------------------------------
+#Define _CNAMESPACE_	\'_NAMESPACE_\'									//-- PARA USO EM CHAMADAS STRING
+#Define _CNS_LOAD_		\'_NAMESPACE_\'+'.QUALQUERCOISA'				//-- NÃO ENTENDO PORQUE PRECISA TER ALGUM SUFIXO PARA FUNCIONAR!!!
+NAMESPACE	_NAMESPACE_
+Static _cPathCst	:= '\CUSTOMIZACOES\'			AS Character
+
+#xTranslate _MsgLinha(<nNivel>) => ;
+	RetFileName(ProcSource(<nNivel>))+'('+StrZero(ProcLine(<nNivel>),5)+')'
+
 #Define _lRotAuto_	(		FWIsInCallStack('FWMVCRotAuto') ;	//-- Execauto MVC
 					.Or.	FWIsInCallStack('MSExecAuto') 	;	//-- Execauto padrão
 					.Or.	FWIsInCallStack('EnchAuto') 	;	//-- Execauto enchoice
@@ -33,8 +33,9 @@ Static _cPathCst	:= '\CUSTOMIZACOES\'			AS Character
 					.Or.	GetRemoteType() == NO_REMOTE 	;	//-- Se SmartClient (-1)
 					.Or.	(Type('__cInterNet') == 'C' .And. __cInterNet == 'AUTOMATICO') ;	//-- Rotina automática
 					)
+#Define _Timbre_		FormDate(Date(),.T.)+' | '+Time()+' | '+cValToChar(::nThreadId)
 //-------------------------------------------------------------------------------------------------
-Class tLogErro
+Class ClsLog
 
    	//-- Variáveis Compartilhadas ---------------------------------------------
 	PUBLIC DATA cClassName							AS Character
@@ -44,12 +45,15 @@ Class tLogErro
 	PRIVATE DATA aAlertas							AS Array
 	PRIVATE DATA aSucessos							AS Array
 	PRIVATE DATA aInfos								AS Array
+	PRIVATE DATA alErros							AS Array
 	PRIVATE DATA cArqLog							AS Character
 	PRIVATE DATA cLogCompleto						AS Character
 	PRIVATE DATA cProcesso							AS Character
+	PRIVATE DATA nProcesso							AS Numeric
 	PRIVATE DATA lMostraMsg							AS Logical
 	PRIVATE DATA lConsole							AS Logical
 	PRIVATE DATA lErro								AS Logical
+	PRIVATE DATA lUsaHelp							AS Logical
 	PRIVATE DATA nHdlArqLog							AS Numeric
 	PRIVATE DATA nThreadId							AS Numeric
 
@@ -59,7 +63,7 @@ Class tLogErro
 	PUBLIC METHOD GetVersao()						AS Character
     PUBLIC METHOD Destroy()
 
-	PUBLIC METHOD NovoProcesso()
+	PUBLIC METHOD SetProcesso()
 	PUBLIC METHOD RetArqLog()						AS Character
 	PUBLIC METHOD RetLogCompleto()					AS Character
 	PUBLIC METHOD RetErros()						AS Array
@@ -70,6 +74,8 @@ Class tLogErro
 	PUBLIC METHOD MsgAlerta()
 	PUBLIC METHOD MsgSucesso()
 	PUBLIC METHOD MsgInfo()
+	PUBLIC METHOD TemErro()							AS Logical
+	PUBLIC METHOD TemErroProcesso()					AS Logical
 	PUBLIC METHOD ResetErro()
 	PUBLIC METHOD MsgYesNo()						AS Logical
 	PUBLIC METHOD MsgNoYes()						AS Logical
@@ -107,14 +113,14 @@ METHOD New(	lMostraMsg	AS Logical	;
 		,	cArqLog 	AS Character;
 		,	lConsole	AS Logical	;
 		,	lUsaHelp	AS Logical	;
-		) CLASS tLogErro
+		) CLASS ClsLog
 
 	//-- Declaração de Variáveis ----------------------------------------------
 	Local cPrograma	:= RetFileName(ProcSource(1))	AS Character
+	Local cPathLog	:= ''							AS Character
 
 	//-- Parâmetros da Rotina -------------------------------------------------
 	Default lMostraMsg	:=	.Not. _lRotAuto_
-
 	Default lConsole	:= .F.
 	Default lUsaHelp	:= .F.
 
@@ -122,16 +128,20 @@ METHOD New(	lMostraMsg	AS Logical	;
 	::cClassName	:= GetClassName(self)
 	::lMostraMsg	:= lMostraMsg
 	::lConsole		:= lConsole
+	::lUsaHelp		:= lUsaHelp
 	::cLogCompleto	:= ''
 	::cProcesso		:= ''
+	::nProcesso		:= 1
 	::cArqLog		:= ''
 	::nThreadId		:= ThreadId()
 	::nHdlArqLog	:= -1
 	::lErro			:= .F.
+	::alErros		:= {{'',.F.}}
 
 	::aErros		:= {}
 	::aAlertas		:= {}
 	::aSucessos		:= {}
+	::aInfos		:= {}
 
 	LogMsg(	RetFileName(ProcSource())	;	//01 cFunc
 		,	22 /*FAC_FRAME_*/			;	//02 nFacility
@@ -139,32 +149,39 @@ METHOD New(	lMostraMsg	AS Logical	;
 		,	1							;	//04 nVersao
 		,	StrZero(ProcLine(),5)		;	//05 cMsgId
 		,	''							;	//06 cStrData
-		,	'INICIALIZANDO CLASSE DE CX.TLOGERRO - V'+_cVersao+' | '+_cDtVersao	;	//07 cMsg
+		,	'INICIALIZANDO CLASSE DE CX.CLSLOG - V'+_cVersao+' | '+_cDtVersao+CRLF	;
+			+PadC(_Timbre_,80,'*')		;	//07 cMsg
 		)
 
 	//-- Cria arquivo e diretório para gravação dos logs ----------------------
 	If	cArqLog == NIL
-		If 		.Not. ExistDir(_cPathCst) ;
-		.And.	.Not. FWMakeDir(_cPathCst,.F.)
-			::MsgErro('Erro '+cValToChar(fError())+' ao criar diretório de logs: '+_cPathCst,,1)
-		Else
 		cArqLog		:= 	_cPathCst					;
-					+	cPrograma					;
-					+	'-'+DtoS(Date())			;
-					+	'-'+StrTran(Time(),':',';')	;
+					+	'LOG_' + cPrograma			;
+					+	'-'+FWDateTo8601(Date())	;	//-- AAAA-MM-DD
+					+	'-'+StrTran(Time(),':',';')	;	//-- HH;MM;SS
 					+	'-'+cValToChar(::nThreadId)	;
 					+	'.log'						;
 
-		EndIf
 	EndIf
 
 	//-- Abre ou cria arquivo para gravação -----------------------------------
 	If .Not. Empty(cArqLog)
-		::nHdlArqLog := IIf( File( cArqLog ) , FOpen( cArqLog, 2/*FO_READWRITE*/ ) , FCreate( cArqLog ) )
-		If ::nHdlArqLog == -1 
-			::MsgErro('Erro '+cValToChar(fError())+' ao criar/abrir arquivo de logs: '+cArqLog,,1)
+		cPathLog	:= ExtractPath(cArqLog)
+		If 		.Not. ExistDir(cPathLog) ;
+		.And.	.Not. FWMakeDir(cPathLog,.F.)
+			::MsgErro('Erro '+cValToChar(fError())+' ao criar diretório de logs: '+cPathLog,,,,1)
 		Else
-			::cArqLog		:= cArqLog
+			::nHdlArqLog := IIf( File( cArqLog ) , FOpen( cArqLog, FO_READWRITE+FO_SHARED ) , FCreate( cArqLog ) )
+			If ::nHdlArqLog == -1 
+				::MsgErro('Erro '+cValToChar(fError())+' ao criar/abrir arquivo de logs: '+cArqLog,,,,1)
+			Else
+				::cArqLog		:= cArqLog
+				FSeek(::nHdlArqLog, 0, 2 /*FS_END*/)
+				FWrite(::nHdlArqLog, Replicate('#',80)+CRLF)
+				FWrite(::nHdlArqLog, PadC(' INÍCIO PROCESSO DE LOG - CX.CLSLOG - V'+_cVersao+' | '+_cDtVersao+' ',80,'*')+CRLF)
+				FWrite(::nHdlArqLog, PadC(_Timbre_,80,'*')+CRLF)
+				FWrite(::nHdlArqLog, Replicate('#',80)+CRLF)
+			EndIf
 		EndIf
 	EndIf
 
@@ -177,7 +194,7 @@ Return Self
 @since			19/10/2025
 /*/
 //-------------------------------------------------------------------------------------------------
-METHOD GetVersao() CLASS tLogErro
+METHOD GetVersao() CLASS ClsLog					AS Character
 Return _cVersao + ' | ' + _cDtVersao
 
 //******************************************************************************
@@ -190,7 +207,7 @@ Return _cVersao + ' | ' + _cDtVersao
 @finalidade	Método destrutor da classe
 /*/
 //-------------------------------------------------------------------------------------------------
-Method Destroy() Class tLogErro
+Method Destroy() Class ClsLog
 
 	If ::nHdlArqLog <> -1
 		FClose(::nHdlArqLog)
@@ -200,6 +217,8 @@ Method Destroy() Class tLogErro
 	FwFreeArray(::aErros)
 	FwFreeArray(::aAlertas)
 	FwFreeArray(::aSucessos)
+	FwFreeArray(::aInfos)
+	::cLogCompleto	:= ''
 
 Return
 
@@ -211,8 +230,7 @@ Return
 @finalidade	Método para retornar o nome da classe atual
 /*/
 //-------------------------------------------------------------------------------------------------
-METHOD ClassName()	CLASS tLogErro
-
+METHOD ClassName()	CLASS ClsLog					AS Character
 Return ::cClassName
 
 //-------------------------------------------------------------------------------------------------
@@ -223,8 +241,7 @@ Return ::cClassName
 @finalidade	Método para retornar o caminho e nome do arquivo de log
 /*/
 //-------------------------------------------------------------------------------------------------
-METHOD RetArqLog() CLASS tLogErro
-
+METHOD RetArqLog() CLASS ClsLog					AS Character
 Return ::cArqLog
 
 //-------------------------------------------------------------------------------------------------
@@ -235,7 +252,7 @@ Return ::cArqLog
 @Return   		cLogCompleto - Log completo das mensagens registradas
 /*/
 //-------------------------------------------------------------------------------------------------
-Method RetLogCompleto() CLASS tLogErro
+Method RetLogCompleto() CLASS ClsLog				AS Character
 Return ::cLogCompleto
 
 //-------------------------------------------------------------------------------------------------
@@ -257,7 +274,7 @@ METHOD MostraMsg(cMsg		AS Character;
 				,lDefault	AS Logical	;
 				,cLog		AS Character;
 				,nNivel		AS Numeric	;
-				) AS Logical		CLASS tLogErro
+				)  	AS Logical						CLASS ClsLog	
 
 	//-- Declaração de Variáveis ----------------------------------------------
 	Local cCodMsg	:= ''							AS Character
@@ -308,7 +325,10 @@ METHOD MostraMsg(cMsg		AS Character;
 		Case cTipo == 'A'	; aAdd(::aAlertas	, {::cProcesso,'A'+cCodMsg,cMsg})
 		Case cTipo == 'I'	; aAdd(::aInfos		, {::cProcesso,'I'+cCodMsg,cMsg})
 		Case cTipo $ 'Y/N'	//-- YesNo ou NoYes - NÃO FAZ NADA
-		Otherwise			; aAdd(::aErros		, {::cProcesso,'E'+cCodMsg,cMsg}) ; ::lErro := .T.
+		Otherwise			
+			aAdd(::aErros		, {::cProcesso,'E'+cCodMsg,cMsg})
+			::lErro := .T.
+			::alErros[::nProcesso][2] := .T.
 	EndCase
 
 	//-------------------------------------------------------------------------
@@ -365,16 +385,16 @@ METHOD MsgErro(	cMsg 		AS Character;
 			,	lMostraMsg	AS Logical	;
 			,	cLog 		AS Character;
 			,	nNivel 		AS Numeric	;
-				) CLASS tLogErro
+				) CLASS ClsLog
 
 	//-- Parâmetros da Rotina -------------------------------------------------
-	Default cMsg	:= ''
-	Default cCodErr	:= ''
-	Default lMostraMsg	:= .T.
-	Default cLog	:= ''
-	Default nNivel	:= 0
+	Default cMsg		:= ''
+	Default cCodErr		:= ''
+	Default lMostraMsg	:= ::lMostraMsg
+	Default cLog		:= ''
+	Default nNivel		:= 0
 
-	::MostraMsg(cMsg,'E',cCodErr,lMostraMsg,cLog,nNivel+1)
+	::MostraMsg(cMsg,'E',cCodErr,lMostraMsg,,cLog,nNivel+1)
 
 Return
 
@@ -393,16 +413,16 @@ METHOD MsgAlerta(cMsg 		AS Character;
 				,lMostraMsg	AS Logical	;
 				,cLog 		AS Character;
 				,nNivel 	AS Numeric	;
-				) CLASS tLogErro
+				) CLASS ClsLog
 
 	//-- Parâmetros da Rotina -------------------------------------------------
 	Default cMsg		:= ''
 	Default cCodErr		:= ''
-	Default lMostraMsg	:= .T.
+	Default lMostraMsg	:= ::lMostraMsg
 	Default cLog		:= ''
 	Default nNivel		:= 0
 
-	::MostraMsg(cMsg,'A',cCodErr,lMostraMsg,cLog,nNivel+1)
+	::MostraMsg(cMsg,'A',cCodErr,lMostraMsg,,cLog,nNivel+1)
 
 Return
 
@@ -419,16 +439,16 @@ METHOD MsgSucesso(	cMsg 		AS Character;
 				,	lMostraMsg	AS Logical	;
 				,	cLog 		AS Character;
 				,	nNivel 		AS Numeric	;
-				) CLASS tLogErro
+				) CLASS ClsLog
 
 	//-- Parâmetros da Rotina -------------------------------------------------
 	Default cMsg		:= ''
 	Default cCodErr		:= ''
-	Default lMostraMsg	:= .T.
+	Default lMostraMsg	:= ::lMostraMsg
 	Default cLog		:= ''
 	Default nNivel		:= 0
 
-	::MostraMsg(cMsg,'S',cCodErr,lMostraMsg,cLog,nNivel+1)
+	::MostraMsg(cMsg,'S',cCodErr,lMostraMsg,,cLog,nNivel+1)
 
 Return
 
@@ -444,7 +464,7 @@ METHOD MsgInfo(	cMsg 	AS Character;
 			,	cCodErr	AS Character;
 			,	cLog 	AS Character;
 			,	nNivel 	AS Numeric	;
-				) CLASS tLogErro
+				) CLASS ClsLog
 
 	//-- Parâmetros da Rotina -------------------------------------------------
 	Default cMsg	:= ''
@@ -452,7 +472,7 @@ METHOD MsgInfo(	cMsg 	AS Character;
 	Default cLog	:= ''
 	Default nNivel	:= 0
 
-	::MostraMsg(cMsg,'I',cCodErr,cLog,nNivel+1)
+	::MostraMsg(cMsg,'I',cCodErr,,,cLog,nNivel+1)
 
 Return
 
@@ -464,13 +484,13 @@ Return
 @param		cMsg - Mensagem a ser gravada
 /*/
 //-------------------------------------------------------------------------------------------------
-METHOD WriteLog(cMsg AS Character) CLASS tLogErro
+METHOD WriteLog(cMsg AS Character) CLASS ClsLog
 	
 	//-- Declaração de Variáveis ----------------------------------------------
 	Local cMsgLog									AS Character
 
 	//-- Monta a mensagem com data e hora
-	cMsgLog := DtoC(Date())+' | '+Time()+' | '+cValToChar(nThreadId)+' | '+cValToChar(cMsg)+CRLF
+	cMsgLog := _Timbre_+' | '+cValToChar(cMsg)+CRLF
 
 	::cLogCompleto += cMsgLog					//-- Adiciona a mensagem ao log completo em memória
 
@@ -489,8 +509,7 @@ Return
 @finalidade	Método para retornar o array de erros
 /*/
 //-------------------------------------------------------------------------------------------------
-METHOD RetErros() CLASS tLogErro
-
+METHOD RetErros() CLASS ClsLog					AS Array
 Return ::aErros
 
 //-------------------------------------------------------------------------------------------------
@@ -501,8 +520,7 @@ Return ::aErros
 @finalidade	Método para retornar o array de alertas
 /*/
 //-------------------------------------------------------------------------------------------------
-METHOD RetAlertas() CLASS tLogErro
-
+METHOD RetAlertas() CLASS ClsLog					AS Array
 Return ::aAlertas
 
 //-------------------------------------------------------------------------------------------------
@@ -513,24 +531,28 @@ Return ::aAlertas
 @finalidade	Método para retornar o array de sucessos
 /*/
 //-------------------------------------------------------------------------------------------------
-METHOD RetSucessos() CLASS tLogErro
-
+METHOD RetSucessos() CLASS ClsLog					AS Array
 Return ::aSucessos
 
 //-------------------------------------------------------------------------------------------------
-/*/{Protheus.doc} NovoProcesso
+/*/{Protheus.doc} SetProcesso
 @author		Cirilo Rocha
 @since		19/10/2025
 @finalidade	Define o nome do processo atual para registro no log
 @param		cNomeProc - Nome do processo
 /*/
 //-------------------------------------------------------------------------------------------------
-METHOD NovoProcesso(cNomeProc AS Character) CLASS tLogErro
+METHOD SetProcesso(cNomeProc AS Character) CLASS ClsLog
 
 	//-- Parâmetros da Rotina -------------------------------------------------
 	ParamType 0		VAR cNomeProc		AS Character
 	
 	::cProcesso := cNomeProc
+	::nProcesso	:= aScan(::alErros, {|x| x[1] == ::cProcesso } )
+	If ::nProcesso == 0
+		aAdd(::alErros, {::cProcesso, .F. })
+		::nProcesso	:= Len(::alErros)
+	EndIf
 
 Return
 
@@ -541,11 +563,21 @@ Return
 @finalidade	Limpa limpar o flag de erro interno da classe
 /*/
 //-------------------------------------------------------------------------------------------------
-METHOD ResetErro() CLASS tLogErro
+METHOD ResetErro() CLASS ClsLog
 
 	::lErro		:= .F.
 
 Return
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} TemErro
+@description	Retorna se houveram erros durante a execução
+@autor			Cirilo Rocha
+@since			25/10/2025
+/*/
+//-------------------------------------------------------------------------------------------------
+METHOD TemErro() CLASS ClsLog					AS Logical
+Return ::lErro
 
 //-------------------------------------------------------------------------------------------------
 /*/{Protheus.doc} MsgYesNo
@@ -566,15 +598,14 @@ METHOD MsgYesNo(cMsg 		AS Character;
 			,	lDefault	AS Logical	;
 			,	cLog 		AS Character;
 			,	nNivel 		AS Numeric	;
-			) AS Logical CLASS tLogErro
-
+			) AS Logical		CLASS ClsLog
 	//-- Declaração de Variáveis ----------------------------------------------
 	Local lRet		:= .T.							AS Logical
 
 	//-- Parâmetros da Rotina -------------------------------------------------
 	Default cMsg		:= ''
 	Default cCodErr		:= ''
-	Default lMostraMsg	:= .T.
+	Default lMostraMsg	:= ::lMostraMsg
 	Default lDefault	:= .T.
 	Default cLog		:= ''
 	Default nNivel		:= 0
@@ -602,7 +633,7 @@ METHOD MsgNoYes(cMsg 		AS Character;
 			,	lDefault	AS Logical	;
 			,	cLog 		AS Character;
 			,	nNivel 		AS Numeric	;
-			) AS Logical CLASS tLogErro
+			) AS Logical	CLASS ClsLog
 
 	//-- Declaração de Variáveis ----------------------------------------------
 	Local lRet		:= .F.							AS Logical
@@ -610,7 +641,7 @@ METHOD MsgNoYes(cMsg 		AS Character;
 	//-- Parâmetros da Rotina -------------------------------------------------
 	Default cMsg		:= ''
 	Default cCodErr		:= ''
-	Default lMostraMsg	:= .T.
+	Default lMostraMsg	:= ::lMostraMsg
 	Default lDefault	:= .F.
 	Default cLog		:= ''
 	Default nNivel		:= 0
@@ -625,7 +656,8 @@ Return lRet
 // ### ###  ##        ##    ##  ##  ##  ##  ##  ##  ##     
 // ## # ##  ####      ##    ##  ##  ##  ##  ##  ##   ####  
 // ##   ##  ##        ##    ##  ##  ##  ##  ##  ##      ## 
-// ##   ##  ######    ##     ####   #####    ####    ####  
+// ##   ##  ######    ##     ####   #####    ####    ####
+//
 //                            ##                                          
 // ######   ####   ######   ####   ######  ######   ####    ####    ####  
 // ##      ##        ##    ##  ##    ##      ##    ##  ##  ##  ##  ##     
@@ -650,7 +682,7 @@ METHOD	CXMsgErro(	cMsg 		AS Character;
 				,	lMostraMsg	AS Logical	;
 				,	cLog 		AS Character;
 				,	nNivel 		AS Numeric	;
-					) CLASS tLogErro
+					) CLASS ClsLog
 
 	//-- Parâmetros da Rotina -------------------------------------------------
 	Default cMsg		:= ''
@@ -661,7 +693,7 @@ METHOD	CXMsgErro(	cMsg 		AS Character;
 
 	If Empty(cCodErr)			;	cCodErr	:= _MsgLinha(nNivel+1)		;	EndIf
 
-	If Type('oLogErro')=='O'	;	oLogErro:MsgErro(cMsg,'E',cCodErr,lMostraMsg,@cLog,nNivel+1)
+	If Type('_oCXLog')=='O'		;	_oCXLog:MsgErro(cMsg,'E',cCodErr,,,@cLog,nNivel+1)
 	ElseIf lMostraMsg			;	FwAlertError(cMsg,cCodErr)
 	EndIf
 
@@ -683,7 +715,7 @@ METHOD CXMsgHelp(	cMsg 		AS Character;
 				,	lMostraMsg	AS Logical	;
 				,	cLog 		AS Character;
 				,	nNivel 		AS Numeric	;
-				) CLASS tLogErro
+				) CLASS ClsLog
 
 	//-- Parâmetros da Rotina -------------------------------------------------
 	Default cMsg		:= ''
@@ -694,7 +726,7 @@ METHOD CXMsgHelp(	cMsg 		AS Character;
 
 	If Empty(cCodErr)			;	cCodErr	:= _MsgLinha(nNivel+1)		;	EndIf
 
-	If Type('oLogErro')=='O'	;	oLogErro:MsgAlerta(cMsg, cCodErr,lMostraMsg, @cLog, nNivel+1) // Help usa o alerta
+	If Type('_oCXLog')=='O'		;	_oCXLog:MsgAlerta(cMsg,cCodErr,,,@cLog,nNivel+1) // Help usa o alerta
 	ElseIf lMostraMsg			;	Help('',1,cCodErr,,cMsg,1,,,,,,,/*{'Solucao'}*/)
 	EndIf
 
@@ -716,7 +748,7 @@ METHOD CXMsgAlerta(	cMsg 		AS Character;
 				,	lMostraMsg	AS Logical	;
 				,	cLog 		AS Character;
 				,	nNivel 		AS Numeric	;
-					) CLASS tLogErro
+					) CLASS ClsLog
 
 	//-- Parâmetros da Rotina -------------------------------------------------
 	Default cMsg		:= ''
@@ -727,7 +759,7 @@ METHOD CXMsgAlerta(	cMsg 		AS Character;
 
 	If Empty(cCodErr)			;	cCodErr	:= _MsgLinha(nNivel+1)		;	EndIf
 
-	If Type('oLogErro')=='O'	;	oLogErro:MsgAlerta(cMsg, cCodErr, lMostraMsg, @cLog, nNivel+1)
+	If Type('_oCXLog')=='O'		;	_oCXLog:MsgAlerta(cMsg,cCodErr,,,@cLog,nNivel+1)
 	ElseIf lMostraMsg			;	FWAlertWarning(cMsg,cCodErr)
 	EndIf
 
@@ -749,7 +781,7 @@ METHOD CXMsgSucesso(cMsg 		AS Character;
 				,	lMostraMsg	AS Logical	;
 				,	cLog 		AS Character;
 				,	nNivel 		AS Numeric	;
-					) CLASS tLogErro
+					) CLASS ClsLog
 
 	//-- Parâmetros da Rotina -------------------------------------------------
 	Default cMsg		:= ''
@@ -760,7 +792,7 @@ METHOD CXMsgSucesso(cMsg 		AS Character;
 
 	If Empty(cCodErr)			;	cCodErr	:= _MsgLinha(nNivel+1)		;	EndIf
 
-	If Type('oLogErro')=='O'	;	oLogErro:MsgSucesso(cMsg, cCodErr, lMostraMsg, @cLog, nNivel+1)
+	If Type('_oCXLog')=='O'		;	_oCXLog:MsgSucesso(cMsg,cCodErr,,,@cLog,nNivel+1)
 	ElseIf lMostraMsg			;	FWAlertSuccess(cMsg,cCodErr)
 	EndIf
 
@@ -782,7 +814,7 @@ METHOD CXMsgInfo(	cMsg 		AS Character;
 				,	lMostraMsg	AS Logical	;
 				,	cLog 		AS Character;
 				,	nNivel 		AS Numeric	;
-					) CLASS tLogErro
+					) CLASS ClsLog
 
 	//-- Parâmetros da Rotina -------------------------------------------------
 	Default cMsg		:= ''
@@ -793,7 +825,7 @@ METHOD CXMsgInfo(	cMsg 		AS Character;
 
 	If Empty(cCodErr)			;	cCodErr	:= _MsgLinha(nNivel+1)		;	EndIf
 
-	If Type('oLogErro')=='O'	;	oLogErro:MsgInfo(cMsg, cCodErr, lMostraMsg, @cLog, nNivel+1)
+	If Type('_oCXLog')=='O'		;	_oCXLog:MsgInfo(cMsg,cCodErr,,,@cLog,nNivel+1)
 	ElseIf lMostraMsg			;	FWAlertInfo(cMsg,cCodErr)
 	EndIf
 
@@ -818,7 +850,7 @@ METHOD CXMsgYesNo(	cMsg 		AS Character;
 				,	lDefault	AS Logical	;
 				,	cLog 		AS Character;
 				,	nNivel 		AS Numeric	;
-				) AS Logical CLASS tLogErro
+				) AS Logical	CLASS ClsLog
 
 	//-- Declaração de Variáveis ----------------------------------------------
 	Local lRet		:= .T.							AS Logical
@@ -833,7 +865,7 @@ METHOD CXMsgYesNo(	cMsg 		AS Character;
 
 	If Empty(cCodErr)			;	cCodErr	:= _MsgLinha(nNivel+1)		;	EndIf
 
-	If Type('oLogErro')=='O'	;	lRet := oLogErro:MsgYesNo(cMsg, cCodErr, lMostraMsg, lDefault, @cLog, nNivel+1)
+	If Type('_oCXLog')=='O'		;	lRet := _oCXLog:MsgYesNo(cMsg,cCodErr,,lDefault,@cLog,nNivel+1)
 	ElseIf lMostraMsg			;	lRet := FWAlertYesNo(cMsg,cCodErr)
 	Else						;	lRet := lDefault
 	EndIf
@@ -859,7 +891,7 @@ METHOD CXMsgNoYes(	cMsg 		AS Character;
 				,	lDefault	AS Logical	;
 				,	cLog 		AS Character;
 				,	nNivel 		AS Numeric	;
-				) AS Logical CLASS tLogErro
+				) AS Logical	CLASS ClsLog
 
 	//-- Declaração de Variáveis ----------------------------------------------
 	Local lRet		:= .F.							AS Logical
@@ -874,9 +906,34 @@ METHOD CXMsgNoYes(	cMsg 		AS Character;
 
 	If Empty(cCodErr)			;	cCodErr	:= _MsgLinha(nNivel+1)		;	EndIf
 
-	If Type('oLogErro')=='O'	;	lRet := oLogErro:MsgNoYes(cMsg, cCodErr, lMostraMsg, lDefault, @cLog, nNivel+1)
+	If Type('_oCXLog')=='O'		;	lRet := _oCXLog:MsgNoYes(cMsg,cCodErr,,lDefault,@cLog,nNivel+1)
 	ElseIf lMostraMsg			;	lRet := FWAlertNoYes(cMsg,cCodErr)
 	Else						;	lRet := lDefault
+	EndIf
+
+Return lRet
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} TemErroProcesso
+@description	Retorna se houve erro no processo informado
+@author			Cirilo Rocha
+@since			25/10/2025
+@param			cNomeProc - Nome do processo, default é o processo atual
+@return			lRet - .T. se houve erro no processo, .F. caso contrário
+/*/
+//-------------------------------------------------------------------------------------------------
+METHOD TemErroProcesso(cNomeProc AS Character) AS Logical	CLASS ClsLog
+
+	//-- Declaração de Variáveis ----------------------------------------------
+	Local nProc		:= 0							AS Numeric
+	Local lRet		:= .F.							AS Logical
+
+	//-- Parâmetros da Rotina -------------------------------------------------
+	Default cNomeProc	:= ::cProcesso
+
+	nProc := aScan(::alErros, {|x| x[1] == cNomeProc } )
+	If nProc > 0
+		lRet := ::alErros[nProc][2]
 	EndIf
 
 Return lRet
