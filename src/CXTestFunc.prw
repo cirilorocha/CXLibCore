@@ -6,8 +6,8 @@
 #Include "ParmType.ch"
 #Include "CXInclude.ch"
 
-Static cVersao := "1.60"							AS Character
-Static cDtVersao := "13/10/2025"					AS Character
+Static _cVersao := "1.61"							AS Character
+Static _cDtVersao := "29/10/2025"					AS Character
 
 // MANTER EM .PRW PARA PODER EXECUTAR STATICCALL
 //#############################################################################
@@ -64,6 +64,8 @@ Static cDtVersao := "13/10/2025"					AS Character
 //##| 19/04/23 | Cirilo R. | Melhoria para também informar a database       |##
 //##| 02/11/23 | Cirilo R. | Correção na tela de seleção de filiais para    |##
 //##|          |           |  gestão corporativa                            |##
+//##| 29/10/25 | Cirilo R. | Modernização das telas de interface            |##
+//##|          |           | Talvez corrija alguns erros de execução        |##
 //##|          |           |                                                |##
 //##|          |           |                                                |##
 //##+==========+===========+================================================+##
@@ -205,7 +207,7 @@ User Function CXTestFunc()
 		// Não consome licensa de uso
 		RPCSetType(3)
 
-		// Abre ambiente de trabalho
+		// Abre ambiente de trabalho -- FWMSGRUN DEU PAU EM ALGUNS AMBIENTES!!!!
 		//MsgRun('Aguarde...',U_CXTxtMsg()+"Montando Ambiente. Empresa [" + cEmp_ + "] Filial [" + cFil_ +"].",;
 		MsAguarde(;
 		;//FWMsgRun(/*oSay*/,;
@@ -576,37 +578,24 @@ Return
 Static Function SelEmpFil();
 						AS Logical
 
-	//Declaracao de variaveis----------------------------------------------------------------------
-	Local aSM0			AS Array
-	Local aEmp		    AS Array
-	Local aFil		    AS Array
-	Local nEmpTst := 1	AS Numeric
-	Local nPosEmp		AS Numeric
-	Local nPosFil		AS Numeric
-	Local oDlg			AS Object
-	Local oBOK			AS Object
-	Local oFont			AS Object
+	//-- Declaração de Variáveis ----------------------------------------------
+	Local aSM0									AS Array
+	Local aEmp		:= {}   					AS Array
+	Local aFil		:= {}   					AS Array
+	Local nEmpTst 	:= 1						AS Numeric
+	Local nPosEmp								AS Numeric
+	Local nPosFil								AS Numeric
+	Local oDlg, oPnl							AS Object
+	Local oFont									AS Object
 
-	Local nX            AS Numeric
-	Local lRet		    AS Logical
+	Local nX            						AS Numeric
+	Local lRet		:= .F.    					AS Logical
 
-	Local nLarBt		AS Numeric
-	Local nAltBt		AS Numeric
-	Local aPosBt		AS Array
+	Private oEmp        						AS Object
+	Private oFil								AS Object
+	Private aSM0EmpFil	:= {}					AS Array
 
-	Private oEmp        AS Object
-	Private oFil		AS Object
-	Private aSM0EmpFil	:= {}			AS Array
-
-	//Inicializa Variaveis-------------------------------------------------------------------------
-	aEmp		:= {}
-	aFil		:= {}
-
-	lRet		:= .F.
-
-	nLarBt		:= 050
-	nAltBt		:= 015
-
+	//-------------------------------------------------------------------------
 	OpenSm0()	//Abre o sigamat
 	aSM0	:= FWLoadSM0()
 	For nX := 1 to len(aSM0)
@@ -626,13 +615,12 @@ Static Function SelEmpFil();
 
 	//Carrega parametros
 	aParam	:= GetParam('CXTestFuncE.par')
-	If Len(aParam) <> 3	//-- Inicializa parâmetros
+	If Len(aParam) <> 3
 		aParam		:= Array(3)
 		aParam[1]	:= aSM0EmpFil[nEmpTst][1]
 		aParam[2]	:= '@#@#@'	//-- Para pegar a primeira empresa
 		aParam[3]	:= 'Faturamento'
 	EndIf
-
 	nPosEmp		:= aScan(aSM0EmpFil,{|x| x[1] == AllTrim(aParam[1]) })
 	If nPosEmp > 0
 		nPosFil	:= aScan(aSM0EmpFil[nPosEmp][3],{|x| x == AllTrim(aParam[2]) })
@@ -647,32 +635,34 @@ Static Function SelEmpFil();
 	//Preenche array de filiais
 	aFil	:= aSM0EmpFil[nPosEmp][2]
 	oFont	:= TFont():New('Arial',, -11, .T., .T.)
-	//---------------------------------------------------------------------------------------------
-	oDlg	:= MSDialog():New(	000,000,240,350,U_CXTxtMsg()+'Selecione a empresa e filial',,,,DS_MODALFRAME,;
-								/*CLR_BLACK*/,/*CLR_WHITE*/,,/*oWnd*/,.T.,,,,/*lTransparent*/)
-		
-		aPosBt	:= U_CXPosBtn(oDlg,nLarBt,nAltBt)
-		
-		TSay():New( 005, 005,{|| "Selecione a Empresa:" },oDlg,,oFont,.F.,.F.,.F.,.T.,,,,,.F.,.F.,.F.,.F.,.F.,.F. )
-		oEmp	:= tComboBox():New(013,05,bSetGet(cEmp_),aEmp,165,20,oDlg,,,;
+	//-------------------------------------------------------------------------
+	oDlg := FWDialogModal():New()
+		oDlg:SetEscClose(.T.)
+		oDlg:setTitle(_MsgLinha_+' - Selecione a empresa e filial')
+		oDlg:setSize(145,180)
+		oDlg:createDialog()
+
+		oPnl := oDlg:getPanelMain()
+
+		TSay():New( 005, 005,{|| "Selecione a Empresa:" },oPnl,,oFont,.F.,.F.,.F.,.T.,,,,,.F.,.F.,.F.,.F.,.F.,.F. )
+		oEmp	:= tComboBox():New(013,05,bSetGet(cEmp_),aEmp,165,20,oPnl,,,;
 										{|| VldEmp(oEmp:nAt)},,,.T.,,,,,,,,,'cEmp_')
 		oEmp:Select(nPosEmp)
 
-		TSay():New( 030, 005,{|| "Selecione a Filial:" },oDlg,,oFont,.F.,.F.,.F.,.T.,,,,,.F.,.F.,.F.,.F.,.F.,.F. )
-		oFil	:= tComboBox():New(038,05,bSetGet(cFil_),aFil,165,20,oDlg,,,,,,.T.,,,,,,,,,'cFil_')
+		TSay():New( 030, 005,{|| "Selecione a Filial:" },oPnl,,oFont,.F.,.F.,.F.,.T.,,,,,.F.,.F.,.F.,.F.,.F.,.F. )
+		oFil	:= tComboBox():New(038,05,bSetGet(cFil_),aFil,165,20,oPnl,,,,,,.T.,,,,,,,,,'cFil_')
 		oFil:Select(nPosFil)
 
-		TSay():New( 055, 005,{|| "Selecione o Módulo (licença):" },oDlg,,oFont,.F.,.F.,.F.,.T.,,,,,.F.,.F.,.F.,.F.,.F.,.F. )
-		tComboBox():New(063,005,bSetGet(cMod_),aCbMod,165,20,oDlg,,,,,,.T.,,,,,,,,,'cMod_')
-		
-		TSay():New( 080, 110,{||  "Versão: "+cVersao+' | '+cDtVersao},oDlg,,,.F.,.F.,.F.,.T.,,,,,.F.,.F.,.F.,.F.,.F.,.F. )
+		TSay():New( 055, 005,{|| "Selecione o Módulo (licença):" },oPnl,,oFont,.F.,.F.,.F.,.T.,,,,,.F.,.F.,.F.,.F.,.F.,.F. )
+		tComboBox():New(063,005,bSetGet(cMod_),aCbMod,165,20,oPnl,,,,,,.T.,,,,,,,,,'cMod_')
 
-		tButton():New(aPosBt[1],aPosBt[5][1],'Cancelar'		,oDlg,{|| lRet := .F. , oDlg:End() },nLarBt,nAltBt,,,,.T.)
-		oBOK	:= tButton():New(aPosBt[1],aPosBt[5][5],'OK'			,oDlg,{|| lRet := sfVldEmpFil() , oDlg:End() },nLarBt,nAltBt,,,,.T.)
-		oBOK:SetFocus()
-		
-	// ativa diálogo centralizado
-	oDlg:Activate(,,,.T.,/*{|Self| Valid }*/,,/*{|Self| Init }*/ )
+		TSay():New( 080, 110,{||  "Versão: "+_cVersao+' | '+_cDtVersao},oPnl,,,.F.,.F.,.F.,.T.,,,,,.F.,.F.,.F.,.F.,.F.,.F. )
+
+		oDlg:addCloseButton({|| lRet := .F. , oDlg:DeActivate() }, "Cancelar")
+		oDlg:addOkButton({|| IIf((lRet := sfVldEmpFil()),oDlg:DeActivate(),) }, "OK")
+
+	//-- ativa diálogo centralizado
+	oDlg:Activate()
 
 	If lRet
 		SlvParam({cEmp_,cFil_,cMod_},'CXTestFuncE.par')
@@ -716,34 +706,21 @@ Return .T.
 //-------------------------------------------------------------------------------------------------
 Static Function Parametros() AS Logical
 
-	//Declaracao de variaveis----------------------------------------------------------------------
-	Local oDlg			AS Object
-	Local oGtUsr		AS Object
-	Local nX			AS Numeric
-//	Local cCbMod		AS Object
+	//-- Declaração de Variáveis ----------------------------------------------
+	Local oDlg, oPnl								AS Object
+	Local oGtUsr									AS Object
+	Local nX										AS Numeric
+//	Local cCbMod									AS Object
 
-	Local lRet			AS Logical
-	Local nPos			AS Numeric
-	Local bSavKeyF4		AS CodeBlock
+	Local lRet			:= .F.						AS Logical
+	Local nPos										AS Numeric
+	Local bSavKeyF4									AS CodeBlock
 
-	Local nLarBt		AS Numeric
-	Local nAltBt		AS Numeric
-	Local aPosBt		AS Array
+	Private aParam									AS Array
 
-	Private aParam		AS Array
-
-	Private cFunType	AS Character
-	Private cTxtLin1	AS Character
-	Private cTxtLin2	AS Character
-
-	//Inicializa Variaveis-------------------------------------------------------------------------
-	lRet		:= .F.
-	cFunType	:= ''
-	cTxtLin1	:= ''
-	cTxtLin2	:= ''
-
-	nLarBt		:= 050
-	nAltBt		:= 015
+	Private cFunType	:= ''						AS Character
+	Private cTxtLin1	:= ''						AS Character
+	Private cTxtLin2	:= ''						AS Character
 
 	//Seta tecla de atalho
 	bSavKeyF4 	:= SetKey( VK_F4 , { || ConsFonte(MV_PAR01) } )  //Consulta programa fonte
@@ -752,47 +729,53 @@ Static Function Parametros() AS Logical
 	For nX := 1 to len(aParam)
 		&("MV_PAR"+StrZero(nX,2)+" := aParam["+StrZero(nX,2)+"] ")
 	Next
-	//Ajusta tamanho dos campos
-	MV_PAR01	:= PadR(MV_PAR01,30)
-	MV_PAR02	:= PadR(MV_PAR02,100)
+	
+	//-- Ajusta tamanho dos campos
+	MV_PAR01	:= PadR(MV_PAR01,120)
+	MV_PAR02	:= PadR(MV_PAR02,120)
 	MV_PAR03	:= MV_PAR03
 	MV_PAR04	:= PadR(MV_PAR04,Len(__cUserID))
 	MV_PAR05	:= StoD(MV_PAR05)
 
 	//---------------------------------------------------------------------------------------------
-	oDlg	:= MSDialog():New(	000,000,270,410,U_CXTxtMsg()+'Executar Função',,,,DS_MODALFRAME,;
-								/*CLR_BLACK*/,/*CLR_WHITE*/,,/*oWnd*/,.T.,,,,/*lTransparent*/)
-		
-		aPosBt	:= U_CXPosBtn(oDlg,nLarBt,nAltBt)
-		
-		tSay():New(012,010,{|| 'Função:'	},oDlg,,/*oFont*/,,,,.T.,,,050,010)
-		tGet():New(010,050,bSetGet(MV_PAR01), oDlg, 055,010,,;
-					{|| VldFunc() },,,,,,.T.,,,,,,,,,,'MV_PAR01')
-		tComboBox():New(010,110,bSetGet(MV_PAR03),aCbMod,090,013,oDlg,,;
-						,,,,.T.,,,,,,,,,'MV_PAR03')
+	oDlg := FWDialogModal():New()
+		oDlg:SetEscClose(.T.)
+		oDlg:setTitle(_MsgLinha_+' - Executar Função')
+		oDlg:setSize(160,320)
+		oDlg:createDialog()
 
-		tSay():New(032,010,{|| 'Parâmetros:'	},oDlg,,/*oFont*/,,,,.T.,,,050,010)
-		tGet():New(030,050,bSetGet(MV_PAR02), oDlg, 150,010,,;
+		oPnl := oDlg:getPanelMain()
+
+		tSay():New(012,010,{|| 'Função:'	},oPnl,,/*oFont*/,,,,.T.,,,050,010)
+		tGet():New(010,045,bSetGet(MV_PAR01), oPnl, 265,010,,;
+					{|| VldFunc() },,,,,,.T.,,,,,,,,,,'MV_PAR01')
+
+		tSay():New(032,010,{|| 'Parâmetros:'	},oPnl,,/*oFont*/,,,,.T.,,,050,010)
+		tGet():New(030,045,bSetGet(MV_PAR02), oPnl, 265,010,,;
 					,,,,,,.T.,,,,,,,,,,'MV_PAR02')
 
-		tSay():New(052,010,{|| 'Usuário:'	},oDlg,,/*oFont*/,,,,.T.,,,050,010)
-		oGtUsr	:= tGet():New(050,050,bSetGet(MV_PAR04), oDlg, 050,010,,;
+		tSay():New(052,010,{|| 'Usuário:'	},oPnl,,/*oFont*/,,,,.T.,,,050,010)
+		oGtUsr	:= tGet():New(050,045,bSetGet(MV_PAR04), oPnl, 050,010,,;
 								{|| Vazio() .Or. UsrExist(MV_PAR04) },,,,,,.T.,,,,,,,,,,'MV_PAR04')
 		oGtUsr:cF3	:= 'USR'
-		tSay():New(052,110,{|| 'DataBase:'	},oDlg,,/*oFont*/,,,,.T.,,,050,010)
-		tGet():New(050,140,{ | u | If( PCount() == 0 .Or. ValType(u) <> 'D' , MV_PAR05, MV_PAR05 := u ) }, oDlg, 060,010,,;	//-- FEITA PROTEÇÃO DA VARIÁVEL POR CAUSA DA CONSULTA DO CAMPO ANTERIOR!
+
+		tSay():New(052,100,{|| 'DataBase:'	},oPnl,,/*oFont*/,,,,.T.,,,050,010)
+		tGet():New(050,130,{|u| If( PCount() == 0 .Or. ValType(u) <> 'D' , MV_PAR05, MV_PAR05 := u ) }, oPnl, 060,010,,;		//-- FEITA PROTEÇÃO DA VARIÁVEL POR CAUSA DA CONSULTA DO CAMPO ANTERIOR!
 					,,,,,,.T.,,,,,,,,,,'MV_PAR05')
 
-		tSay():New(070,010,{|| cFunType	},oDlg,,/*oFont*/,,,,.T.,,,190,10)
-		tSay():New(080,010,{|| cTxtLin1	},oDlg,,/*oFont*/,,,,.T.,,,190,37)
-		tSay():New(090,010,{|| cTxtLin2	},oDlg,,/*oFont*/,,,,.T.,,,190,23)
+		tComboBox():New(050,200,bSetGet(MV_PAR03),aCbMod,110,013,oPnl,,;
+						,,,,.T.,,,,,,,,,'MV_PAR03')
+
+		tSay():New(070,010,{|| cFunType	},oPnl,,/*oFont*/,,,,.T.,,,265,10)
+		tSay():New(080,010,{|| cTxtLin1	},oPnl,,/*oFont*/,,,,.T.,,,265,37)
+		tSay():New(090,010,{|| cTxtLin2	},oPnl,,/*oFont*/,,,,.T.,,,265,35)
 
 		//-----------------------------------------------------------------------------------------
-		tButton():New(aPosBt[1],aPosBt[5][5],'OK'			,oDlg,{|| lRet := .T. , oDlg:End() },nLarBt,nAltBt,,,,.T.)
-		tButton():New(aPosBt[1],aPosBt[5][1],'Cancelar'		,oDlg,{|| lRet := .F. , oDlg:End() },nLarBt,nAltBt,,,,.T.)
+		oDlg:addCloseButton({|| lRet := .F. , oDlg:DeActivate() }, "Cancelar")
+		oDlg:addOkButton({|| lRet := .T. , oDlg:DeActivate() }, "OK")
 
-	// ativa diálogo centralizado
-	oDlg:Activate(,,,.T.,/*{|Self| Valid }*/,,/*{|Self| Init }*/ )
+	//-- Ativa diálogo centralizado
+	oDlg:Activate()
 
 	If lRet
 		nPos		:= aScan(aCbMod,{|x| AllTrim(x) == AllTrim(MV_PAR03) })
