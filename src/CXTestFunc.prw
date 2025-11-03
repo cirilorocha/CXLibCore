@@ -6,8 +6,8 @@
 #Include "ParmType.ch"
 #Include "CXInclude.ch"
 
-Static _cVersao := "1.61"							AS Character
-Static _cDtVersao := "29/10/2025"					AS Character
+Static _cVersao := "1.62"							AS Character
+Static _cDtVersao := "01/11/2025"					AS Character
 
 // MANTER EM .PRW PARA PODER EXECUTAR STATICCALL
 //#############################################################################
@@ -234,6 +234,10 @@ User Function CXTestFunc()
         EndIf
 
 		//-- Single Sign-On
+		If '2410' $ GetRpoRelease()
+			VarSetGet('__cUserID', {|u| u}, .T.)	//-- By Pass na restrição do sistema! (release 2510 testado em 01/nov/2025)
+		EndIf
+		ClearVarSetGet('__cUserID')
 		If .Not. sfSingleSignOn(@__cUserID)
 			//-- Fecha o ambiente
 			RpcClearEnv()
