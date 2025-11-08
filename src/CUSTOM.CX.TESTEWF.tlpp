@@ -1,0 +1,77 @@
+#INCLUDE "RWMake.ch"
+#INCLUDE "Totvs.ch"
+#INCLUDE 'tlpp-core.th'
+
+Static _cVersao		:= "1.00"						AS Character
+Static _cDtVersao	:= "08/11/2025"					AS Character
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} TesteWF
+@description    Envia um e-mail simples via Workflow (tWFProcess) para um endereço fixo.
+@autor          Cirilo Rocha
+@since          08/11/2025
+@usage          Execute CUSTOM.CX.U_TesteWF() para enviar um e-mail de teste.
+/*/
+//-------------------------------------------------------------------------------------------------
+//TODO FUTURO: Adicionar login e carga do ambiente
+//TODO FUTURO: Editar diretamente a tabela WF7 de configurações
+//-------------------------------------------------------------------------------------------------
+#Define _NAMESPACE_		CUSTOM.CX										//-- FEITO ASSIM PARA PODER UTILIZAR O NAMESPACE EM OUTRAS PARTES DO FONTE
+#Define _CNAMESPACE_	\'_NAMESPACE_\'									//-- PARA USO EM CHAMADAS STRING
+
+NAMESPACE	_NAMESPACE_
+#Define _LINHA_			StrZero(ProcLine(),5)
+#Define _NomeProg_		RetFileName(ProcSource())
+#Define _MsgLinha_		SubStr(_CNAMESPACE_,Rat('.',_CNAMESPACE_)+1)+'('+_LINHA_+')'
+//-------------------------------------------------------------------------------------------------
+User Function TesteWF()  // CUSTOM.CX.U_TesteWF
+
+	//-- Declaração de Variáveis ----------------------------------------------
+	Local cIDMail		:= '001'					AS Character	//-- ID do e-mail para controle interno
+
+    // Endereço fixo para testes (altere conforme necessário)
+    Local cTo        := ''							AS Character
+    Local cHtml      := ''                          AS Character
+    Local oP                                        AS Object
+
+	cTo		:= UsrRetMail(RetCodUsr())
+	While .T.
+		cTo 	:= FWInputBox('Endereço de E-mail:',cTo)	//Caixa simples de imput
+		If Empty(cTo)
+			Return
+		EndIf
+
+		//-- Conteúdo HTML mínimo (sem necessidade de arquivo modelo)
+		BeginContent Var cHtml AS HTML
+			<html>
+				<body style="font-family: Arial, sans-serif; font-size: 13px; color: #333;">
+					<p><b>Este é um e-mail de teste enviado via Workflow (tWFProcess).</b></p>
+					<p>Data/hora do envio: %Exp:DtoC(Date())+" - "+Time()%</p>
+					<hr/>
+					<p style="color:#000080">Favor não responder este e-mail.<br>
+					Mensagem enviada utilizando o serviço de Workflow do TOTVS Protheus.<br>
+					ID_MAIL: %Exp:_NomeProg_+"_"+cIDMail+"_"+_LINHA_+" | Versão: "+_cVersao+" | "+_cDtVersao%</p>
+				</body>
+			</html>
+		EndContent
+
+		// Instancia e prepara o processo de e-mail
+		// Observação: usamos o HTML em memória para evitar dependência de arquivo .htm
+		oP := tWFProcess():New("WFTesteEmail", "WF Teste Email")
+		oP:cSubject := "Teste de Envio de E-mail (tWFProcess)"
+		oP:cTo      := cTo
+		oP:oHtml    := tWFHtml():New()
+		oP:oHtml:LoadStream(cHtml)
+
+		oP:Start()			;	oP:Finish()			//-- Dispara o envio
+
+		oP:Free()			;	FreeObj(oP)			//-- Destroy objeto
+
+		WFSndMsgAll()		//-- Força o envio imediato das mensagens pendentes
+		FWAlertSuccess(	'<h3>Teste de E-mail via Workflow concluído com sucesso!';
+				+CRLF+	'Verifique o recebimento do e-mail, caso não receba consulte o ConsoleLog ';
+					+	'do AppServer para mais detalhes.</h3>';
+					,_MsgLinha_)
+	EndDo
+
+Return
