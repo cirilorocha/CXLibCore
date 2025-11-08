@@ -1,7 +1,7 @@
 #INCLUDE "Protheus.ch"
 #INCLUDE "RWMake.ch"
 //#INCLUDE 'MSObject.ch'
-#INCLUDE 'tlpp-object.th'
+#INCLUDE 'tlpp-core.th'
 #INCLUDE "ParmType.ch"
 #INCLUDE "CXInclude.ch"
 
@@ -43,12 +43,12 @@
 //##|          |           |  FKeys                                         |##
 //##| 29/11/22 | Cirilo R. | Agora permite salvar tabela de usuários        |##
 //##| 02/01/23 | Cirilo R. | Implementado método destroy                    |##
-//##|          |           |                                                |##
+//##| 08/11/25 | Cirilo R. | Ajustes para a release 2510                    |##
 //##|          |           |                                                |##
 //##+----------+-----------+------------------------------------------------+##
 //#############################################################################
 
-//Posocioes do array aAreas
+//Posicioes do array aAreas
 Static cAR_ALIAS	:= 01	AS Integer
 Static nAR_ORDEM	:= 02	AS Integer
 Static cAR_FILTRO	:= 03	AS Integer
@@ -127,7 +127,7 @@ METHOD GetArea( uTabelas		,;	// 01 Quais tabelas devem ser salvas
 	
 	//Salva filial+empresa atual?
 	If aScan(aTabSv,'SM0') > 0
-		::ucEmpAnt 		:= cEmpAnt
+		//::ucEmpAnt 		:= cEmpAnt		//-- Na release 2510 não posso mais manipular essas variáveis globais diretamente
 		::ucFilAnt 		:= cFilAnt
 	EndIf
 	
@@ -146,13 +146,14 @@ METHOD GetArea( uTabelas		,;	// 01 Quais tabelas devem ser salvas
 		::oKeyBak		:= tCXLibFKey():New()	//Salva teclas Fx
 	EndIf
 	
-	::lUsrBak	:= aScan(aTabSv,{|x| x == '#PSW' }) > 0
-	If ::lUsrBak
-		::ucUsrBak		:= __cUserID
-		::ucUsrPsw		:= PswID()
-		::ucUsrNom		:= cUserName
-		::unUsrOrd		:= PswOrder()
-	EndIf
+	//-- Na release 2510 não posso mais manipular essas variáveis globais diretamente
+	//::lUsrBak	:= aScan(aTabSv,{|x| x == '#PSW' }) > 0
+	//If ::lUsrBak
+	//	::ucUsrBak		:= __cUserID
+	//	::ucUsrPsw		:= PswID()
+	//	::ucUsrNom		:= cUserName
+	//	::unUsrOrd		:= PswOrder()
+	//EndIf
 	
 	If lDeletados
 		::ulDeleted	:= Set(_SET_DELETED,.F.)
@@ -251,9 +252,10 @@ METHOD RestArea(lErro) CLASS tCtrlAlias
 	EndIf
 	
 	//Restauro empresa
-	If 	ValType(::ucEmpAnt) == 'C'
-		cEmpAnt	:= ::ucEmpAnt
-	EndIf
+	//-- Na release 2510 não posso mais manipular essas variáveis globais diretamente
+	//If 	ValType(::ucEmpAnt) == 'C'
+	//	cEmpAnt	:= ::ucEmpAnt
+	//EndIf
 
 	//Restauro filial
 	If 	ValType(::ucFilAnt) == 'C'
@@ -277,14 +279,15 @@ METHOD RestArea(lErro) CLASS tCtrlAlias
 	dDataBase		:= ::udDataBak
 	
 	//Restaura tabela de usuário
-	If ::lUsrBak
-		__cUserID		:= ::ucUsrBak
-		cUserName		:= ::ucUsrNom
-		
-		PswOrder(1)
-		PswSeek(::ucUsrPsw)
-		PswOrder(::unUsrOrd)
-	EndIf
+	//-- Na release 2510 não posso mais manipular essas variáveis globais diretamente
+	//If ::lUsrBak
+	//	__cUserID		:= ::ucUsrBak
+	//	cUserName		:= ::ucUsrNom
+	//	
+	//	PswOrder(1)
+	//	PswSeek(::ucUsrPsw)
+	//	PswOrder(::unUsrOrd)
+	//EndIf
 	
 	If Len(::aParamBak) > 0
 		U_CXRestParam(::aParamBak)	//Restaura parâmetros
@@ -384,7 +387,7 @@ Return
 //Verifica se a tabela está ou pode ser aberta
 //-------------------------------------------------------------------------------------------------
 METHOD VerifTab(cAlias	;
-					) CLASS tCtrlAlias
+					) CLASS tCtrlAlias				AS Logical
 
 	//Declaracao de variaveis----------------------------------------------------------------------
 	Local lRet			AS Logical
@@ -431,7 +434,7 @@ Return ::RestArea()
 //##|          |               |                                            |##
 //##+==========+===============+============================================+##
 //#############################################################################
-METHOD ClassName() CLASS tCtrlAlias
+METHOD ClassName() CLASS tCtrlAlias					AS Character
 
 Return ::cClassName
 
