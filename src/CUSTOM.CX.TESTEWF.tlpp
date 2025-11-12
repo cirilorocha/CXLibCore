@@ -2,8 +2,8 @@
 #INCLUDE "Totvs.ch"
 #INCLUDE 'tlpp-core.th'
 
-Static _cVersao		:= "1.00"						AS Character
-Static _cDtVersao	:= "08/11/2025"					AS Character
+Static _cVersao		:= "1.05"						AS Character
+Static _cDtVersao	:= "09/11/2025"					AS Character
 
 //-------------------------------------------------------------------------------------------------
 /*/{Protheus.doc} TesteWF
@@ -13,7 +13,7 @@ Static _cDtVersao	:= "08/11/2025"					AS Character
 @usage          Execute CUSTOM.CX.U_TesteWF() para enviar um e-mail de teste.
 /*/
 //-------------------------------------------------------------------------------------------------
-//TODO FUTURO: Adicionar login e carga do ambiente
+//TODO FUTURO: Adicionar login 
 //TODO FUTURO: Editar diretamente a tabela WF7 de configurações
 //-------------------------------------------------------------------------------------------------
 #Define _NAMESPACE_		CUSTOM.CX										//-- FEITO ASSIM PARA PODER UTILIZAR O NAMESPACE EM OUTRAS PARTES DO FONTE
@@ -22,17 +22,23 @@ Static _cDtVersao	:= "08/11/2025"					AS Character
 NAMESPACE	_NAMESPACE_
 #Define _LINHA_			StrZero(ProcLine(),5)
 #Define _NomeProg_		RetFileName(ProcSource())
-#Define _MsgLinha_		SubStr(_CNAMESPACE_,Rat('.',_CNAMESPACE_)+1)+'('+_LINHA_+')'
+#Define _MsgLinha_		SubStr(_NomeProg_,Rat('.',_NomeProg_)+1)+'('+_LINHA_+')'
 //-------------------------------------------------------------------------------------------------
 User Function TesteWF()  // CUSTOM.CX.U_TesteWF
 
 	//-- Declaração de Variáveis ----------------------------------------------
+	Local lAmbNCar		:= ( Select('SX2') == 0 )	AS Logical		//-- Se o ambiente esta instanciado
+	Local cEmpProc		:= '01'						AS Character	//-- Usado nos testes
 	Local cIDMail		:= '001'					AS Character	//-- ID do e-mail para controle interno
 
     // Endereço fixo para testes (altere conforme necessário)
     Local cTo        := ''							AS Character
     Local cHtml      := ''                          AS Character
     Local oP                                        AS Object
+
+	If lAmbNCar
+		If .Not. sfAbreAmbiente(cEmpProc)	;	Return	;	EndIf
+	EndIf
 
 	cTo		:= UsrRetMail(RetCodUsr())
 	While .T.
@@ -75,3 +81,57 @@ User Function TesteWF()  // CUSTOM.CX.U_TesteWF
 	EndDo
 
 Return
+
+//-------------------------------------------------------------------------------------------------
+/*/{Protheus.doc} sfAbreAmbiente
+@description	Faz a abertura do ambiente Protheus, usada principalmente para testes
+@autor			Cirilo Rocha
+@since			09/11/2025
+/*/
+//-------------------------------------------------------------------------------------------------
+Static Function sfAbreAmbiente(cCodEmp	AS Character)		AS Logical
+	
+	//-- Declaração de Variáveis ----------------------------------------------
+	Local aSM0										AS Array
+	Local lRet	:= .F.								AS Logical
+	Local nP										AS Numeric
+	Local cModLogin	:= 'FAT'						AS Character
+
+	//-------------------------------------------------------------------------
+	Default cCodEmp := '99'	//-- Empresa de teste
+
+	OpenSm0()
+	aSM0	:= FWLoadSM0()
+	If 	( nP := aScan(aSM0,{|x| x[1] == '99' }) ) <= 0 .And. ;	//-- Prioridade empresa teste
+		( nP := aScan(aSM0,{|x| x[1] == cCodEmp }) ) <= 0
+		nP	:= 1
+	EndIf
+
+	RpcSetType(3)		//-- Não consome licenças
+	lRet := RPCSetEnv(	aSM0[nP][1]		;	//01 Empresa
+					,	aSM0[nP][2]		;	//02 Filial
+					,	/*cEnvUser*/	;	//03 Usuario
+					,	/*cEnvPass*/	;	//04 Senha de Usuario
+					,	cModLogin		;	//05 Modulo (3ch)
+					,	_NomeProg_		;	//06 Nome da Funcao
+					,	/*aTables*/		;	//07 Tabelas para abrir
+					,	/*lShowFinal*/	;	//08 Alimenta a variavel lMsFinalAuto
+					,	.T.				;	//09 Gera mensagem de erro ao ocorrer erro ao checar a licenca
+					,	.T.				;	//10 Pega a primeira filial do arquivo SM0 quando não passar a filial e realiza a abertura dos SXs
+					,	.T.				;	//11 Faz a abertura da conexao com servidor do banco
+					)
+
+	If .Not. lRet
+		FwAlertError(	'##### ERRO ##### AMBIENTE NA EMPRESA '+aSM0[nP][1]+' - '+aSM0[nP][2]+' NÃO PODE SER CARREGADO.',_MsgLinha_)
+		Return .F.
+	EndIf
+
+	cUserName	:= 'Administrador'	//-- Nome do usuário logado
+
+	//-- MOSTRA INTERFACES DE USUÁRIO?
+	If GetRemoteType() <> NO_REMOTE
+		__cInterNet	:= NIL	//-- Para mostrar as mensagens ao usuario, usar apenas quando a funcao for utililizada com interface
+		lMsHelpAuto	:= .F.	//-- Preciso colocar aqui para forçar mostrar mensagens
+	EndIf
+
+Return lRet
