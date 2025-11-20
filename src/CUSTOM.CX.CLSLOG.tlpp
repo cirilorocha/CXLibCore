@@ -23,7 +23,7 @@ NAMESPACE	_NAMESPACE_
 Static _cPathCst	:= '\CUSTOMIZACOES\'			AS Character
 
 #xTranslate _MsgLinha(<nNivel>) => ;
-	RetFileName(ProcSource(<nNivel>))+'('+StrZero(ProcLine(<nNivel>),5)+')'
+	SubStr(RetFileName(ProcSource(<nNivel>)),Rat('.',RetFileName(ProcSource(<nNivel>)))+1)+'('+StrZero(ProcLine(<nNivel>),5)+')'
 
 #Define _lRotAuto_	(		FWIsInCallStack('FWMVCRotAuto') ;	//-- Execauto MVC
 					.Or.	FWIsInCallStack('MSExecAuto') 	;	//-- Execauto padrão
