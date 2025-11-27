@@ -16,22 +16,23 @@
 //##| 03/04/19 | Cirilo R.| Ajuste para considerar ou não rotinas automática|##
 //##| 26/06/19 | Cirilo R.| Adicionadas novas rotinas automáticas           |##
 //##| 17/11/21 | Cirilo R.| Pequena revisão no código                       |##
-//##|          |          |                                                 |##
+//##| 25/11/25 | Cirilo R.| Tratamento para execução automática via MVC     |##
 //##|          |          |                                                 |##
 //##+----------+----------+-------------------------------------------------+##
 //#############################################################################
-User Function CXRotAuto(lApenasJob);	//01 lApenasJob
-							AS Logical
+User Function CXRotAuto(lApenasJob	AS Logical	;	//01 lApenasJob
+					,	oModelMVC	AS Object	;	//02 Objeto Modelo MVC (opcional)
+					)								AS Logical
 	
-	//Declaracao de variaveis----------------------------------------------------------------------
-	Local lRet		AS Logical
-	Local lRotAuto	AS Logical
+	//-- Declaração de Variáveis ----------------------------------------------
+	Local lRet										AS Logical
+	Local lRotAuto									AS Logical
+	Local oViewActive								AS Object
 	
-	//Parametros da rotina-------------------------------------------------------------------------
-	ParamType 0		VAR lApenasJob			AS Logical				Optional Default .F.
+	//-- Parâmetros da Rotina -------------------------------------------------
+	ParamType 0		VAR lApenasJob			AS Logical		Optional Default .F.
 
-	//---------------------------------------------------------------------------------------------
-	//Considera apenas os Jobs
+	//-- Considera apenas os Jobs ---------------------------------------------
 	If lApenasJob
 		lRotAuto	:= .F.
 	Else
@@ -40,6 +41,17 @@ User Function CXRotAuto(lApenasJob);	//01 lApenasJob
 						FWIsInCallStack('EnchAuto') 	.Or. ;	//Execauto enchoice
 						FWIsInCallStack('mBrowseAuto')	.Or. ;	//Execauto browser
 						( Type('ulCXRotAuto') == 'L' .And. ulCXRotAuto )
+		
+		//-- Rotina automática via MVC ---------------------------------------
+		If 		.Not. lRotAuto	;
+		.And.	oModelMVC <> NIL;
+
+			//-- Vem de outro MVC, rotina automática (legado ou sem interface)
+			oViewActive	:= FwViewActive()
+			lRotAuto	:=	( oViewActive == NIL .And. .Not. FwIsInCallStack('OPENVIEW') )			;	//-- Sem view é automático de outra outra rotina, mas, na validação da activação, a View atual não está ativa
+						.Or.( oViewActive <> NIL .And. .Not. ( oViewActive:oModel == oModelMVC ) )	;	//-- Vem de outra View MVC
+
+		EndIf
 	EndIf
 	
 	lRet	:= 	lRotAuto .Or. ;
