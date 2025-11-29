@@ -16,13 +16,13 @@
 //##| 23/10/19 | Cirilo R.| Adicionado tratamento para execução via fonte   |##
 //##| 22/03/22 | Cirilo R.| Pequena revisão no fonte                        |##
 //##| 15/03/23 | Cirilo R.| Convertido o fonte para usar ParamBox           |##
-//##|          |          |                                                 |##
+//##| 29/11/25 | Cirilo R.| Revisão para a Release 2510                     |##
 //##|          |          |                                                 |##
 //##+----------+----------+-------------------------------------------------+##
 //#############################################################################
-User Function CXSetUsr(	cCodUsr	,;	//01 cCodUsr
-						lMsg	);	//02 lMsg (def !Auto)
-							AS Logical
+User Function CXSetUsr(	cCodUsr	;	//01 cCodUsr
+					,	lMsg	;	//02 lMsg (def !Auto)
+					)		AS Logical
 	
 	//Declaracao de variaveis----------------------------------------------------------------------
 	Local aParam			AS Array
@@ -41,6 +41,10 @@ User Function CXSetUsr(	cCodUsr	,;	//01 cCodUsr
 	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
 	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
 	cMsg		:= IIf(Type('cMsg')<>'C','',cMsg)
+
+	If ExistBlock('CUSTOM.CX.SETUSR')
+		Return	CUSTOM.CX.U_SETUSR(cCodUsr,lMsg)
+	EndIf
 
 	If ValType(cCodUsr) <> 'C'
 		If lMsg
@@ -68,8 +72,10 @@ User Function CXSetUsr(	cCodUsr	,;	//01 cCodUsr
 	cUsrPsw	:= PswID()
 	nOrdem	:= PswOrder(1)	//Ordem por codigo
 	If PswSeek(cCodUsr)
-		__cUserID	:= cCodUsr
-		cUserName	:= UsrRetName(__cUserID)	//Atualizo o nome de usuario
+		If cCodUsr <> __cUserID
+			__cUserID	:= cCodUsr
+			cUserName	:= UsrRetName(__cUserID)	//Atualizo o nome de usuario
+		EndIf
 	Else
 		PswSeek(cUsrPsw)		//Restauro usuario PSW
 		PswOrder(nOrdem)		//Restaura ordem

@@ -12,28 +12,28 @@
 //##|   DATA   |Programador| Manutenção efetuada                            |##
 //##+----------+-----------+------------------------------------------------+##
 //##| 23/02/23 | Cirilo R. | Pequena revisão no fonte                       |##
-//##|          |           |                                                |##
+//##| 28/11/25 | Cirilo R. | Novo formato SQLite (SDB)                      |##
 //##|          |           |                                                |##
 //##+----------+-----------+------------------------------------------------+##
 //#############################################################################
-User Function CXGetDrv(cExt);	//01 cExt
-						AS Character
+User Function CXGetDrv(cExt	AS Character);	//01 cExt
+													AS Character
 
-	//Declaracao de variaveis----------------------------------------------------------------------
-	Local cDrvTab
+	//-- Declaração de Variáveis ----------------------------------------------
+	Local cDrvTab									AS Character
 	
-	//Parametros da rotina-------------------------------------------------------------------------
+	//-- Parâmetros da Rotina -------------------------------------------------
 	ParamType 0		VAR cExt		AS Character
 
-	//Inicializa Variaveis-------------------------------------------------------------------------
+	//-- Inicializa Variáveis -------------------------------------------------
 	cExt	:= Upper(cExt)
 
-	If Empty(cExt) //TopConn
-		cDrvTab	:= __cRDD
-	ElseIf cExt == '.DBF'
-		cDrvTab	:= 'DBFCDXADS'
-	ElseIf cExt == '.DTC'
-		cDrvTab	:= 'CTREECDX'
-	EndIf
+	Do Case
+		Case Empty(cExt)	; cDrvTab	:= __cRDD
+		Case cExt == '.DBF'	; cDrvTab	:= 'DBFCDXADS'
+		Case cExt == '.DTC'	; cDrvTab	:= 'CTREECDX'
+		Case cExt == '.SDB'	; cDrvTab	:= 'SQLITE'
+		Otherwise			; cDrvTab	:= 'UNKNOWN'
+	EndCase
 
 Return cDrvTab

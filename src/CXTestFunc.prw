@@ -6,8 +6,8 @@
 #Include "ParmType.ch"
 #Include "CXInclude.ch"
 
-Static _cVersao := "1.62"							AS Character
-Static _cDtVersao := "01/11/2025"					AS Character
+Static _cVersao := '1.63'							AS Character
+Static _cDtVersao := '29/11/2025'					AS Character
 
 // MANTER EM .PRW PARA PODER EXECUTAR STATICCALL
 //#############################################################################
@@ -95,6 +95,7 @@ User Function CXTestFunc()
 	Local nPos				AS Numeric
 	Local lAchou            AS Logical
 	Local cMsg              AS Character
+	Local cUserLogon		AS Character
 	Local lCarrAmb		    AS Logical
 	Local lRet			    AS Logical
 
@@ -110,11 +111,11 @@ User Function CXTestFunc()
 
 	//Otimizacao
 	Private aFuncRPO        AS Array
-	Private aType		    AS Array
-	Private aFile		    AS Array
-	Private aLine		    AS Array
-	Private aDate		    AS Array
-	Private aTime		    AS Array
+	Private aType	:= {}   AS Array
+	Private aFile	:= {}   AS Array
+	Private aLine	:= {}   AS Array
+	Private aDate	:= {}   AS Array
+	Private aTime	:= {}   AS Array
 
 	Private cUsrRot			AS Character
 
@@ -134,13 +135,6 @@ User Function CXTestFunc()
 
 	lExecutou	:= .F.
 	lErroProc	:= .F.
-
-	//Otimizacao
-	aType		:= {}
-	aFile		:= {}
-	aLine		:= {}
-	aDate		:= {}
-	aTime		:= {}
 
 	//Tive que fazer essa proteção porque o padrão está chamando esse fonte recursivamente por
 	// conta da função EvalTrigger()->EvalGeneric() dentro do ExecAuto
@@ -233,28 +227,20 @@ User Function CXTestFunc()
             Return
         EndIf
 
-		//-- Single Sign-On
-		If '2410' $ GetRpoRelease()
-			VarSetGet('__cUserID', {|u| u}, .T.)	//-- By Pass na restrição do sistema! (release 2510 testado em 01/nov/2025)
-		EndIf
-		ClearVarSetGet('__cUserID')
-		If .Not. sfSingleSignOn(@__cUserID)
+		If .Not. sfSingleSignOn(@cUserLogon)
 			//-- Fecha o ambiente
 			RpcClearEnv()
 			Return
 		EndIf
 
-		U_CXSetUsr(__cUserID)
+		U_CXSetUsr(cUserLogon)
 		__cInternet	:= NIL			//-- Preciso colocar aqui para forçar mostrar mensagens
 		lMsHelpAuto := .F.			//-- Preciso colocar aqui para forçar mostrar mensagens
 		lCarrAmb	:= .T. 			//-- Carregou o ambiente
 		
 		//PRECISO ABRIR OS SX'S AQUI PARA FUNCIONAR CORRETAMENTE
 		OpenSm0()	//Abre o sigamat
-		SIX->(dbSetOrder(1))	;	SX1->(dbSetOrder(1))	;		SX2->(dbSetOrder(1))
-		SX3->(dbSetOrder(1))	;	SX5->(dbSetOrder(1))	;		SX6->(dbSetOrder(1))
-		SX7->(dbSetOrder(1))	;	SX9->(dbSetOrder(1))	;		SXA->(dbSetOrder(1))
-		SXB->(dbSetOrder(1))
+		aEval({'SIX','SX1','SX2','SX3','SX5','SX6','SX7','SX9','SXA','SXB','SXG','XXA','XAU','XAT'},{|x| (x)->(dbSetOrder(1)) })
 
 		_lRecursivo	:= .F.	//Desativa o controle de recursividade
 
@@ -431,17 +417,18 @@ User Function CXTestFunc()
 			RPCSetType(3)
 
 			// Abre ambiente de trabalho
-			RPCSetEnv(	cEmpBak			,;	//01 Empresa
-						cFilBak			,;	//02 Filial
-						/*cEnvUser*/	,;	//03 Usuario
-						/*cEnvPass*/	,;	//04 Senha de Usuario
-						/*cMod*/		,;	//05 Modulo (3ch)
-						'CXTestFunc'	,;	//06 Nome da Funcao
-						/*aTables*/		,;	//07 Tabelas para abrir
-						/*lShowFinal*/	,;	//08 Alimenta a variavel lMsFinalAuto
-						.T.				,;	//09 Gera mensagem de erro ao ocorrer erro ao checar a licenca
-						.T.				,;	//10 Pega a primeira filial do arquivo SM0 quando não passar a filial e realiza a abertura dos SXs
-						.T.				) 	//11 faz a abertura da conexao com servidor do banco
+			RPCSetEnv(	cEmpBak			;	//01 Empresa
+					,	cFilBak			;	//02 Filial
+					,	/*cEnvUser*/	;	//03 Usuario
+					,	/*cEnvPass*/	;	//04 Senha de Usuario
+					,	/*cMod*/		;	//05 Modulo (3ch)
+					,	'CXTestFunc'	;	//06 Nome da Funcao
+					,	/*aTables*/		;	//07 Tabelas para abrir
+					,	/*lShowFinal*/	;	//08 Alimenta a variavel lMsFinalAuto
+					,	.T.				;	//09 Gera mensagem de erro ao ocorrer erro ao checar a licenca
+					,	.T.				;	//10 Pega a primeira filial do arquivo SM0 quando não passar a filial e realiza a abertura dos SXs
+					,	.T.				; 	//11 faz a abertura da conexao com servidor do banco
+					)
 		ElseIf nRecSM0 <> SM0->(Recno())
 			FwAlertWarning(	"ATENÇÃO! A função desposicionou o Sigamat."+CRLF+;
 						"ISSO PODE GERAR PROBLEMAS NAS ROTINAS.",U_CXTxtMsg(,,.T.))
@@ -791,10 +778,15 @@ Static Function Parametros() AS Logical
 		cArgumentos	:= Alltrim(MV_PAR02)
 		
 		If .Not. Empty(MV_PAR04)
-			U_CXSetUsr(MV_PAR04)
+			If __cUserID <> MV_PAR04
+				U_CXSetUsr(MV_PAR04)
+			EndIf
 		Else
-			U_CXSetUsr(cUsrRot)
+			If __cUserID <> cUsrRot
+				U_CXSetUsr(cUsrRot)
+			EndIf
 		EndIf
+
 		If .Not. Empty(MV_PAR05)
 			dDataBase	:= MV_PAR05
 		EndIf
