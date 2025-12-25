@@ -6,8 +6,8 @@
 #Include "ParmType.ch"
 #Include "CXInclude.ch"
 
-Static _cVersao := '1.63'							AS Character
-Static _cDtVersao := '29/11/2025'					AS Character
+Static _cVersao := '1.64'							AS Character
+Static _cDtVersao := '25/12/2025'					AS Character
 
 // MANTER EM .PRW PARA PODER EXECUTAR STATICCALL
 //#############################################################################
@@ -1257,6 +1257,8 @@ Static Function sfSingleSignOn(cUser)	/*@cUser*/		AS Logical
 				FwAlertError(	'Usuário sem acesso a rotina. Apenas administradores podem '+;
 								'utilizar a ferramenta.',_MsgLinha_)
 			EndIf
+		Else
+			Return .F.
 		EndIf
 	EndIf
 
