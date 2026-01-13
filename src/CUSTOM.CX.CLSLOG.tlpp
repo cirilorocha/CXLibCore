@@ -17,7 +17,7 @@ Static _cDtVersao	:= "29/10/2025"						AS Character
 //FUTURO -> 
 //	GRAVAÇÃO EM TABELA
 //-------------------------------------------------------------------------------------------------
-#Define _CNAMESPACE_	\'_NAMESPACE_\'									//-- PARA USO EM CHAMADAS STRING
+#Define _CNAMESPACE_	\'_NAMESPACE_.\'								//-- PARA USO EM CHAMADAS STRING
 #Define _CNS_LOAD_		\'_NAMESPACE_\'+'.QUALQUERCOISA'				//-- NÃO ENTENDO PORQUE PRECISA TER ALGUM SUFIXO PARA FUNCIONAR!!!
 NAMESPACE	_NAMESPACE_
 Static _cPathCst	:= '\CUSTOMIZACOES\'			AS Character

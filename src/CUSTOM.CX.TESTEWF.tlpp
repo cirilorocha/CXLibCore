@@ -17,7 +17,7 @@ Static _cDtVersao	:= "09/11/2025"					AS Character
 //TODO FUTURO: Editar diretamente a tabela WF7 de configurações
 //-------------------------------------------------------------------------------------------------
 #Define _NAMESPACE_		CUSTOM.CX										//-- FEITO ASSIM PARA PODER UTILIZAR O NAMESPACE EM OUTRAS PARTES DO FONTE
-#Define _CNAMESPACE_	\'_NAMESPACE_\'									//-- PARA USO EM CHAMADAS STRING
+#Define _CNAMESPACE_	\'_NAMESPACE_.\'								//-- PARA USO EM CHAMADAS STRING
 
 NAMESPACE	_NAMESPACE_
 #Define _LINHA_			StrZero(ProcLine(),5)
