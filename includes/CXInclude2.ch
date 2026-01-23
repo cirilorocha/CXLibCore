@@ -1,9 +1,11 @@
 //-------------------------------------------------------------------------------------------------
-/*/{Protheus.doc} CXInclude2.ch  v1.06
+/*/{Protheus.doc} CXInclude2.ch  v1.10 (23/01/2026)
 @description	Conjunto de comanandos básicos para auxiliar no desenvolvimento de fontes
 @autor			Cirilo Rocha
 @since			07/01/2026
 -------------------------------------------------------------------------------------------------*/
+
+#Include 'ParmTypeCH.ch'
 
 //#############################################################################
 //#############################################################################
@@ -93,6 +95,14 @@
 #Define MODEL_OPERATION_PRINT	8
 #Define MODEL_OPERATION_COPY	9
 
+//Parâmetros obrigatórios
+#xCommand PARAMOBR [ <param> VAR ] <varname> ;
+	[ MESSAGE <message> ] ;
+	=> ;
+	If (ValType(<varname>) == 'U' ) ;;
+		UserException(PT_STR0001+<"param">+PT_STR0002+<"varname">+" erro, é obrigatório e está NULL. " [ MESSAGE <message> ]) ;;
+	EndIf
+
 
 //#############################################################################
 //#############################################################################
@@ -105,6 +115,14 @@
 //-- Pseudo-Função para Concatenar Textos
 #xTranslate _CXConcTxt(<cTexto>,<cTxtAdic>,<cSep>) => ;
 	<cTexto>+If(Empty(<cTexto>).Or.Empty(<cTxtAdic>),'',<cSep>)+<cTxtAdic>
+
+
+//-- Pseudo-Função para completar com zeros a esquerda, sem truncar o conteúdo
+#xTranslate _CXCplCpo(<cConteudo>,<cCampo>)	=> ;
+	_CXCplCpo(<cConteudo>,<cCampo>,'0')
+
+#xTranslate _CXCplCpo(<cConteudo>,<cCampo>,<cChar>)	=> ;
+	Replicate(<cChar>,FWTamSX3(<cCampo>)\[1\]-Len(AllTrim(<cConteudo>)))+AllTrim(<cConteudo>)
 
 
 //-- Pseudo-Função para Extrair extensão do arquivo
@@ -121,8 +139,10 @@
 
 
 #xTranslate _CXTransf(<xCont>,<cCampo>) => ;
-	Transf(<xCont>,FwGetSx3Cache(<cCampo>,'X3_PICTURE'))
+	_CXTrf(<xCont>,<cCampo>)
 
+#xTranslate _CXTrf(<xCont>,<cCampo>) => ;
+	Transform(<xCont>,FwGetSx3Cache(<cCampo>,'X3_PICTURE'))
 
 #xTranslate _CXaDel(<aDados>,<nPos>) => ;
 	aDel(@<aDados>,<nPos>);;
