@@ -1,5 +1,5 @@
 //-------------------------------------------------------------------------------------------------
-/*/{Protheus.doc} CXInclude2.ch  v1.10 (23/01/2026)
+/*/{Protheus.doc} CXInclude2.ch  v1.15 (28/01/2026)
 @description	Conjunto de comanandos básicos para auxiliar no desenvolvimento de fontes
 @autor			Cirilo Rocha
 @since			07/01/2026
@@ -118,11 +118,19 @@
 
 
 //-- Pseudo-Função para completar com zeros a esquerda, sem truncar o conteúdo
-#xTranslate _CXCplCpo(<cConteudo>,<cCampo>)	=> ;
+#xTranslate _CXCplCpoEsq(<cConteudo>,<cCampo>)	=> ;
 	_CXCplCpo(<cConteudo>,<cCampo>,'0')
 
-#xTranslate _CXCplCpo(<cConteudo>,<cCampo>,<cChar>)	=> ;
+#xTranslate _CXCplCpoEsq(<cConteudo>,<cCampo>,<cChar>)	=> ;
 	Replicate(<cChar>,FWTamSX3(<cCampo>)\[1\]-Len(AllTrim(<cConteudo>)))+AllTrim(<cConteudo>)
+
+
+//-- Pseudo-Função para completar com espaços a esquerda, sem truncar o conteúdo
+#xTranslate _CXCplCpoDir(<cConteudo>,<cCampo>)	=> ;
+	_CXCplCpo(<cConteudo>,<cCampo>,Space(1))
+
+#xTranslate _CXCplCpoDir(<cConteudo>,<cCampo>,<cChar>)	=> ;
+	AllTrim(<cConteudo>)+Replicate(<cChar>,FWTamSX3(<cCampo>)\[1\]-Len(AllTrim(<cConteudo>)))
 
 
 //-- Pseudo-Função para Extrair extensão do arquivo
