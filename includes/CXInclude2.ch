@@ -1,5 +1,5 @@
 //-------------------------------------------------------------------------------------------------
-/*/{Protheus.doc} CXInclude2.ch  v1.15 (28/01/2026)
+/*/{Protheus.doc} CXInclude2.ch  v1.16 (07/02/2026)
 @description	Conjunto de comanandos básicos para auxiliar no desenvolvimento de fontes
 @autor			Cirilo Rocha
 @since			07/01/2026
@@ -161,6 +161,10 @@
 	aSize(@<aDados>,len(<aDados>)+1);;
 	aIns(@<aDados>,<nPos>)
 
+#xTranslate _CxAIns(<aDados>,<nPos>,<xValor>) => ;
+	aSize(@<aDados>,len(<aDados>)+1);;
+	aIns(@<aDados>,<nPos>);;
+	<aDados>\[<nPos>\]	:= <xValor>
 
 #xTranslate _CxFieldGet(<cCampo>) => ;
 	FieldGet(FieldPos(<cCampo>))
