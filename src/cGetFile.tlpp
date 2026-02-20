@@ -7,147 +7,146 @@
 
 //#############################################################################
 //##+==========+==========+=======+====================+======+=============+##
-//##|Programa  | cGetFile | Autor | Cirilo Rocha       | Data | 13/03/2020  |##
+//##|Programa  | cGetFile | Autor | Cirilo Rocha	   | Data | 13/03/2020	|##
 //##+==========+==========+=======+====================+======+=============+##
-//##|Descr.    | Função para substituir o cGetFile padrão, de forma tratar  |##
-//##|          |  a nova função tFileDialog na release 25                   |##
+//##|Descr.	   | Função para substituir o cGetFile padrão, de forma tratar	|##
+//##|		   |  a nova função tFileDialog na release 25					|##
 //##+==========+==========+=================================================+##
-//##+ DATA     | ANALISTA | MANUTENÇÃO EFETUADA                             |##
+//##+ DATA	   | ANALISTA | MANUTENÇÃO EFETUADA								|##
 //##+==========+==========+=================================================+##
-//##| 05/04/21 | Cirilo R.| Pequena revisão                                 |##
-//##| 12/10/21 | Cirilo R.| Pequena revisão (release 33)                    |##
-//##| 17/04/22 | Cirilo R.| Adequação para o SmartClient Webapp             |##
-//##| 14/12/22 | Cirilo R.| Melhoria para salvar o diretório inicial        |##
+//##| 05/04/21 | Cirilo R.| Pequena revisão									|##
+//##| 12/10/21 | Cirilo R.| Pequena revisão (release 33)					|##
+//##| 17/04/22 | Cirilo R.| Adequação para o SmartClient Webapp				|##
+//##| 14/12/22 | Cirilo R.| Melhoria para salvar o diretório inicial		|##
 //##| 03/05/25 | Cirilo R.| Alinhamento com o 5º parâmetro da função padrão |##
-//##|          |          |  era para ser lAbrir, estava documentado errado |##
-//##|          |          | Melhores tratamentos para WebApp                |##
-//##|          |          |                                                 |##
-//##|          |          |                                                 |##
+//##|		   |		  |	 era para ser lAbrir, estava documentado errado |##
+//##|		   |		  | Melhores tratamentos para WebApp				|##
+//##| 20/02/26 | Cirilo R.| Pequena revisão									|##
+//##|		   |		  |													|##
+//##|		   |		  |													|##
 //##+==========+==========+=================================================+##
 //#############################################################################
-User Function cGetFile(	cMascara	AS Character,;	//01 cMascara
-						cTitulo		AS Character,;	//02 cTitulo
-						nMascPadrao	AS Numeric	,;	//03 nMascPadrao
-						cDirInicial	AS Character,;	//04 cDirInicial
-						lAbrir		AS Logical	,;	//05 lAbrir
-						nOpcoes		AS Numeric	,;	//06 nOpcoes
-						lServer		AS Logical	,;	//07 lServer
-						lKeepCase	AS Logical	);	//08 lKeepCase
-													AS Character
+User Function cGetFile(	cMascara	AS Character;	//01 cMascara
+					,	cTitulo		AS Character;	//02 cTitulo
+					,	nMascPadrao	AS Numeric	;	//03 nMascPadrao
+					,	cDirInicial	AS Character;	//04 cDirInicial
+					,	lAbrir		AS Logical	;	//05 lAbrir
+					,	nOpcoes		AS Numeric	;	//06 nOpcoes
+					,	lServer		AS Logical	;	//07 lServer
+					,	lKeepCase	AS Logical	;	//08 lKeepCase
+					)								AS Character
 
 	//-- Declaração de Variáveis ----------------------------------------------
-	Local uRet          							AS Variant
 	Local aMasc										AS Array
 	Local nX										AS Numeric
 	Local cMascProc									AS Variant
+	Local cRet										AS Character
 	Local cTemp										AS Character
 	Local cSession	:= FunName()					AS Character
 	Local cDrive,cDir,cFile,cExten					AS Character
 	
 	//-- Parâmetros da Rotina -------------------------------------------------
-    Default cDirInicial	:= ''
-    Default lAbrir		:= .F.
-    Default lServer		:= .T.
-    Default lKeepCase	:= .F.
-
-    //-------------------------------------------------------------------------
-	cDir	:= fwGetProfString(cSession,"CGETFILE",cDirInicial,.T.)
-	If ExistDir(cDir)
-		cDirInicial	:= cDir
-	EndIf
+	Default cDirInicial	:= ''
+	Default lAbrir		:= .F.
+	Default lServer		:= .T.
+	Default lKeepCase	:= .F.
 
 	//-------------------------------------------------------------------------
-	If  .Not. lServer .And. ;
-        (ValType(nOpcoes) == 'U' .Or. BitAnd(nOpcoes,GETF_NETWORKDRIVE) )
-		//GetRemoteType() <> REMOTE_HTML 	.And. ; //Não pode ser via webapp		//-- JÁ FUNCIONA NO WEBAPP
+	cDir	:= fwGetProfString(cSession,"CGETFILE",cDirInicial,.T.)
+	If ExistDir(cDir)		;	cDirInicial	:= cDir		;	EndIf
+
+	//-------------------------------------------------------------------------
+	If	.Not. lServer .And. ;
+		(ValType(nOpcoes) == 'U' .Or. BitAnd(nOpcoes,GETF_NETWORKDRIVE) )
+		//GetRemoteType() <> REMOTE_HTML	.And. ; //Não pode ser via webapp		//-- JÁ FUNCIONA NO WEBAPP
 		
-        If BitAnd(nOpcoes,GETF_RETDIRECTORY)
-            cMascProc   := NIL
-            lAbrir     	:= .T.  //-- Para diretórios essa função sempre precisa ser Abrir!
-        Else
-            cMascProc	:= ''
-            If ValType(cMascara) == 'C'
-                aMasc		:= StrTokArr2(cMascara,'|')
-                For nX := 1 to Len(aMasc) Step 2
-					If nX <> 1
-						cMascProc	+= ' | '
+		If BitAnd(nOpcoes,GETF_RETDIRECTORY)
+			cMascProc	:= NIL
+			lAbrir		:= .T.	//-- Para diretórios essa função sempre precisa ser Abrir!
+		Else
+			cMascProc	:= ''
+			If ValType(cMascara) == 'C'
+				aMasc		:= StrTokArr2(cMascara,'|')
+				For nX := 1 to Len(aMasc) Step 2
+					If nX <> 1				;	cMascProc	+= ' | '	;	EndIf
+					
+					If Empty(aMasc[nX])		;	cMascProc	+= "Arquivo"
+					Else					;	cMascProc	+= AllTrim(aMasc[nX])
 					EndIf
-                    If Empty(aMasc[nX])
-                        cMascProc   += "Arquivo"
-                    Else
-                        cMascProc	+= AllTrim(aMasc[nX])
-                    EndIf
-                    If nX+1 <= Len(aMasc)
-						cTemp		:= '('+aMasc[nX+1]+')'
-                    Else
-                        cTemp		:= '(*.*)'
-                    EndIf
+					
+					If nX+1 <= Len(aMasc)	;	cTemp		:= '('+aMasc[nX+1]+')'
+					Else					;	cTemp		:= '(*.*)'
+					EndIf
+					
 					If .Not. ( Right(cMascProc,Len(cTemp)) == cTemp )
 						cMascProc	+= ' '+cTemp
 					EndIf
-                Next
-            EndIf
-        EndIf
+				Next
+			EndIf
+		EndIf
 
 		If Empty(cMascProc)
 			cMascProc	:= 'Todos os Arquivos (*.*)'
 		EndIf
 		
-        uRet    := tFileDialog( cMascProc	,;	//01
-                                cTitulo		,;	//02
-                                nMascPadrao	,;	//03
-                                cDirInicial	,;	//04
-                                .Not.lAbrir	,;	//05	//-- lSalvar
-                                nOpcoes	    )	//06
+		cRet	:= tFileDialog( cMascProc	;	//01 cMascara
+							,	cTitulo		;	//02 cTitulo
+							,	nMascPadrao	;	//03 nDef
+							,	cDirInicial	;	//04 cDirInicial
+							,	.Not.lAbrir	;	//05 lSalvar
+							,	nOpcoes		;	//06 nOpcoes
+							)
 
-        If .Not. lKeepCase
-            uRet    := Lower(uRet)
-        EndIf
-        If  .Not. Empty(uRet) .And. ;
-            BitAnd(nOpcoes,GETF_RETDIRECTORY) .And. ;
-            .Not. (Right(uRet,1) $ '\/')
-            If GetRemoteType() == REMOTE_QT_LINUX
-                uRet    += '/'
-            Else
-                uRet    += '\'
-            EndIf
-        EndIf
-    Else
-        uRet    := cGetFile(cMascara	,;	//01
-                            cTitulo		,;	//02
-                            nMascPadrao	,;	//03
-                            cDirInicial	,;	//04
-                            lAbrir		,;	//05
-                            nOpcoes		,;	//06
-                            lServer		,;	//07
-                            lKeepCase	 )	//08
+		If .Not. lKeepCase
+			cRet	:= Lower(cRet)
+		EndIf
+		If	.Not. Empty(cRet) .And. ;
+			BitAnd(nOpcoes,GETF_RETDIRECTORY) .And. ;
+			.Not. (Right(cRet,1) $ '\/')
+			If GetRemoteType() == REMOTE_QT_LINUX
+				cRet	+= '/'
+			Else
+				cRet	+= '\'
+			EndIf
+		EndIf
+	Else
+		cRet	:= cGetFile(cMascara	;	//01 cMascara
+						,	cTitulo		;	//02 cTitulo
+						,	nMascPadrao	;	//03 nMascPadrao
+						,	cDirInicial	;	//04 cDirInicial
+						,	lAbrir		;	//05 lAbrir		//ATENÇÃO!
+						,	nOpcoes		;	//06 nOpcoes
+						,	lServer		;	//07 lServer (def .T.)
+						,	lKeepCase	;	//08 lKeepCase
+						)
 	EndIf
 
 	//-- Tratamento de erros para WebApp (pode não ser necessário no futuro)
-	If .Not. BitAnd(nOpcoes,GETF_MULTISELECT)
-		SplitPath( uRet, @cDrive, @cDir, @cFile, @cExten )
+	If		.Not. BitAnd(nOpcoes,GETF_MULTISELECT)	;
+	.And.	.Not. Empty(cRet)						;
+	
+		SplitPath( cRet, @cDrive, @cDir, @cFile, @cExten )
 		If BitAnd(nOpcoes,GETF_RETDIRECTORY)		//-- Diretórios
-			If .Not. ExistDir(uRet)
-				FwAlertError('Diretório informado '+uRet+' NÃO existe.',_MsgLinha_)
-				uRet	:= ''
+			If .Not. ExistDir(cRet)
+				FwAlertError('Diretório informado '+cRet+' NÃO existe.',_MsgLinha_)
+				cRet	:= ''
 			EndIf		
-		ElseIf .Not. Empty(uRet)					//-- Arquivos
+		Else					//-- Arquivos
 			If Empty(cFile)
 				FwAlertError('Nenhum nome de arquivo informado.',_MsgLinha_)
-				uRet	:= ''
-			ElseIf 	lAbrir .And. ;
-					.Not. File(uRet)				//-- Valida se arquivo existe
-				FwAlertError('Arquivo informado '+uRet+' NÃO existe.',_MsgLinha_)
-				uRet	:= ''
+				cRet	:= ''
+			ElseIf	lAbrir .And. ;
+					.Not. File(cRet)				//-- Valida se arquivo existe
+				FwAlertError('Arquivo informado '+cRet+' NÃO existe.',_MsgLinha_)
+				cRet	:= ''
 			EndIf
 		EndIf
 	EndIf
 
 	//-- Salva o diretório atual que o usuário utilizou -----------------------
-	If .Not. Empty(uRet)
-		SplitPath( U_CXSeparaArq(uRet)[1],@cDrive,@cDir,/*@cFile*/,/*@cExt*/ )
-		cDir	:= cDrive+cDir
-		fwWriteProfString(cSession,"CGETFILE",cDir,.T.) //Guarda o diretório atual
+	If .Not. Empty(cRet)
+		SplitPath( U_CXSeparaArq(cRet)[1],@cDrive,@cDir,/*@cFile*/,/*@cExt*/ )
+		fwWriteProfString(cSession,"CGETFILE",cDrive+cDir,.T.) //Guarda o diretório atual
 	EndIf
 
-Return uRet
+Return cRet
