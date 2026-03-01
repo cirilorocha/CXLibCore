@@ -1,6 +1,7 @@
 #INCLUDE 'RWMake.ch'
 #INCLUDE 'Totvs.ch'
 #INCLUDE 'ParmType.ch'
+#INCLUDE 'Tlpp-Core.th'
 #INCLUDE 'CXInclude.ch'
 
 //#############################################################################
@@ -13,7 +14,7 @@
 //##| DATA     | ANALISTA | MANUTENÇÃO EFETUADA                             |##
 //##+==========+==========+=================================================+##
 //##|2024/03/27| Cirilo R | Adicionado tipo Json                            |##
-//##|          |          |                                                 |##
+//##|2026/03/01| Cirilo R | Pequena revisão no fonte                        |##
 //##|          |          |                                                 |##
 //##+==========+==========+=================================================+##
 //#############################################################################
@@ -23,49 +24,34 @@ User Function CXParForm(cParam	AS Character);	//01 cParam
 	//Declaracao de variaveis----------------------------------------------------------------------
 	Local cTipo										AS Character
 	Local cObrig									AS Character
-	Local cRet										AS Character
+	Local cRet	:= ''								AS Character
 	Local nX										AS Numeric
 
 	//Parametros da rotina-------------------------------------------------------------------------
 	ParamObg 0		VAR cParam
 
 	//---------------------------------------------------------------------------------------------
-	cRet	:= ''
 	For nX := 1 to len(cParam) step 2
 		cTipo	:= SubStr(cParam,nX,1)
 		cObrig  := SubStr(cParam,nX+1,1)
-
-		If cTipo == 'C'
-			cTipo	:= 'Char'
-		ElseIf cTipo == 'A'
-			cTipo	:= 'Arr'
-		ElseIf cTipo == 'N'
-			cTipo	:= 'Num'
-		ElseIf cTipo == 'F'
-			cTipo	:= 'Float'
-		ElseIf cTipo == 'D'
-			cTipo	:= 'Data'
-		ElseIf cTipo == 'L'
-			cTipo	:= 'Log'
-		ElseIf cTipo == 'B'
-			cTipo	:= 'Bloc'
-		ElseIf cTipo == 'O'
-			cTipo	:= 'Obj'
-		ElseIf cTipo == 'J'
-			cTipo	:= 'Json'
-		ElseIf cTipo == '*'
-			cTipo	:= 'Var'
-		Else
-			cTipo	:= cTipo+' - '+'Desconhecido'
-		EndIf
-
-		If cObrig == 'R' //Obrigatorio
-			cTipo	:= '<'+cTipo+'>'
-		ElseIf cObrig == 'O' //Opcional
-			cTipo	:= '['+cTipo+']'
-		Else
-			cTipo	:= cTipo+'[des]'
-		EndIf
+		Do Case
+			Case cTipo == 'C'	;	cTipo	:= 'Char'
+			Case cTipo == 'A'	;	cTipo	:= 'Arr'
+			Case cTipo == 'N'	;	cTipo	:= 'Num'
+			Case cTipo == 'F'	;	cTipo	:= 'Float'
+			Case cTipo == 'D'	;	cTipo	:= 'Data'
+			Case cTipo == 'L'	;	cTipo	:= 'Log'
+			Case cTipo == 'B'	;	cTipo	:= 'Bloc'
+			Case cTipo == 'O'	;	cTipo	:= 'Obj'
+			Case cTipo == 'J'	;	cTipo	:= 'Json'
+			Case cTipo == '*'	;	cTipo	:= 'Var'
+			Otherwise			;	cTipo	+= ' - '+'Desconhecido'
+		EndCase
+		Do Case
+			Case cObrig == 'R' 	;	cTipo	:= '<'+cTipo+'>'		//-- Obrigatório
+			Case cObrig == 'O' 	;	cTipo	:= '['+cTipo+']'		//-- Opcional
+			Otherwise			;	cTipo	:= cTipo+'[des]'
+		EndCase
 
 		cRet	:= U_CXConcTxt(cRet,cTipo,',')
 	Next
