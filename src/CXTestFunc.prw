@@ -2,7 +2,6 @@
 #INCLUDE "SHELL.CH"
 #INCLUDE "Protheus.ch"
 #INCLUDE "TBICONN.CH"
-#include 'FWCommand.CH'
 #Include "ParmType.ch"
 #Include "CXInclude.ch"
 
