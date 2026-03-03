@@ -1,5 +1,5 @@
 //-------------------------------------------------------------------------------------------------
-/*/{Protheus.doc} CXInclude2.ch  v1.17 (16/02/2026)
+/*/{Protheus.doc} CXInclude2.ch  v1.18 (03/03/2026)
 @description	Conjunto de comanandos básicos para auxiliar no desenvolvimento de fontes
 @autor			Cirilo Rocha
 @since			07/01/2026
@@ -72,14 +72,14 @@
 //-- Facilitadores para uso de NameSpaces!
 #IFDEF _NAMESPACE_
 	#Define _CNAMESPACE_	\'_NAMESPACE_.\'								//-- PARA USO EM CHAMADAS STRING
-	#Define _CNS_LOAD_		\'_NAMESPACE_\'+'.QUALQUERCOISA'				//-- NÃO ENTENDO PORQUE PRECISA TER ALGUM SUFIXO PARA FUNCIONAR!!!
+	#Define _CNS_LOAD_		\'_NAMESPACE_.QUALQUERCOISA\'					//-- NÃO ENTENDO PORQUE PRECISA TER ALGUM SUFIXO PARA FUNCIONAR!!!
 	NAMESPACE	_NAMESPACE_
 #ENDIF
 
 //-- Facilitadores para uso de NameSpaces!
 #IFDEF _USE_NAMESPACE_
 	#Define _CUSE_NAMESPACE_	\'_USE_NAMESPACE_.\'						//-- PARA USO EM CHAMADAS STRING
-	#Define _CUNS_LOAD_			\'_USE_NAMESPACE_\'+'.QUALQUERCOISA'		//-- NÃO ENTENDO PORQUE PRECISA TER ALGUM SUFIXO PARA FUNCIONAR!!!
+	#Define _CUNS_LOAD_			\'_USE_NAMESPACE_.QUALQUERCOISA\'			//-- NÃO ENTENDO PORQUE PRECISA TER ALGUM SUFIXO PARA FUNCIONAR!!!
 	USING NAMESPACE	_USE_NAMESPACE_
 #ENDIF
 
