@@ -1,5 +1,5 @@
 //-------------------------------------------------------------------------------------------------
-/*/{Protheus.doc} CXInclude2.ch  v1.18 (03/03/2026)
+/*/{Protheus.doc} CXInclude2.ch  v1.19 (29/03/2026)
 @description	Conjunto de comanandos básicos para auxiliar no desenvolvimento de fontes
 @autor			Cirilo Rocha
 @since			07/01/2026
@@ -51,6 +51,13 @@
 #Define nX3_TAM1			1
 #Define nX3_DEC2			2
 #Define nX3_TIP3			3
+
+
+//-- Posições do retorno da função FwGetSX5
+Static _nX5_FILIAL1			1
+Static _nX5_TABELA2			2
+Static _nX5_CHAVE3			3
+Static _nX5_DESCRI4			4
 
 
 #Define _CR_		Chr(13)
