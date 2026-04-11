@@ -1,5 +1,5 @@
 //-------------------------------------------------------------------------------------------------
-/*/{Protheus.doc} CXInclude2.ch  v1.20 (31/03/2026)
+/*/{Protheus.doc} CXInclude2.ch  v1.21 (08/04/2026)
 @description	Conjunto de comanandos básicos para auxiliar no desenvolvimento de fontes
 @autor			Cirilo Rocha
 @since			07/01/2026
@@ -20,10 +20,12 @@
 #Define _LINHA_			_fLINHA_(0)
 #Define _MsgLinha_		_fMsgLinha_(0)
 
+
 #Define _LINOK_				'S'+_LINHA_
 #Define _LINERRO_			'E'+_LINHA_
 #Define _LINALERT_			'A'+_LINHA_
 #Define _LININFO_			'I'+_LINHA_
+
 
 //-- Pseudo-funções para obtenção de nome do programa e linha atual com parâmetro de linha
 #xTranslate _fLINOK_(<nL>)		=>	'S'+_fLINHA_(<nL>)
@@ -31,29 +33,41 @@
 #xTranslate _fLINALERT_(<nL>)	=>	'A'+_fLINHA_(<nL>)
 #xTranslate _fLININFO_(<nL>)	=>	'I'+_fLINHA_(<nL>)
 
+
 //-- Pseudo-funções para obtenção de nome do programa e linha atual
 #xTranslate _fNomeProg_(<nL>)	=>	RetFileName(ProcSource(<nL>))
 #xTranslate _fNomeProg2_(<nL>)	=>	SubStr(_fNomeProg_(<nL>),Rat('.',_fNomeProg_(<nL>))+1)
 
+
 #xTranslate _fLINHA_(<nL>)		=>	StrZero(ProcLine(<nL>),5)
 #xTranslate _fMsgLinha_(<nL>)	=>	_fNomeProg2_(<nL>)+'('+_fLINHA_(<nL>)+')'
 
+
 #Define _MgsMainWind_	oMainWnd:cTitle(Left(oMainWnd:cTitle,IIF('['$oMainWnd:cTitle,At('[',oMainWnd:cTitle)-1,99))+' ['+_NomeProg2_+'_v'+_cVersao+' | '+_cDtVersao+']')		//-- Mostra versão no título da janela
 
-//-- Posições dbStruct
+
+//-- Posições dbStruct()
 #Define _nST_CPO1			1
 #Define _nST_TIP2			2
 #Define _nST_TAM3			3
 #Define _nST_DEC4			4
 
 
-//-- Posições FwTamSX3
-#Define nX3_TAM1			1
-#Define nX3_DEC2			2
-#Define nX3_TIP3			3
+//-- Posições FwTamSX3(cCpo)
+#Define _nX3_TAM1			1
+#Define _nX3_DEC2			2
+#Define _nX3_TIP3			3
 
 
-//-- Posições do retorno da função FwGetSX5
+//-- Posições FwSx3Util():GetFieldStruct(cCpo) e FwSx3Util():GetListFieldsStruct(cAlias , lVirtual , lObrigat)
+#Define _nX3_NOME1			1
+#Define _nX3_TIPO2			2
+#Define _nX3_TAMA3			3
+#Define _nX3_DECI4			4
+#Define _nX3_PICT5			5
+
+
+//-- Posições do retorno da função FwGetSX5(cTable,cChave,[cIdiom])
 #Define _nX5_FILIAL1		1
 #Define _nX5_TABELA2		2
 #Define _nX5_CHAVE3			3
@@ -74,7 +88,9 @@
 					.Or.	(Type('__cInterNet') == 'C' .And. __cInterNet == 'AUTOMATICO') ;	//-- Rotina automática
 					)
 
+
 #define _TamX3_CAMPO	10
+
 
 //-- Facilitadores para uso de NameSpaces!
 #IFDEF _NAMESPACE_
@@ -83,6 +99,7 @@
 	NAMESPACE	_NAMESPACE_
 #ENDIF
 
+
 //-- Facilitadores para uso de NameSpaces!
 #IFDEF _USE_NAMESPACE_
 	#Define _CUSE_NAMESPACE_	\'_USE_NAMESPACE_.\'						//-- PARA USO EM CHAMADAS STRING
@@ -90,17 +107,21 @@
 	USING NAMESPACE	_USE_NAMESPACE_
 #ENDIF
 
+
 //-- Parâmetros usados em MVC
 #Define nTP_MODEL	1
 #Define nTP_VIEW	2
+
 
 #Define nPE_MVC_MODEL		1
 #Define nPE_MVC_IDPONTO		2
 #Define nPE_MVC_IDMODEL		3
 #Define nPE_MVC_LINHA		4
 
+
 #Define MODEL_OPERATION_PRINT	8
 #Define MODEL_OPERATION_COPY	9
+
 
 //Parâmetros obrigatórios
 #xCommand PARAMOBR [ <param> VAR ] <varname> ;
@@ -128,6 +149,7 @@
 #xTranslate _CXCplCpoEsq(<cConteudo>,<cCampo>)	=> ;
 	_CXCplCpoEsq(<cConteudo>,<cCampo>,'0')
 
+
 #xTranslate _CXCplCpoEsq(<cConteudo>,<cCampo>,<cChar>)	=> ;
 	Replicate(<cChar>,FWTamSX3(<cCampo>)\[1\]-Len(AllTrim(<cConteudo>)))+AllTrim(<cConteudo>)
 
@@ -135,6 +157,7 @@
 //-- Pseudo-Função para completar com espaços a esquerda, sem truncar o conteúdo
 #xTranslate _CXCplCpoDir(<cConteudo>,<cCampo>)	=> ;
 	_CXCplCpoDir(<cConteudo>,<cCampo>,Space(1))
+
 
 #xTranslate _CXCplCpoDir(<cConteudo>,<cCampo>,<cChar>)	=> ;
 	AllTrim(<cConteudo>)+Replicate(<cChar>,FWTamSX3(<cCampo>)\[1\]-Len(AllTrim(<cConteudo>)))
@@ -156,8 +179,10 @@
 #xTranslate _CXTransf(<xCont>,<cCampo>) => ;
 	_CXTrf(<xCont>,<cCampo>)
 
+
 #xTranslate _CXTrf(<xCont>,<cCampo>) => ;
-	Transform(<xCont>,FwGetSx3Cache(<cCampo>,'X3_PICTURE'))
+	Trans(<xCont>,FwGetSx3Cache(<cCampo>,'X3_PICTURE'))
+
 
 #xTranslate _CXaDel(<aDados>,<nPos>) => ;
 	aDel(@<aDados>,<nPos>);;
@@ -168,10 +193,12 @@
 	aSize(@<aDados>,len(<aDados>)+1);;
 	aIns(@<aDados>,<nPos>)
 
+
 #xTranslate _CxAIns(<aDados>,<nPos>,<xValor>) => ;
 	aSize(@<aDados>,len(<aDados>)+1);;
 	aIns(@<aDados>,<nPos>);;
 	<aDados>\[<nPos>\]	:= <xValor>
+
 
 #xTranslate _CxFieldGet(<cCampo>) => ;
 	FieldGet(FieldPos(<cCampo>))
@@ -204,6 +231,7 @@
 	<oRpt>:Line(<nBottom>	,<nLeft>	,<nBottom>	,<nRight>	,,<cPixel>)	;;
 	<oRpt>:Line(<nTop>		,<nRight>	,<nBottom>	,<nRight>	,,<cPixel>)	;;
 
+
 //-- Pseudo-Função para Impressão de um box preenchido com uma cor/brush
 #xTranslate _CXImpBoxFill(<oRpt>,<nTop>,<nLeft>,<nBottom>,<nRight>,<oBrush>[,<cPixel>])	=> ;
 	<oRpt>:FillRect({<nTop>,<nLeft>,<nBottom>,<nRight>},oBrush);;
@@ -219,9 +247,9 @@
 
 
 //-- Contagem de registro de tabela temporária, LastRec retorna recno, se apagar registros a contagem fica errada
-#xTranslate _CXTabCount(<cNmTabTmp>[,<aBindParam>]) => ;
-	MpSysExecScalar("SELECT Count(*) QTDREG FROM "+<cNmTabTmp>+" ",'QTDREG',<aBindParam>)
-
+//--- usar oTabTmp:GetTableNameForQuery() para obter o nome da tabela
+#xTranslate _CXTabCount(<cNmTabTmp>) => ;
+	MpSysExecScalar("SELECT Count(*) QTDREG FROM "+<cNmTabTmp>+" ",'QTDREG')
 
 
 #xTranslate AnoMes(<dDate>)				=> Left(DtoS(<dDate>),6)	//-- Otimização
@@ -260,8 +288,10 @@
 
 #Define _nSteps		200
 
+
 #xTranslate _InicRegua() => ;
 	SetPrvt('_nPasso,_nCont,_nQtdReg')	
+
 
 #xTranslate __ProcRegua(<nQtRg>,<cFunc>) => ;
 	_nCont	:= 0;;
@@ -269,6 +299,7 @@
 	_nPasso	:= Ceiling(_nQtdReg/_nSteps);;
 	<cFunc>(Ceiling(_nQtdReg/_nPasso));;
 	ProcessMessages()
+
 
 #xTranslate __IncProc(<cTxtProc>,<cFunc>) => ;
 	If (_nCont++ % _nPasso) == 0 ;;
@@ -278,14 +309,18 @@
 		ProcessMessages();;
 	EndIf
 
+
 #xTranslate _ProcRegua(<nQtRg>) => ;
 	__ProcRegua(<nQtRg>,ProcRegua)
+
 
 #xTranslate _IncProc(<cTxtProc>) => ;
 	__IncProc(<cTxtProc>,IncProc)
 
+
 #xTranslate _SetRegua(<nQtRg>) => ;
 	__ProcRegua(<nQtRg>,SetRegua)
+
 
 #xTranslate _IncRegua() => ;
 	If (_nCont++ % _nPasso) == 0 ;;
@@ -352,6 +387,7 @@
 //-- Trocar a funcao Separa() padrao pela função de baixo nível StrTokArr2() se comporta examente como a função separa
 #xTranslate Separa(<cTexto>) => ;
 	StrTokArr2(<cTexto>,',',.F.)
+
 
 #xTranslate Separa(<cTexto>,<cSeparador>[,<lPodenulo>]) => ;
 	StrTokArr2(<cTexto>,<cSeparador>,<lPodenulo>)
