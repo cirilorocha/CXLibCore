@@ -1,8 +1,9 @@
 //-------------------------------------------------------------------------------------------------
-/*/{Protheus.doc} CXInclude2.ch  v1.21 (08/04/2026)
+/*/{Protheus.doc} CXInclude2.ch  v1.22 (19/04/2026)
 @description	Conjunto de comanandos básicos para auxiliar no desenvolvimento de fontes
 @autor			Cirilo Rocha
 @since			07/01/2026
+@obs			Feito outro include para ficar independente das Libs CX
 -------------------------------------------------------------------------------------------------*/
 
 #Include 'ParmTypeCH.ch'
@@ -87,6 +88,11 @@
 					.Or.	GetRemoteType() == NO_REMOTE 	;	//-- Se SmartClient (-1)
 					.Or.	(Type('__cInterNet') == 'C' .And. __cInterNet == 'AUTOMATICO') ;	//-- Rotina automática
 					)
+
+
+#Define AMBIENTE_CARREGADO	(	Type('cEmpAnt') == 'C' .And. ;
+								Type('cFilAnt') == 'C' .And. ;
+								Select('SX2') > 0 )
 
 
 #define _TamX3_CAMPO	10
@@ -378,11 +384,35 @@
 
 #xTranslate RetSqlName		=> FWSX2Util():GetFile
 
+#xTranslate X2Nome			=> FwSX2Util():GetX2Name
 #xTranslate FwX2Nome		=> FwSX2Util():GetX2Name
 
 #xTranslate NoAcento		=> FwNoAccent
 #xTranslate FwNoAcento		=> FwNoAccent
 #xTranslate MsDocument		=> MpDocument
+
+#xTranslate GetArea			=> FwGetArea
+#xTranslate RestArea		=> FwRestArea
+
+#xTranslate TamSX3			=> FwTamSX3
+#xTranslate	NoAcento		=> FwNoAccent
+#xTranslate	FwNoAcento		=> FwNoAccent
+
+#xTranslate	MsDocument		=> MpDocument
+#xTranslate	MaBuildKey 		=> MpBuildKey
+#xTranslate	MsDocGrv 		=> MPDocGrv
+#xTranslate	MsDocLOK 		=> MPDocLOK
+#xTranslate	MsFlPreview 	=> MPFlPreview
+#xTranslate	MsDocRmvBar 	=> MpDocRmvBar
+#xTranslate	MsRetPath 		=> MpRetPath
+#xTranslate	MsDocPath 		=> MpDocPath
+#xTranslate	MsRelation 		=> MpRelation
+#xTranslate	MsDocOpen 		=> MPDocOpen
+#xTranslate	MsDocCall 		=> MPDocCall
+#xTranslate	MsDocArray 		=> MPDocArray
+#xTranslate	MsDocExclui 	=> MPDocExclui
+#xTranslate	MsDocLoclz 		=> MpDocLoclz
+#xTranslate	MsDocView 		=> MpDocView
 
 //-- Trocar a funcao Separa() padrao pela função de baixo nível StrTokArr2() se comporta examente como a função separa
 #xTranslate Separa(<cTexto>) => ;
