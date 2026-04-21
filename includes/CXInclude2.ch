@@ -1,5 +1,5 @@
 //-------------------------------------------------------------------------------------------------
-/*/{Protheus.doc} CXInclude2.ch  v1.22 (19/04/2026)
+/*/{Protheus.doc} CXInclude2.ch  v1.23 (21/04/2026)
 @description	Conjunto de comanandos básicos para auxiliar no desenvolvimento de fontes
 @autor			Cirilo Rocha
 @since			07/01/2026
@@ -73,6 +73,20 @@
 #Define _nX5_TABELA2		2
 #Define _nX5_CHAVE3			3
 #Define _nX5_DESCRI4		4
+
+
+//-- Retornos da função Directory (https://tdn.totvs.com/display/tec/Directory)
+#Define _nDIR_ARQ_NOME1		1
+#Define _nDIR_ARQ_TAM2		2
+#Define _nDIR_ARQ_DATA3		3
+#Define _nDIR_ARQ_HORA4		4
+#Define _nDIR_ARQ_TIPO4		5
+
+
+//-- Ordenação da função Directory
+#Define _nDIR_ORD_NOME1		1
+#Define _nDIR_ORD_DATA2		2
+#Define _nDIR_ORD_TAM3		3
 
 
 #Define _CR_		Chr(13)
