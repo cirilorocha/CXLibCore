@@ -12,7 +12,7 @@
 //##|   DATA   |Programador| Manutenção efetuada                            |##
 //##+----------+-----------+------------------------------------------------+##
 //##| 01/03/23 | Cirilo R. | Pequena revisão no fonte                       |##
-//##|          |           |                                                |##
+//##| 18/05/26 | Cirilo R. | Melhoria para tratar Alfanumérico              |##
 //##|          |           |                                                |##
 //##+----------+-----------+------------------------------------------------+##
 //#############################################################################
@@ -26,63 +26,53 @@
 //  - Se nao houver subtracao, entao o resto 11 nunca vai existir, e havera apenas   //
 //    o resto 10 que precisara ser tratado                                           //
 //-----------------------------------------------------------------------------------//
-User Function CXMod11(	cCodigo		,;
-						nPesoIni	,;	//Peso Inicio (esquerda <- direita) (def 2)
-						nPesoFim	,;	//Peso Final (esquerda <- direita) (def 9)
-						cResto10	,; 	//Resto 10, Se lDif11 entao entenda resto 1 (def 1)
-						cResto11	,; 	//Resto 11 (nao existe se !lDif11), Se lDif1l entao entenda resto 0 (def 1)
-						cRestoZero	,; 	//Resto  0, So existe se nao lDif11 resto 11 (def 0)
-						lDif11		);  //Se deve ou nao subtrair o resto da divisao por 11 (def .T.)
-							AS Character
+User Function CXMod11(	cCodigo		; //01 
+					,	nPesoIni	; //02 Peso Inicio (esquerda <- direita) (def 2)
+					,	nPesoFim	; //03 Peso Final (esquerda <- direita) (def 9)
+					,	cResto10	; //04 Resto 10, Se lDif11 entao entenda resto 1 (def 1)
+					,	cResto11	; //05 Resto 11 (nao existe se !lDif11), Se lDif1l entao entenda resto 0 (def 1)
+					,	cRestoZero	; //06 Resto  0, So existe se nao lDif11 resto 11 (def 0)
+					,	lDif11		; //07 Se deve ou nao subtrair o resto da divisao por 11 (def .T.)
+					)								AS Character
 	
-	//Declaracao de variaveis----------------------------------------------------------------------
-	Local cDigito		AS Character
-	Local nPeso			AS Numeric
-	Local nResto		AS Numeric
-	Local nSoma			AS Numeric
-	Local nJ			AS Numeric
+	//-- Declaração de Variáveis ----------------------------------------------
+	Local cDigito									AS Character
+	Local nPeso										AS Numeric
+	Local nResto									AS Numeric
+	Local nSoma		:= 0							AS Numeric
+	Local nJ										AS Numeric
 
-	//Parametros da rotina-------------------------------------------------------------------------
-	ParamType 0		VAR cCodigo			AS Character
-	ParamType 1		VAR nPesoIni		AS Numeric				Optional Default 2
-	ParamType 2		VAR nPesoFim		AS Numeric				Optional Default 9
-	ParamType 3		VAR cResto10		AS Character			Optional Default '1'
-	ParamType 4		VAR cResto11		AS Character			Optional Default '1'
-	ParamType 5		VAR cRestoZero		AS Character			Optional Default '0'
-	ParamType 6		VAR lDif11			AS Logical				Optional Default .T.
+	//-- Parâmetros da Rotina -------------------------------------------------
+	ParamObg 0		VAR cCodigo
+	Default nPesoIni	:= 2
+	Default nPesoFim	:= 9
+	Default cResto10	:= '1'
+	Default cResto11	:= '1'
+	Default cRestoZero	:= '0'
+	Default lDif11		:= .T.
 
-	//---------------------------------------------------------------------------------------------
-	nSoma	:= 0
+	//-------------------------------------------------------------------------
 	nPeso	:= nPesoIni
 	For nJ := Len(cCodigo) To 1 Step -1
-		nSoma  += Val(SubStr(cCodigo,nJ,1))*nPeso
-
-		If nPeso == nPesoFim
-			nPeso := nPesoIni
-		Else
-			If nPesoFim > nPesoIni
-				nPeso ++
-			Else
-				nPeso --
-			EndIf
-		EndIf
-
+		//-- O Asc() retorna o valor da tabela ASCII, subtraindo por 48, converte o caracter para 
+		//	número, feito assim para tratar os novos campoas alfanumericos
+		nSoma  += ( Asc( SubStr(cCodigo,nJ,1) ) - 48 ) *nPeso
+		
+		Do Case
+			Case nPeso == nPesoFim		; nPeso := nPesoIni
+			Case nPesoFim > nPesoIni	; nPeso ++
+			Otherwise					; nPeso --
+		EndCase
 	Next nJ
 
 	nResto	:=	( nSoma % 11 )
+	If lDif11	;	nResto	:= ( 11 - nResto )		;	EndIf
 
-	If lDif11
-		nResto	:= 11 - nResto
-	EndIf
-
-	If nResto == 0
-		cDigito	:=	cRestoZero
-	ElseIf nResto == 10
-		cDigito	:=	cResto10
-	ElseIf nResto == 11
-		cDigito	:=	cResto11
-	Else
-		cDigito	:=	Str(nResto,1)
-	EndIf
+	Do Case
+		Case nResto == 0	; cDigito	:=	cRestoZero
+		Case nResto == 10	; cDigito	:=	cResto10
+		Case nResto == 11	; cDigito	:=	cResto11
+		Otherwise			; cDigito	:=	Str(nResto,1)
+	EndCase
 
 Return(cDigito)
