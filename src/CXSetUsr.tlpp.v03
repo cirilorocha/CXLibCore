@@ -1,8 +1,7 @@
-#INCLUDE 'Tlpp-Core.th'
-#INCLUDE 'Protheus.ch'
-#INCLUDE 'RWMake.ch'
-#Include 'ParmType.ch'
-#INCLUDE 'CXInclude.ch'
+#INCLUDE "Protheus.ch"
+#INCLUDE "RWMake.ch"
+#Include "ParmType.ch"
+#INCLUDE "CXInclude.ch"
 
 //#############################################################################
 //##+----------+----------+-------+--------------------+------+-------------+##
@@ -17,24 +16,27 @@
 //##| 23/10/19 | Cirilo R.| Adicionado tratamento para execução via fonte   |##
 //##| 22/03/22 | Cirilo R.| Pequena revisão no fonte                        |##
 //##| 15/03/23 | Cirilo R.| Convertido o fonte para usar ParamBox           |##
-//##| 26/05/26 | Cirilo R.| Revisão para a Release 2510                     |##
+//##|          |          |                                                 |##
 //##|          |          |                                                 |##
 //##+----------+----------+-------------------------------------------------+##
 //#############################################################################
-User Function CXSetUsr(	cCodUsr	AS Character;	//01 cCodUsr
-					,	lMsg	AS Logical	;	//02 lMsg (def !Auto)
-					)								AS Logical
+User Function CXSetUsr(	cCodUsr	,;	//01 cCodUsr
+						lMsg	);	//02 lMsg (def !Auto)
+							AS Logical
 	
-	//-- Declaração de Variáveis ----------------------------------------------
-	Local aParam									AS Array
-	Local aParamBox									AS Array
-	Local cUsrPsw									AS Character
-	Local nOrdem									AS Numeric
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aParam			AS Array
+	Local aParamBox			AS Array
+	Local cUsrPsw			AS Character
+	Local nOrdem			AS Numeric
 
-	//-- Parâmetros da Rotina -------------------------------------------------
-	Default lMsg	:= ( .Not. U_CXRotAuto() )
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cCodUsr			AS Character			Optional Default NIL
+	ParamType 1		VAR lMsg			AS Logical				Optional Default .Not. U_CXRotAuto()
 
-	//-- Variáveis compartilhadas de mensagens de erro ------------------------
+	//Inicializa Variaveis-------------------------------------------------------------------------
+
+	//Variaveis compartilhadas de mensagens de erro
 	cMsgErr		:= IIf(Type('cMsgErr')<>'C','',cMsgErr)
 	cCodErr		:= IIf(Type('cCodErr')<>'C','',cCodErr)
 	cSoluc		:= IIf(Type('cSoluc')<>'C','',cSoluc)
@@ -62,15 +64,12 @@ User Function CXSetUsr(	cCodUsr	AS Character;	//01 cCodUsr
 		Return .F.
 	EndIf
 	
-	//-- Salva dados atuais (tabela PSW)
+	//Salva dados atuais
 	cUsrPsw	:= PswID()
 	nOrdem	:= PswOrder(1)	//Ordem por codigo
 	If PswSeek(cCodUsr)
-		If .Not. ( cCodUsr == __cUserID )
-			_SetOwnerPrvt('__cUserID', '' ) //-- Cria variáveis como privadas um nível acima, by pass na validação da release 2510
-			__cUserID	:= cCodUsr
-			cUserName	:= UsrRetName(__cUserID)	//Atualizo o nome de usuario
-		EndIf
+		__cUserID	:= cCodUsr
+		cUserName	:= UsrRetName(__cUserID)	//Atualizo o nome de usuario
 	Else
 		PswSeek(cUsrPsw)		//Restauro usuario PSW
 		PswOrder(nOrdem)		//Restaura ordem
