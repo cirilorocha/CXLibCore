@@ -1,6 +1,6 @@
-#INCLUDE "RWMake.ch"
-#INCLUDE "Totvs.ch"
-#INCLUDE 'tlpp-core.th'
+#INCLUDE 'Tlpp-Core.th'
+#INCLUDE 'RWMake.ch'
+#INCLUDE 'Totvs.ch'
 
 Static _cVersao		:= "1.05"						AS Character
 Static _cDtVersao	:= "09/11/2025"					AS Character

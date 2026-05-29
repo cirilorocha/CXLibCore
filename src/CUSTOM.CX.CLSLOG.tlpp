@@ -1,7 +1,7 @@
+#INCLUDE 'Tlpp-Core.th'
 #INCLUDE 'RWMake.ch'
 #INCLUDE 'Totvs.ch'
 #INCLUDE 'ParmType.ch'
-#INCLUDE 'tlpp-core.th'
 #INCLUDE 'FileIO.ch'
 
 Static _cVersao		:= "1.05"							AS Character
