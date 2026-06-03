@@ -303,9 +303,10 @@
 
 #Define _NomeProg_		RetFileName(ProcSource())
 #DEFINE _LINHA_			StrZero(ProcLine(),5)
-#Define _MsgLinha_		SubStr(_NomeProg_,Rat('.',_NomeProg_)+1)+'('+_LINHA_+')'
+#Define _NomeProg2_		SubStr(_NomeProg_,Rat('.',_NomeProg_)+1)
+#Define _MsgLinha_		_NomeProg2_+'('+_LINHA_+')'
 
-#Define _MostraVer_		_MgsMainWind_
+#Define _MostraVer_		oMainWnd:cTitle(Left(oMainWnd:cTitle,IIF('['$oMainWnd:cTitle,At('[',oMainWnd:cTitle)-1,99))+' ['+_NomeProg2_+'_v'+cVersao+' | '+cDtVersao+']')		//-- Mostra versão no título da janela (LEGADO)
 #Define _MgsMainWind_	oMainWnd:cTitle(Left(oMainWnd:cTitle,IIF('['$oMainWnd:cTitle,At('[',oMainWnd:cTitle)-1,99))+' ['+_NomeProg2_+'_v'+_cVersao+' | '+_cDtVersao+']')		//-- Mostra versão no título da janela
 
 //FUNÇÕES PARA USO COM A REGUA DE PROCESSAMENTO--------------------------------
