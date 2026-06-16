@@ -1,12 +1,12 @@
-#INCLUDE "Protheus.ch"
-#INCLUDE "RWMake.ch"
-#Include "ParmType.ch"
-#Include "dbInfo.ch"
-//#Include "MSObject.ch"
-#Include "tlpp-object.th"
-#include "SigaWF.CH"
-#Include "CXInclude.ch"
-#Include "FWGetTopInfo.ch"
+#include 'tlpp-core.th'
+#include 'totvs.ch'
+#include 'parmtype.ch'
+#include 'fwmvcdef.ch'
+
+#include 'dbinfo.ch'
+#include 'sigawf.ch'
+#include 'cxinclude.ch'
+#include 'fwgettopinfo.ch'
 
 //#############################################################################
 //##+----------+-------------+-------+-----------------+------+-------------+##
@@ -29,7 +29,7 @@
 //##| 16/12/21 | Cirilo R. | Tratamento quando o sistema está em TTSBreak   |##
 //##| 26/04/22 | Cirilo R. | Grande revisão no código para funcionar mesmo  |##
 //##|          |           |  dentro de transações                          |##
-//##|          |           |                                                |##
+//##| 13/06/26 | Cirilo R. | Correção de ErorLog                            |##
 //##|          |           |                                                |##
 //##|          |           |                                                |##
 //##+----------+-----------+------------------------------------------------+##
@@ -93,38 +93,40 @@ EndClass
 //##|          |           |                                                |##
 //##+----------+-----------+------------------------------------------------+##
 //#############################################################################
-Method New(	cNmProc		,;	//01 Nome do processo
-			cFuncao		,;	//02 Função responsavel (filtro) (def FunName())
-			cTabela		,;	//03 Tabela (filtro) (def '***')
-			nRecTab		,;	//04 Recno da tabela (filtro) (def -1)
-			cChvTab		,;	//05 Chave da tabela (filtro) (def '')
-			cMsg		,;	//06 Mensagem inicial (def '')
-			lContProc	,;	//07 Continua processamento? (def .F.)
-			lSucesso	;	//07 Se o processo já foi concluído com sucesso (def NIL)
+Method New(	cNmProc		AS Character;	//01 Nome do processo
+		,	cFuncao		AS Character;	//02 Função responsavel (filtro) (def FunName())
+		,	cTabela		AS Character;	//03 Tabela (filtro) (def '***')
+		,	nRecTab		AS Numeric	;	//04 Recno da tabela (filtro) (def -1)
+		,	cChvTab		AS Character;	//05 Chave da tabela (filtro) (def '')
+		,	cMsg		AS Character;	//06 Mensagem inicial (def '')
+		,	lContProc	AS Logical	;	//07 Continua processamento? (def .F.)
+		,	lSucesso	AS Logical	;	//07 Se o processo já foi concluído com sucesso (def NIL)
 						)	Class tCXLog
 
 	//Declaração de variaveis----------------------------------------------------------------------
-	Local cMsgAux		AS Character
-	Local cSucesso		AS Character
-	Local lInclui		AS Logical
-	Local lExistZSC		AS Logical
-	Local oArea         AS Object
-	Local cHoraFim		AS Character
-	Local dDataFim		AS Date
+	Local cMsgAux									AS Character
+	Local cSucesso									AS Character
+	Local lInclui									AS Logical
+	Local lExistZSC	:= .F.							AS Logical
+	Local oArea         							AS Object
+	Local cHoraFim									AS Character
+	Local dDataFim									AS Date
 
 	//Parametros da rotina-------------------------------------------------------------------------
 	ParamType 0		VAR cNmProc				AS Character
-	ParamType 1		VAR cFuncao				AS Character			Optional Default Alltrim(FunName())
-	ParamType 2		VAR cTabela				AS Character			Optional Default '***'
-	ParamType 3		VAR nRecTab				AS Numeric				Optional Default -1
-	ParamType 4		VAR cChvTab				AS Character			Optional Default ''
-	ParamType 5		VAR cMsg				AS Character			Optional Default ''
-	ParamType 6		VAR lContProc			AS Logical				Optional Default .F.
-	ParamType 7		VAR lSucesso			AS Logical				Optional Default NIL
+	Default cFuncao		:= Alltrim(FunName())
+	Default cTabela		:= '***'
+	Default nRecTab		:= -1
+	Default cChvTab		:= ''
+	Default cMsg		:= ''
+	Default lContProc	:= .F.
 
 	//Inicializa variaveis internas--------------------------------------------
-	oArea			:= tCtrlAlias():GetArea()
-	lExistZSC		:= AbreTab(@::cTabZSC) //TCCanOpen(FWSX2Util():GetFile('ZSC')) //Verifica se a tabela de log existe
+	If AMBIENTE_CARREGADO
+		oArea		:= tCtrlAlias():GetArea()
+		lExistZSC	:= AbreTab(@::cTabZSC) //TCCanOpen(FWSX2Util():GetFile('ZSC')) //Verifica se a tabela de log existe
+		::cFilZSC	:= FWxFilial('ZSC')
+	EndIf
 	cHoraFim		:= ''
 	dDataFim		:= CtoD('')
 
@@ -153,21 +155,6 @@ Method New(	cNmProc		,;	//01 Nome do processo
 	::lContProc	:= lContProc
 	::dDataIni	:= Date()
 	::cHoraIni	:= Left(Time(),5)
-	::cFilZSC	:= FWxFilial('ZSC')
-
-	//Controle de erros
-//	If Type('cFilAnt') <> 'C'
-//		cFilAnt	:= 'XX'
-//	EndIf
-//	If Type('cEmpAnt') <> 'C'
-//		cEmpAnt	:= 'XX'
-//	EndIf
-//	If Type('__cUserID') <> 'C'
-//		__cUserID	:= 'XXXXXX'
-//	EndIf
-//	If Type('cUserName') <> 'C'
-//		cUserName	:= 'ERRO USR'
-//	EndIf
 
 	If lExistZSC
 //		nTamFunc	:= FwTamSX3('ZSC_FUNCAO')[1]
@@ -250,9 +237,10 @@ Method New(	cNmProc		,;	//01 Nome do processo
 	cMsgAux	:= ''
 
 	cSucesso	:= ''
-	//Adiciona timbre de hora do evento quando for histórico
-	If 	.Not. lInclui .And. ;
-		.Not. Empty(ZSC->ZSC_MSG)
+	//-- Adiciona timbre de hora do evento quando for histórico
+	If 	 .Not. lInclui 				;
+	.And.lExistZSC					;
+	.And..Not. Empty(ZSC->ZSC_MSG)	;
 
 		cMsg	:= 	eVal(::bTimbreHR)+CRLF+;
 					cMsg
@@ -273,14 +261,17 @@ Method New(	cNmProc		,;	//01 Nome do processo
 	EndIf
 	::cLogProc	:= 	::cPreLog+cMsgAux
 
-	::GravaDados(	cSucesso	,;	//1
-					cMsg		,;	//2
-					dDataFim	,;	//3
-					cHoraFim	)	//4
+	::GravaDados(cSucesso	;	//1
+				,cMsg		;	//2
+				,dDataFim	;	//3
+				,cHoraFim	;	//4
+				)
 
-	oArea:RestArea()		//Restaura area
-	oArea:Destroy()
-	FWFreeVar(oArea)
+	If oArea <> NIL
+		oArea:RestArea()		//Restaura area
+		oArea:Destroy()
+		FWFreeVar(oArea)
+	EndIf
 
 Return Self
 
@@ -297,29 +288,30 @@ Return Self
 //##|          |           |                                                |##
 //##+----------+-----------+------------------------------------------------+##
 //#############################################################################
-Method GravaLog(nRecTab	,;	//01 Recno da tabela (filtro) (def -1)
-				cChvTab	,;	//02 Chave da tabela (filtro) (def '')
-				cMsg	,;	//03 Mensagem a ser gravada (def '')
-				lDtHr	,;	//04 Se adiciona o timbre de hora a mensagem (def .F.)
-				lSucesso;	//05 Se concluiu com sucesso a gravação
-						)	Class tCXLog
+Method GravaLog(nRecTab		AS Numeric	;	//01 Recno da tabela (filtro) (def -1)
+			,	cChvTab		AS Character;	//02 Chave da tabela (filtro) (def '')
+			,	cMsg		AS Character;	//03 Mensagem a ser gravada (def '')
+			,	lDtHr		AS Logical	;	//04 Se adiciona o timbre de hora a mensagem (def .F.)
+			,	lSucesso	AS Logical	;	//05 Se concluiu com sucesso a gravação
+			)	Class tCXLog
 
-	//Declaração de variaveis----------------------------------------------------------------------
+	//-- Declaração de Variáveis ----------------------------------------------
 	//Local lPos		AS Logical
 	Local oArea         AS Object
 	Local cMsgAux		AS Character
 	Local cMsgGrv		AS Character
 	Local cSucesso		AS Character
 
-	//Parametros da rotina-------------------------------------------------------------------------
-	ParamType 0		VAR nRecTab		  	  	AS Numeric			Optional Default -1
-	ParamType 1		VAR cChvTab		  	  	AS Character		Optional Default ''
-	ParamType 2		VAR cMsg		  	  	AS Character		Optional Default ''
-	ParamType 3		VAR lDtHr		  	  	AS Logical			Optional Default .F.
-	ParamType 4		VAR lSucesso	  	  	AS Logical			Optional Default NIL
+	//-- Parametros da rotina ------------------------------------------------
+	Default nRecTab		:= -1
+	Default cChvTab		:= ''
+	Default cMsg		:= ''
+	Default lDtHr		:= .F.
 
-	//---------------------------------------------------------------------------------------------
-	oArea		:=	tCtrlAlias():GetArea()
+	//------------------------------------------------------------------------
+	If AMBIENTE_CARREGADO
+		oArea		:=	tCtrlAlias():GetArea()
+	EndIf
 
 	If .Not. Empty(cMsg)
 		cMsg	:= ::ProcMsg(cMsg)
@@ -329,12 +321,8 @@ Method GravaLog(nRecTab	,;	//01 Recno da tabela (filtro) (def -1)
 		EndIf
 	EndIf
 
-	If nRecTab > 0
-		::nRecTab	:= nRecTab
-	EndIf
-	If .Not. Empty(cChvTab)
-		::cChvTab	:= cChvTab
-	EndIf
+	If nRecTab > 0				;	::nRecTab	:= nRecTab		;	EndIf
+	If .Not. Empty(cChvTab)		;	::cChvTab	:= cChvTab		;	EndIf
 
 	cSucesso	:= ''
 	cMsgAux		:= cMsg
@@ -393,26 +381,27 @@ Return
 //##|          |           |                                                |##
 //##+----------+-----------+------------------------------------------------+##
 //#############################################################################
-Method FimLog(	lSucesso,;	//01 Indica se a execução ja terminou com sucesso (def .F.)
-				nRecTab	,;	//02 Recno da tabela (filtro) (def -1)
-				cChvTab	,;	//03 Chave da tabela (filtro) (def '')
-				cMsg	,;	//04 Mensagem a ser gravada (def '')
-				lDtHr	;	//05 Se adiciona o timbre de hora a mensagem (def .F.)
-						)	Class tCXLog
+Method FimLog(	lSucesso	AS Logical	;	//01 Indica se a execução ja terminou com sucesso (def .F.)
+			,	nRecTab		AS Numeric	;	//02 Recno da tabela (filtro) (def -1)
+			,	cChvTab		AS Character;	//03 Chave da tabela (filtro) (def '')
+			,	cMsg		AS Character;	//04 Mensagem a ser gravada (def '')
+			,	lDtHr		AS Logical	;	//05 Se adiciona o timbre de hora a mensagem (def .F.)
+			)	Class tCXLog
 
-	//Parametros da rotina-------------------------------------------------------------------------
-	ParamType 0		VAR lSucesso	  	  		AS Logical				Optional Default .F.
-	ParamType 1		VAR nRecTab		  	  		AS Numeric				Optional Default -1
-	ParamType 2		VAR cChvTab		  	  		AS Character			Optional Default ''
-	ParamType 3		VAR cMsg		  	  		AS Character			Optional Default ''
-	ParamType 4		VAR lDtHr		  	  		AS Logical				Optional Default .F.
+	//-- Parametros da rotina ------------------------------------------------
+	Default lSucesso	:=  .F.
+	Default nRecTab		:=  -1
+	Default cChvTab		:=  ''
+	Default cMsg		:=  ''
+	Default lDtHr		:=  .F.
 
-	//---------------------------------------------------------------------------------------------
-	::GravaLog(	nRecTab	,;	//01 Recno da tabela (filtro) (def -1)
-				cChvTab	,;	//02 Chave da tabela (filtro) (def '')
-				@cMsg	,;	//03 Mensagem a ser gravada (def '')
-				lDtHr	,;	//04 Se adiciona o timbre de hora a mensagem (def .F.)
-				lSucesso)	//05 Se concluiu com sucesso a gravação
+	//-------------------------------------------------------------------------
+	::GravaLog(	nRecTab	;	//01 Recno da tabela (filtro) (def -1)
+			,	cChvTab	;	//02 Chave da tabela (filtro) (def '')
+			,	@cMsg	;	//03 Mensagem a ser gravada (def '')
+			,	lDtHr	;	//04 Se adiciona o timbre de hora a mensagem (def .F.)
+			,	lSucesso;	//05 Se concluiu com sucesso a gravação
+			)
 
 Return
 
@@ -429,73 +418,75 @@ Return
 //##|          |           |                                                |##
 //##+----------+-----------+------------------------------------------------+##
 //#############################################################################
-Method GravaDados(	cSucesso,;	//1
-					cMsg	,;	//2
-					dDataFim,;	//3
-					cHoraFim;	//4
-						)	Class tCXLog
+Method GravaDados(	cSucesso	AS Character;	//1
+				,	cMsg		AS Character;	//2
+				,	dDataFim	AS Date		;	//3
+				,	cHoraFim	AS Character;	//4
+				)	Class tCXLog
 
-	//Parametros da rotina-------------------------------------------------------------------------
-	ParamType 1		VAR cSucesso		AS Character			Optional Default ''
-	ParamType 2		VAR cMsg	  	  	AS Character			Optional Default ''
-	ParamType 3		VAR dDataFim  	  	AS Date					Optional Default Ctod('')
-	ParamType 4		VAR cHoraFim  	  	AS Character			Optional Default ''
+	//-- Parametros da rotina ------------------------------------------------
+	Default cSucesso	:= ''
+	Default cMsg		:= ''
+	Default dDataFim	:= Ctod('')
+	Default cHoraFim	:= ''
 	
 	//---------------------------------------------------------------------------------------------
 	//Se dentro de uma transação forço a gravação via Job para em casos de desarme não perca as informações
 	If 	InTransact() .Or. ;
 		FwInTTSBreak()
 
-		StartJob( 	"U_CXJobGrvLog" ,;
-					GetEnvServer() 	,;
-					.T. 			,;	//Aguarda término do job e retorna valor da função
-					cEmpAnt			,;	//01
-					cFilAnt			,;	//02
-					::cTabZSC		,;	//03
-					::cNomArq		,;	//04
-					::cLogProc		,;	//05
-					.F.				,;	//06 lMsg
-					::cIDZSC 		,;	//07
-					::aTopInfo		,;	//08
-					.T.				,;	//09
-					Seconds()		,;	//10
-					::cFilZSC		,;	//11 Dados ZSC a partir daqui
-					::cNmProc		,;	//12
-					::cUsrID		,;	//13
-					::cFuncao		,;	//14
-					::cTabela		,;	//15
-					::nRecTab		,;	//16
-					::cChvTab		,;	//17
-					cSucesso		,;	//18
-					cMsg			,;	//19
-					::dDataIni		,;	//20
-					::cHoraIni		,;	//21
-					dDataFim		,;	//22
-					cHoraFim		)	//23
+		StartJob( 	"U_CXJobGrvLog" ;
+				,	GetEnvServer() 	;
+				,	.T. 			;	//Aguarda término do job e retorna valor da função
+				,	cEmpAnt			;	//01
+				,	cFilAnt			;	//02
+				,	::cTabZSC		;	//03
+				,	::cNomArq		;	//04
+				,	::cLogProc		;	//05
+				,	.F.				;	//06 lMsg
+				,	::cIDZSC 		;	//07
+				,	::aTopInfo		;	//08
+				,	.T.				;	//09 lJob
+				,	Seconds()		;	//10
+				,	::cFilZSC		;	//11 Dados ZSC a partir daqui
+				,	::cNmProc		;	//12
+				,	::cUsrID		;	//13
+				,	::cFuncao		;	//14
+				,	::cTabela		;	//15
+				,	::nRecTab		;	//16
+				,	::cChvTab		;	//17
+				,	cSucesso		;	//18
+				,	cMsg			;	//19
+				,	::dDataIni		;	//20
+				,	::cHoraIni		;	//21
+				,	dDataFim		;	//22
+				,	cHoraFim		;	//23
+				)
 	Else
-		U_CXJobGrvLog(	cEmpAnt			,;	//01
-						cFilAnt			,;  //02
-						::cTabZSC		,;	//03
-						::cNomArq		,;	//04
-						::cLogProc		,;	//05
-						!::lJob			,;	//06 lMsg
-						::cIDZSC 		,;	//07
-						::aTopInfo		,;	//08
-						.F.				,;	//09
-						Seconds()		,;	//10
-						::cFilZSC		,;	//11 Dados ZSC a partir daqui
-						::cNmProc		,;	//12
-						::cUsrID		,;	//13
-						::cFuncao		,;	//14
-						::cTabela		,;	//15
-						::nRecTab		,;	//16
-						::cChvTab		,;	//17
-						cSucesso		,;	//18
-						cMsg			,;	//19
-						::dDataIni		,;	//20
-						::cHoraIni		,;	//21
-						dDataFim		,;	//22
-						cHoraFim		)	//23
+		U_CXJobGrvLog(	cEmpAnt			;	//01
+					,	cFilAnt			;	//02
+					,	::cTabZSC		;	//03
+					,	::cNomArq		;	//04
+					,	::cLogProc		;	//05
+					,	!::lJob			;	//06 lMsg
+					,	::cIDZSC 		;	//07
+					,	::aTopInfo		;	//08
+					,	.F.				;	//09 lJob
+					,	Seconds()		;	//10
+					,	::cFilZSC		;	//11 Dados ZSC a partir daqui
+					,	::cNmProc		;	//12
+					,	::cUsrID		;	//13
+					,	::cFuncao		;	//14
+					,	::cTabela		;	//15
+					,	::nRecTab		;	//16
+					,	::cChvTab		;	//17
+					,	cSucesso		;	//18
+					,	cMsg			;	//19
+					,	::dDataIni		;	//20
+					,	::cHoraIni		;	//21
+					,	dDataFim		;	//22
+					,	cHoraFim		;	//23
+					)
 	EndIf
 
 Return
@@ -536,16 +527,16 @@ Method GetNomeArq()	Class tCXLog
 	If Empty(::cNomArq)
 		//Controle de erros caso o ambiente não esteja carregado!
 		If Type('cFilAnt') <> 'C'
-			Private cFilAnt	:= 'XX'
+			_SetOwnerPrvt('cFilAnt', 'XX' ) //-- Cria variáveis como privadas um nível acima
 		EndIf
 		If Type('cEmpAnt') <> 'C'
-			Private cEmpAnt	:= 'XX'
+			_SetOwnerPrvt('cEmpAnt', 'XX' ) //-- Cria variáveis como privadas um nível acima
 		EndIf
 		If Type('__cUserID') <> 'C'
-			Private __cUserID	:= 'XXXXXX'
+			_SetOwnerPrvt('__cUserID', 'XXXXXX' ) //-- Cria variáveis como privadas um nível acima
 		EndIf
 		If Type('cUserName') <> 'C'
-			Private cUserName	:= 'ERRO USR'
+			_SetOwnerPrvt('cUserName', 'ERRO USR' ) //-- Cria variáveis como privadas um nível acima
 		EndIf
 
 		::cNomArq	:= 	U_CXPrcFileNm(Transform(DtoS(Date()),"@R 9999-99-99")+'_'+StrTran(Time(),':',';')+;
@@ -570,7 +561,7 @@ Return
 //##|          |           |                                                |##
 //##+----------+-----------+------------------------------------------------+##
 //#############################################################################
-Method ProcMsg(	cMsg	;	//01
+Method ProcMsg(	cMsg ;	//01
 						) Class tCXLog
 
 	//Parametros da rotina-------------------------------------------------------------------------
@@ -587,30 +578,30 @@ Return cMsg
 //#################################################################################################
 //#################################################################################################
 //#################################################################################################
-User Function CXJobGrvLog(	cEmp	,;	//01
-							cFil	,;	//02
-							cTabZSC	,;	//03
-							cNomArq	,;	//04
-							cLogProc,;	//05
-							lMsg	,;	//06
-							cIdUnic ,;	//07
-							aTopInfo,;	//08
-							lJob	,;	//09
-							nInicio	,;	//10
-							cFilZSC ,;	//11
-							cNmProc	,;	//12
-							cUsrID	,;	//13
-							cFuncao	,;	//14
-							cTabela	,;	//15
-							nRecTab	,;	//16
-							cChvTab	,;	//17
-							cSucesso,;	//18
-							cMsg	,;	//19
-							dDataIni,;	//20
-							cHoraIni,;	//21
-							dDataFim,;	//22
-							cHoraFim);	//23
-								AS Numeric
+User Function CXJobGrvLog(	cEmp		AS Character;	//01
+						,	cFil		AS Character;	//02
+						,	cTabZSC		AS Character;	//03
+						,	cNomArq		AS Character;	//04
+						,	cLogProc	AS Character;	//05
+						,	lMsg		AS Logical	;	//06
+						,	cIdUnic 	AS Character;	//07
+						,	aTopInfo	AS Array	;	//08
+						,	lJob		AS Logical	;	//09
+						,	nInicio		AS Numeric	;	//10
+						,	cFilZSC 	AS Character;	//11
+						,	cNmProc		AS Character;	//12
+						,	cUsrID		AS Character;	//13
+						,	cFuncao		AS Character;	//14
+						,	cTabela		AS Character;	//15
+						,	nRecTab		AS Numeric	;	//16
+						,	cChvTab		AS Character;	//17
+						,	cSucesso	AS Character;	//18
+						,	cMsg		AS Character;	//19
+						,	dDataIni	AS Date		;	//20
+						,	cHoraIni	AS Character;	//21
+						,	dDataFim	AS Date		;	//22
+						,	cHoraFim	AS Character;	//23
+						)							AS Numeric
 
 	//Declaracao de variaveis----------------------------------------------------------------------
 	Local nCont		:= 0			AS Integer
@@ -619,7 +610,7 @@ User Function CXJobGrvLog(	cEmp	,;	//01
 	//Parametros da rotina-------------------------------------------------------------------------
 	ParamType 0		VAR cEmp			AS Character
 	ParamType 1		VAR cFil			AS Character
-	
+
 	ParamType 2		VAR cTabZSC			AS Character
 	ParamType 3		VAR cNomArq			AS Character
 	ParamType 4		VAR cLogProc		AS Character
@@ -629,19 +620,19 @@ User Function CXJobGrvLog(	cEmp	,;	//01
 	ParamType 8		VAR lJob			AS Logical
 	ParamType 9		VAR nInicio			AS Numeric	
 	
-	ParamType 10	VAR cFilZSC 	  	AS Character			Optional Default NIL
+	Default cFilZSC		:= FwXFilial('ZSC')
 	ParamType 11	VAR cNmProc	 	  	AS Character
 	ParamType 12	VAR	cUsrID			AS Character
-	ParamType 13	VAR cFuncao	  	  	AS Character			Optional Default Alltrim(FunName())
-	ParamType 14	VAR cTabela	  	  	AS Character			Optional Default '***'
-	ParamType 15 	VAR nRecTab	  	  	AS Numeric				Optional Default -1
-	ParamType 16	VAR cChvTab	  	  	AS Character			Optional Default ''
-	ParamType 17	VAR cSucesso		AS Character			Optional Default ''
-	ParamType 18	VAR cMsg	  	  	AS Character			Optional Default ''
-	ParamType 19	VAR dDataIni  	  	AS Date					Optional Default Date()
-	ParamType 20	VAR cHoraIni  	  	AS Character			Optional Default Time()
-	ParamType 21	VAR dDataFim  	  	AS Date					Optional Default Ctod('')
-	ParamType 22	VAR cHoraFim  	  	AS Character			Optional Default ''
+	Default cFuncao		:= Alltrim(FunName())
+	Default cTabela		:= '***'
+	Default nRecTab		:= -1
+	Default cChvTab		:= ''
+	Default cSucesso	:= ''
+	Default cMsg		:= ''
+	Default dDataIni	:= Date()
+	Default cHoraIni	:= Time()
+	Default dDataFim	:= Ctod('')
+	Default cHoraFim	:= ''
 
 	//If .Not. AMBIENTE_CARREGADO		//Ambiente não carregado (JOB)
 	If lJob
@@ -654,7 +645,7 @@ User Function CXJobGrvLog(	cEmp	,;	//01
 		//  TO (2000ms), TALVEZ SEJA RESTRIÇÃO DO DBACCESS DA BASE DE TESTES                  //
 		/*####################################################################################*/
 
-		//Verifica se foi possível realizar a conexão com o banco do ERP para a tabela TAFST1
+		//Verifica se foi possível realizar a conexão com o banco do ERP
 		nHdlLink	:= TcLink( aTopInfo[nTI_DATABASE]+'/'+aTopInfo[nTI_NALIAS] ,aTopInfo[nTI_SERVER], aTopInfo[nTI_PORT] )
 		If nHdlLink >= 0
 			TCSetConn( nHdlLink )
@@ -669,17 +660,18 @@ User Function CXJobGrvLog(	cEmp	,;	//01
 			U_CXConOut('ERRO AO CONECTAR AO BD. CARREGANDO AMBIENTE COMPLETO...')
 
 			RpcSetType(WF_RPCSETTYPE)
-			RpcSetEnv(	cEmp			,;
-						cFil			,;
-						'Administrador'	,;
-						/*PassWord*/	,;
-						"FAT"			,;
-						'CXJobGrvLog'	,;
-						/*aTables*/		,;
-						/*lShowFinal*/	,;
-						/*lAbend*/		,;
-						.T. /*lOpenSX*/	,;
-						/*lConnect*/	)
+			RpcSetEnv(	cEmp			;
+					,	cFil			;
+					,	'Administrador'	;
+					,	/*PassWord*/	;
+					,	"FAT"			;
+					,	'CXJobGrvLog'	;
+					,	/*aTables*/		;
+					,	/*lShowFinal*/	;
+					,	/*lAbend*/		;
+					,	.T. /*lOpenSX*/	;
+					,	/*lConnect*/	;
+					)
 			
 			While .Not. AMBIENTE_CARREGADO
 			
@@ -702,9 +694,10 @@ User Function CXJobGrvLog(	cEmp	,;	//01
 	
 	//-----------------------------------------------------------------------------------------
 	If AbreTab(@cTabZSC)
-		lInclui	:=	.Not. PosTab(	cTabZSC	,;
-									cFilZSC	,;
-									cIdUnic	)
+		lInclui	:=	.Not. PosTab(cTabZSC;
+								,cFilZSC;
+								,cIdUnic;
+								)
 		RecLock('ZSC',lInclui)
 			ZSC->ZSC_FILIAL	:= cFilZSC
 			ZSC->ZSC_NMPROC	:= cNmProc
@@ -734,9 +727,10 @@ User Function CXJobGrvLog(	cEmp	,;	//01
 					'O log da operação será gravado em arquivo por segurança.',@cLogProc)
 
 		//Se não consegue abrir a tabela força a gravação pelo menos em um arquivo txt
-		If U_CXGravaLog(cNomArq	,;	//01
-						cLogProc,;	//02
-						lMsg	)	//03
+		If U_CXGravaLog(cNomArq	;	//01
+					,	cLogProc;	//02
+					,	lMsg	;	//03
+					)
 			Return 0
 		EndIf
 	EndIf
@@ -763,7 +757,7 @@ Return ZSC->(Recno())
 //##|          |           |                                                |##
 //##+----------+-----------+------------------------------------------------+##
 //#############################################################################
-Static Function GetIDZSC()
+Static Function GetIDZSC()			AS Character
 //Ordem reversa
 Return U_CXBase36(999999999999999-Val(DtoS(Date())+StrZero(Seconds()*100,7)),10)
 
@@ -781,17 +775,14 @@ Return U_CXBase36(999999999999999-Val(DtoS(Date())+StrZero(Seconds()*100,7)),10)
 //##|          |          |                                                 |##
 //##+----------+----------+-------------------------------------------------+##
 //#############################################################################
-Static Function AbreTab(cTabZSC);
+Static Function AbreTab(cTabZSC	AS Character);
 							AS Logical
 	
-	//Declaração de variaveis----------------------------------------------------------------------
+	//-- Declaração de Variáveis ----------------------------------------------
 	Local lRet		AS Logical
 	Local cAlias	AS Character
 	
-	//Parametros da rotina-------------------------------------------------------------------------
-	ParamType 0		VAR cTabZSC			AS Character			Optional Default NIL	//Por referência
-
-	//---------------------------------------------------------------------------------------------
+	//-------------------------------------------------------------------------
 	//Verifico se a tabela atual eh diferente da tabela original
 	If .Not. Empty(cTabZSC) .And. ;
 		Select("ZSC") > 0 .And. ;
@@ -809,7 +800,7 @@ Static Function AbreTab(cTabZSC);
 		cTabZSC	:= FWSX2Util():GetFile('ZSC')
 	EndIf
 
-	//---------------------------------------------------------------------------------------------
+	//-------------------------------------------------------------------------
 	lRet	:= .F.
 	If 	Select("ZSC") > 0	//Ja aberta
 		lRet	:= .T.
@@ -862,15 +853,15 @@ Return lRet
 //##|          |          |                                                 |##
 //##+----------+----------+-------------------------------------------------+##
 //#############################################################################
-Static Function PosTab(	cTabZSC	,;
-						cFilZSC	,;
-						cIDZSC	);
-							AS Logical
+Static Function PosTab(	cTabZSC	AS Character;
+					,	cFilZSC	AS Character;
+					,	cIDZSC	AS Character;
+					)								AS Logical
 	
-	//Declaração de variaveis----------------------------------------------------------------------
+	//-- Declaração de Variáveis ----------------------------------------------
 	Local lPos		AS Logical
 	
-	//---------------------------------------------------------------------------------------------
+	//-------------------------------------------------------------------------
 	lPos	:= .F.
 	If 	.Not. Empty(cIDZSC) .And. ;
 		AbreTab(@cTabZSC)		
