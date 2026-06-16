@@ -1,5 +1,5 @@
 //-------------------------------------------------------------------------------------------------
-/*/{Protheus.doc} CXInclude2.ch  v1.23 (21/04/2026)
+/*/{Protheus.doc} CXInclude2.ch  v1.24 (14/06/2026)
 @description	Conjunto de comanandos básicos para auxiliar no desenvolvimento de fontes
 @autor			Cirilo Rocha
 @since			07/01/2026
@@ -427,6 +427,8 @@
 #xTranslate	MsDocExclui 	=> MPDocExclui
 #xTranslate	MsDocLoclz 		=> MpDocLoclz
 #xTranslate	MsDocView 		=> MpDocView
+
+#xTranslate	Soma1 			=> FwSoma1
 
 //-- Trocar a funcao Separa() padrao pela função de baixo nível StrTokArr2() se comporta examente como a função separa
 #xTranslate Separa(<cTexto>) => ;
