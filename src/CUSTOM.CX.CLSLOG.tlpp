@@ -1,12 +1,12 @@
-#INCLUDE 'Tlpp-Core.th'
-#INCLUDE 'RWMake.ch'
-#INCLUDE 'Totvs.ch'
-#INCLUDE 'ParmType.ch'
-#INCLUDE 'FileIO.ch'
-
-Static _cVersao		:= "1.05"							AS Character
-Static _cDtVersao	:= "29/10/2025"						AS Character
 #Define _NAMESPACE_		CUSTOM.CX								//-- FEITO ASSIM PARA PODER UTILIZAR O NAMESPACE EM OUTRAS PARTES DO FONTE
+
+#include 'tlpp-core.th'
+#include 'totvs.ch'
+#include 'fwmvcdef.ch'
+#include 'fileio.ch'
+
+Static _cVersao		:= '1.06'							AS Character
+Static _cDtVersao	:= '22/06/2026'						AS Character
 //-------------------------------------------------------------------------------------------------
 /*/{Protheus.doc} ClsLog
 @author		Cirilo Rocha
