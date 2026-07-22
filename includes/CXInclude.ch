@@ -1,11 +1,12 @@
+//-- versão 2026-07-22
 #DEFINE TOTVS_PROTHEUS
-#Include "parmtypech.ch"
 
 #Define _LINHA_		StrZero(ProcLine(),5)+' '
 
-#define CR	         Chr(13)
-#define LF	         Chr(10)
-#define CRLF         Chr(13)+Chr(10)
+#define CR			Chr(13)
+#define LF			Chr(10)
+#define TAB			Chr(09)
+#define CRLF		Chr(13)+Chr(10)
 
 #define _TamX3_CAMPO	10
 
@@ -18,7 +19,7 @@
 					FWIsInCallStack('M020APICGC') )
 
 //Verifica se a execução está em ambiente MDI
-#Define CXIsMDI	( Type("oApp") == "O" .And. oApp:lMDI )
+#Define CXIsMDI	( Type('oApp') == 'O' .And. oApp:lMDI )
 
 #xTranslate _CXFieldGet(<cCampo>) => ;
 	FieldGet(FieldPos(<cCampo>))
@@ -43,58 +44,32 @@
 #Define MODEL_OPERATION_COPY	9
 
 //Otimiza funcoes de controle de numeracoes--------------------------------------------------------
-#xTranslate GetSX8Num	=> FwGetSXENum
-
-#xTranslate GetSXENum	=> FwGetSXENum
-
-#xTranslate SuperGetMV	=> FwSuperGetMV
-
-//Função padrão desativada no padrão substituindo pela nova
-#xTranslate PutMV		=> 	FwPutMVPar
-
+#xTranslate GetSX8Num		=> FwGetSXENum
+#xTranslate GetSXENum		=> FwGetSXENum
+#xTranslate SuperGetMV		=> FwSuperGetMV
+#xTranslate PutMV			=> FwPutMVPar		//-- Função padrão desativada no padrão substituindo pela nova
 #xTranslate IsInCallStack	=> FWIsInCallStack
-
-#xTranslate PrefixoCpo	=> FwPrefixoCpo
-
+#xTranslate PrefixoCpo		=> FwPrefixoCpo
 #xTranslate inTransaction	=> inTransact
-
-//Função de uso restrito que foi alterada para FW
-#xTranslate PTInternal	=> FwPtInternal
-
+#xTranslate PTInternal		=> FwPtInternal		//-- Função de uso restrito que foi alterada para FW
 #xTranslate WriteProfString	=> FwWriteProfString(
-
-#xTranslate ConOut		=> 	U_CXConOut
-
-#xTranslate CriaVar		=> 	FwCriaVar
-
-#xTranslate InitPad		=> 	FwInitPad
-
-#xTranslate SvcSoapCall	=> U_CXSvcSoapCall
-
+#xTranslate ConOut			=> U_CXConOut
+#xTranslate CriaVar			=> FwCriaVar
+#xTranslate InitPad			=> FwInitPad
+#xTranslate SvcSoapCall		=> U_CXSvcSoapCall
 //Otimizacao destas funcoes para executar diretamenta a funcao de interface
-#xTranslate Alert		=> 	FwAlertWarning
-
-#xTranslate ApMsgAlert	=> FwAlertWarning
-
-#xTranslate MsgAlert	=> FwAlertWarning
-
-#xTranslate ApMsgInfo	=> FwAlertInfo
-
-#xTranslate MsgInfo		=> 	FwAlertInfo
-
-#xTranslate ApMsgStop	=> FwAlertError
-
-#xTranslate MsgStop		=> 	FwAlertError
-
-#xTranslate ApMsgYesNo	=> FwAlertYesNo
-
-#xTranslate MsgYesNo	=> FwAlertYesNo
-
-#xTranslate ApMsgNoYes	=> FwAlertNoYes
-
-#xTranslate MsgNoYes	=> FwAlertNoYes
-
-#xTranslate xFilial		=> FWxFilial
+#xTranslate Alert			=> FwAlertWarning
+#xTranslate ApMsgAlert		=> FwAlertWarning
+#xTranslate MsgAlert		=> FwAlertWarning
+#xTranslate ApMsgInfo		=> FwAlertInfo
+#xTranslate MsgInfo			=> FwAlertInfo
+#xTranslate ApMsgStop		=> FwAlertError
+#xTranslate MsgStop			=> FwAlertError
+#xTranslate ApMsgYesNo		=> FwAlertYesNo
+#xTranslate MsgYesNo		=> FwAlertYesNo
+#xTranslate ApMsgNoYes		=> FwAlertNoYes
+#xTranslate MsgNoYes		=> FwAlertNoYes
+#xTranslate xFilial			=> FWxFilial
 
 //A FUNCAO NOVA NAO FUNCIONA CORRETAMENTE
 #xTranslate cGetFile		=> U_cGetFile
@@ -108,7 +83,7 @@
 #xTranslate U_CXSomaMes		=> MonthSum
 #xTranslate U_CXSomaAno		=> YearSum
 #xTranslate U_CXTamSX3		=> FwTamSX3
-#xTranslate U_CXTabela 		=> FwTabPref
+#xTranslate U_CXTabela		=> FwTabPref
 #xTranslate U_CXX3Descric	=> FWSX3Util():GetDescription
 #xTranslate U_CXX3Titulo	=> FwX3Titulo
 #xTranslate U_CXX2Titulo	=> FwSX2Util():GetX2Name
@@ -124,16 +99,14 @@
 #xTranslate UsrFullName		=> U_CXNmUsr
 
 //Troca funcao padrao
-#xTranslate PutSX1			=> 	U_CXPutSX1
-
-#xTranslate PutHelp			=> 	U_CXPutHelp
-
+#xTranslate PutSX1			=>	U_CXPutSX1
+#xTranslate PutHelp			=>	U_CXPutHelp
 #xTranslate PutSX1Help		=> U_CXPutHelp
 
 //#xTranslate MemoWrite		=> U_CXWriteFile
 
 //Trocar o modelo3 padrao--------------------------------------------------------------------------
-#xTranslate Modelo3	=> 	U_CXMod3
+#xTranslate Modelo3	=>	U_CXMod3
 
 //Retorna se a tabela é exclusiva
 #xTranslate U_CXMdExc(<cAlias>) => ;
@@ -172,24 +145,24 @@
 #xCommand CLASSPARAMEXCEPTION [ PARAM <param> VAR ] <varname> TEXT <text,...> [ MESSAGE <message> ] ;
 	=> ;
 	[ UserException(<message>) ] ;;
-	[ UserException(PT_STR0001+<"param">+PT_STR0002+' '+<"varname">+" erro, classe experada "+\"<text>\") ] ;;
+	[ UserException("argumento #"+<"param">+", parâmetro "+<"varname">+" erro, classe experada "+\"<text>\") ] ;;
 	UserException("argumento erro no parâmetro "+<"varname">+", classe experada "+\"<text>\")
 
 #xCommand PARAMEXCEPTION PARAM <param> VAR <varname> TEXT <text>  ;
 	=> ;
-	UserException(PT_STR0001+' '+<"param">+PT_STR0002+' '+<"varname">+" erro, tipo experado "+<text>) 
+	UserException("argumento #"+<"param">+", parâmetro "+<"varname">+" erro, tipo experado "+<text>) 
 
-#xCommand PARAMEXCEPTION <varname> TEXT <text>  ;
+#xCommand PARAMEXCEPTION <varname> TEXT <text>	;
 	=> ;
 	UserException("argumento erro no parâmetro "+<"varname">+", tipo experado "+<text>)
 
 #xCommand VALPARAMTYPE [ <param> VAR ] <varname> AS OBJECT CLASS <classname,...> ;
 	=> ;
-	__bErro := ErrorBlock({|| "UNDEFINED"}) ;;
+	__bErro := ErrorBlock({|| 'UNDEFINED'}) ;;
 	BEGIN SEQUENCE ;;
 	__classname := Upper(GetClassName(<varname>)) ;;
 	END SEQUENCE ;;
-	ErrorBlock(__bErro)  ;;
+	ErrorBlock(__bErro)	 ;;
 	If !(__classname+',' $ Upper(\"<classname>\")+',') ;;
 		CLASSPARAMEXCEPTION [ PARAM <param> VAR ] <varname> TEXT <classname> [ MESSAGE <message> ] ;;
 	EndIf ;;
@@ -202,7 +175,7 @@
 	[<optional: OPTIONAL>];
 	=> ;
 	<varname> := If(ValType(<varname>) == 'U',<uVar>,<varname>)	;;
-	If ValType(<varname>) == "O" ;;
+	If ValType(<varname>) == 'O' ;;
 		VALPARAMTYPE [ <param> VAR ] <varname> AS OBJECT CLASS <classname> ;;
 	ElseIf !(<.optional.> .and. ValType(<varname>) == 'U') ;;
 		PARAMEXCEPTION [ PARAM <param> VAR ] <varname> TEXT "O->"+ValType(<varname>) [ MESSAGE <message> ] ;;
@@ -213,7 +186,7 @@
 	[ MESSAGE <message> ] ;
 	[<optional: OPTIONAL>];
 	=> ;
-	If ValType(<varname>) == "O" ;;
+	If ValType(<varname>) == 'O' ;;
 		VALPARAMTYPE [ <param> VAR ] <varname> AS OBJECT CLASS <classname> ;;
 	ElseIf !(<.optional.> .and. ValType(<varname>) == 'U') ;;
 		PARAMEXCEPTION [ PARAM <param> VAR ] <varname> TEXT "O->"+ValType(<varname>) [ MESSAGE <message> ] ;;
@@ -224,7 +197,7 @@
 	[ MESSAGE <message> ] ;
 	=> ;
 	If (ValType(<varname>) == 'U' ) ;;
-		UserException(PT_STR0001+<"param">+PT_STR0002+<"varname">+" erro, é obrigatório e está NULL. " [ MESSAGE <message> ]) ;;
+		UserException("argumento #"+<"param">+", parâmetro "+<"varname">+" erro, é obrigatório e está NULL. " [ MESSAGE <message> ]) ;;
 	EndIf ;;
 
 //Parâmetros opcionais com default reavaliado
@@ -237,7 +210,7 @@
 		If (ValType(<uVar>) $ Subs(<"type">,1,1) [ + Subs(<"typeN">,1,1) ]) ;;
 			<varname> := <uVar>	;;
 		Else;;
-			UserException(PT_STR0001+<"param">+PT_STR0002+<"varname">+" erro, valor DEFAULT com tipo inválido. "+ ;
+			UserException("argumento #"+<"param">+", parâmetro "+<"varname">+" erro, valor DEFAULT com tipo inválido. "+ ;
 							Subs(<"type">,1,1) [ + "," + Subs(<"typeN">,1,1) ]+"->"+ValType(<uVar>) [ MESSAGE <message> ]) ;;
 		EndIf;;
 	EndIf ;;
@@ -303,7 +276,7 @@
 
 #Define _NomeProg_		RetFileName(ProcSource())
 #DEFINE _LINHA_			StrZero(ProcLine(),5)
-#Define _NomeProg2_		SubStr(_NomeProg_,Rat('.',_NomeProg_)+1)
+#Define _NomeProg2_		UpStrTran(_NomeProg_,'CUSTOM.','')
 #Define _MsgLinha_		_NomeProg2_+'('+_LINHA_+')'
 
 #Define _MostraVer_		oMainWnd:cTitle(Left(oMainWnd:cTitle,IIF('['$oMainWnd:cTitle,At('[',oMainWnd:cTitle)-1,99))+' ['+_NomeProg2_+'_v'+cVersao+' | '+cDtVersao+']')		//-- Mostra versão no título da janela (LEGADO)
@@ -344,3 +317,18 @@
 		IncRegua();;
 		ProcessMessages();;
 	EndIf
+
+
+#IFDEF _NAMESPACE_
+	#Define _CNAMESPACE_	\'_NAMESPACE_\'									//-- PARA USO EM CHAMADAS STRING
+	#Define _CNS_LOAD_		\'_NAMESPACE_\'+'.QUALQUERCOISA'				//-- NÃO ENTENDO PORQUE PRECISA TER ALGUM SUFIXO PARA FUNCIONAR!!!
+	NAMESPACE	_NAMESPACE_
+#ENDIF
+
+
+//-- Facilitadores para uso de NameSpaces!
+#IFDEF _USE_NAMESPACE_
+	#Define _CUSE_NAMESPACE_	\'_USE_NAMESPACE_.\'						//-- PARA USO EM CHAMADAS STRING
+	#Define _CUNS_LOAD_			\'_USE_NAMESPACE_.QUALQUERCOISA\'			//-- NÃO ENTENDO PORQUE PRECISA TER ALGUM SUFIXO PARA FUNCIONAR!!!
+	USING NAMESPACE	_USE_NAMESPACE_
+#ENDIF
