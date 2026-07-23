@@ -1,4 +1,4 @@
-//-- versão 2026-07-22
+//-- versão 2026-07-23
 #DEFINE TOTVS_PROTHEUS
 
 #Define _LINHA_		StrZero(ProcLine(),5)+' '
@@ -193,7 +193,8 @@
 	EndIf
 
 //Parâmetros obrigatórios
-#xCommand PARAMOBG [ <param> VAR ] <varname> ;
+#Define PARAMOBG	PARAMOBR		//-- Conversão do legado
+#xCommand PARAMOBR [ <param> VAR ] <varname> ;
 	[ MESSAGE <message> ] ;
 	=> ;
 	If (ValType(<varname>) == 'U' ) ;;

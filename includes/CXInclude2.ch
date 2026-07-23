@@ -1,5 +1,5 @@
 //-------------------------------------------------------------------------------------------------
-/*/{Protheus.doc} CXInclude2.ch  v1.25 (07/07/2026)
+/*/{Protheus.doc} CXInclude2.ch  v1.26 (23/07/2026)
 @description	Conjunto de comanandos básicos para auxiliar no desenvolvimento de fontes
 @autor			Cirilo Rocha
 @since			07/01/2026
@@ -15,8 +15,8 @@
 //#############################################################################
 
 #Define _NomeProg_		_fNomeProg_(0)		//-- Nome Original do Fonte
-#Define _NomeProg2_		_fNomeProg2_(0)		//-- Apenas final do NameSpace
-#Define _NomeProg3_		_fNomeProg3_(0)		//-- Remove CUSTOM.
+#Define _NomeProg2_		_fNomeProg2_(0)		//-- Remove CUSTOM.
+#Define _NomeProg3_		_fNomeProg3_(0)		//-- Apenas final do NameSpace
 #Define _LINHA_			_fLINHA_(0)
 #Define _MsgLinha_		_fMsgLinha_(0)
 
@@ -36,15 +36,15 @@
 
 //-- Pseudo-funções para obtenção de nome do programa e linha atual
 #xTranslate _fNomeProg_(<nL>)	=>	RetFileName(ProcSource(<nL>))
-#xTranslate _fNomeProg2_(<nL>)	=>	SubStr(_fNomeProg_(<nL>),At('.',_fNomeProg_(<nL>))+1)
-#xTranslate _fNomeProg3_(<nL>)	=>	UpStrTran(_fNomeProg_(<nL>),'CUSTOM.','')
+#xTranslate _fNomeProg2_(<nL>)	=>	UpStrTran(_fNomeProg_(<nL>),'CUSTOM.','')
+#xTranslate _fNomeProg3_(<nL>)	=>	SubStr(_fNomeProg_(<nL>),RAt('.',_fNomeProg_(<nL>))+1)
 
 
 #xTranslate _fLINHA_(<nL>)		=>	StrZero(ProcLine(<nL>),5)
-#xTranslate _fMsgLinha_(<nL>)	=>	_fNomeProg3_(<nL>)+'('+_fLINHA_(<nL>)+')'
+#xTranslate _fMsgLinha_(<nL>)	=>	_fNomeProg2_(<nL>)+'('+_fLINHA_(<nL>)+')'
 
 
-#Define _MgsMainWind_	oMainWnd:cTitle(Left(oMainWnd:cTitle,IIF('['$oMainWnd:cTitle,At('[',oMainWnd:cTitle)-1,99))+' ['+_NomeProg3_+'_v'+_cVersao+' | '+_cDtVersao+']')		//-- Mostra versão no título da janela
+#Define _MgsMainWind_	oMainWnd:cTitle(Left(oMainWnd:cTitle,IIF('['$oMainWnd:cTitle,At('[',oMainWnd:cTitle)-1,99))+' ['+_NomeProg2_+'_v'+_cVersao+' | '+_cDtVersao+']')		//-- Mostra versão no título da janela
 
 
 //-- Posições dbStruct()
