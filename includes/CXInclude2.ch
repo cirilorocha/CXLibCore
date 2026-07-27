@@ -201,7 +201,7 @@
 
 
 #xTranslate _CXTrf(<xCont>,<cCampo>) => ;
-	Trans(<xCont>,FwGetSx3Cache(<cCampo>,'X3_PICTURE'))
+	Trans(<xCont>,RTrim(FwGetSx3Cache(<cCampo>,'X3_PICTURE')))
 
 
 #xTranslate _CXaDel(<aDados>,<nPos>) => ;
