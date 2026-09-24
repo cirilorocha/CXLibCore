@@ -1,5 +1,5 @@
 //-------------------------------------------------------------------------------------------------
-/*/{Protheus.doc} CXInclude2.ch  v1.26 (23/07/2026)
+/*/{Protheus.doc} CXInclude2.ch  v1.27 (22/09/2026)
 @description	Conjunto de comanandos básicos para auxiliar no desenvolvimento de fontes
 @autor			Cirilo Rocha
 @since			07/01/2026
@@ -297,6 +297,11 @@
 
 #xTranslate _CXDecorrido(<nSeconds>) => ;
 	PadL(LTrim(Str(Int((Seconds() - <nSeconds>)*1000))),10)
+
+
+//-- Pseudo método para adicionar atributos em objetos Json, apenas para deixar a sintaxe mais clara
+#xTranslate	 :_addAtributo(<cAtributo>) => \[<cAtributo>\]
+
 
 //#############################################################################
 //#############################################################################
