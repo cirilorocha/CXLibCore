@@ -1,5 +1,5 @@
 //-------------------------------------------------------------------------------------------------
-/*/{Protheus.doc} CXInclude2.ch  v1.28 (29/09/2026)
+/*/{Protheus.doc} CXInclude2.ch  v1.29 (29/09/2026)
 @description	Conjunto de comanandos básicos para auxiliar no desenvolvimento de fontes
 @autor			Cirilo Rocha
 @since			07/01/2026
@@ -48,45 +48,45 @@
 
 
 //-- Posições dbStruct()
-#Define _nST_CPO1			1
-#Define _nST_TIP2			2
-#Define _nST_TAM3			3
-#Define _nST_DEC4			4
+#Define _nST_CPO1_			1
+#Define _nST_TIP2_			2
+#Define _nST_TAM3_			3
+#Define _nST_DEC4_			4
 
 
 //-- Posições FwTamSX3(cCpo)
-#Define _nX3_TAM1			1
-#Define _nX3_DEC2			2
-#Define _nX3_TIP3			3
+#Define _nX3_TAM1_			1
+#Define _nX3_DEC2_			2
+#Define _nX3_TIP3_			3
 
 
 //-- Posições FwSx3Util():GetFieldStruct(cCpo) e FwSx3Util():GetListFieldsStruct(cAlias , lVirtual , lObrigat)
-#Define _nX3_NOME1			1
-#Define _nX3_TIPO2			2
-#Define _nX3_TAMA3			3
-#Define _nX3_DECI4			4
-#Define _nX3_PICT5			5
+#Define _nX3_NOME1_			1
+#Define _nX3_TIPO2_			2
+#Define _nX3_TAMA3_			3
+#Define _nX3_DECI4_			4
+#Define _nX3_PICT5_			5
 
 
 //-- Posições do retorno da função FwGetSX5(cTable,cChave,[cIdiom])
-#Define _nX5_FILIAL1		1
-#Define _nX5_TABELA2		2
-#Define _nX5_CHAVE3			3
-#Define _nX5_DESCRI4		4
+#Define _nX5_FILIAL1_		1
+#Define _nX5_TABELA2_		2
+#Define _nX5_CHAVE3_		3
+#Define _nX5_DESCRI4_		4
 
 
 //-- Retornos da função Directory (https://tdn.totvs.com/display/tec/Directory)
-#Define _nDIR_ARQ_NOME1		1
-#Define _nDIR_ARQ_TAM2		2
-#Define _nDIR_ARQ_DATA3		3
-#Define _nDIR_ARQ_HORA4		4
-#Define _nDIR_ARQ_TIPO4		5
+#Define _nDIR_ARQ_NOME1_	1
+#Define _nDIR_ARQ_TAM2_		2
+#Define _nDIR_ARQ_DATA3_	3
+#Define _nDIR_ARQ_HORA4_	4
+#Define _nDIR_ARQ_TIPO4_	5
 
 
 //-- Ordenação da função Directory
-#Define _nDIR_ORD_NOME1		1
-#Define _nDIR_ORD_DATA2		2
-#Define _nDIR_ORD_TAM3		3
+#Define _nDIR_ORD_NOME1_	1
+#Define _nDIR_ORD_DATA2_	2
+#Define _nDIR_ORD_TAM3_		3
 
 
 #Define _CR_		Chr(13)
@@ -129,8 +129,11 @@
 
 
 //-- Parâmetros usados em MVC
-#Define nTP_MODEL	1
-#Define nTP_VIEW	2
+#Define nTP_MODEL		1
+#Define nTP_VIEW		2
+
+#Define _nTP_MODEL1_	1
+#Define _nTP_VIEW2_		2
 
 
 #Define nPE_MVC_MODEL		1
@@ -213,15 +216,14 @@
 	aSize(@<aDados>,len(<aDados>)-1)
 
 
-#xTranslate _CxAIns(<aDados>,<nPos>) => ;
-	aSize(@<aDados>,len(<aDados>)+1);;
-	aIns(@<aDados>,<nPos>)
-
-
 #xTranslate _CxAIns(<aDados>,<nPos>,<xValor>) => ;
-	aSize(@<aDados>,len(<aDados>)+1);;
-	aIns(@<aDados>,<nPos>);;
+	_CxAIns(<aDados>,<nPos>);;
 	<aDados>\[<nPos>\]	:= <xValor>
+
+
+#xTranslate _CxAIns(<aDados>,<nPos>) => ;
+	aAdd(@<aDados>,NIL);;
+	aIns(@<aDados>,<nPos>)
 
 
 #xTranslate _CxFieldGet(<cCampo>) => ;
@@ -306,6 +308,9 @@
 //-- Pseudo método para adicionar atributos em objetos Json, apenas para deixar a sintaxe mais clara
 #xTranslate	 :_addAtributo(<cAtributo>) => \[<cAtributo>\]
 
+//-- Pseudo função para testar se um valor numérico está contido em uma lista de valores
+#xTranslate _CXIF(<nVlr>):IN(<nVlrTeste,...>)	=> ;
+	( aScan({<nVlrTeste>},<nVlr>) > 0 )
 
 //#############################################################################
 //#############################################################################
@@ -315,7 +320,7 @@
 //#############################################################################
 //#############################################################################
 
-#Define _nSteps		200
+#Define _nSteps_		200
 
 
 #xTranslate _InicRegua() => ;
@@ -325,7 +330,7 @@
 #xTranslate __ProcRegua(<nQtRg>,<cFunc>) => ;
 	_nCont	:= 0;;
 	_nQtdReg:= <nQtRg>;;
-	_nPasso	:= Ceiling(_nQtdReg/_nSteps);;
+	_nPasso	:= Ceiling(_nQtdReg/_nSteps_);;
 	<cFunc>(Ceiling(_nQtdReg/_nPasso));;
 	ProcessMessages()
 
@@ -467,20 +472,20 @@
 //#############################################################################
 
 //-- Alinhamentos relatório FWMSPrinter():SayAlign()
-#DEFINE ALIGN_H_LEFT0		0
-#DEFINE ALIGN_H_RIGHT1		1
-#DEFINE ALIGN_H_CENTER2		2
-#DEFINE ALIGN_H_JUSTIF3		3
+#DEFINE _ALIGN_H_LEFT0_		0
+#DEFINE _ALIGN_H_RIGHT1_	1
+#DEFINE _ALIGN_H_CENTER2_	2
+#DEFINE _ALIGN_H_JUSTIF3_	3
 
-#DEFINE ALIGN_V_CENTER0		0
-#DEFINE ALIGN_V_TOP1		1
-#DEFINE ALIGN_V_BOTTOM2		2
+#DEFINE _ALIGN_V_CENTER0_	0
+#DEFINE _ALIGN_V_TOP1_		1
+#DEFINE _ALIGN_V_BOTTOM2_	2
 
 //-- Alinhamentos Excel FwPrinterXlsx()
-#DEFINE ALIGN_EX_H_LEFT1	'1'
-#DEFINE ALIGN_EX_H_CENTER2	'2'
-#DEFINE ALIGN_EX_H_RIGHT3	'3'
+#DEFINE _ALIGN_EX_H_LEFT1_		'1'
+#DEFINE _ALIGN_EX_H_CENTER2_	'2'
+#DEFINE _ALIGN_EX_H_RIGHT3_		'3'
 
-#DEFINE ALIGN_EX_V_TOP1		'1'
-#DEFINE ALIGN_EX_V_BOTTOM2	'2'
-#DEFINE ALIGN_EX_V_CENTER3	'3'
+#DEFINE _ALIGN_EX_V_TOP1_		'1'
+#DEFINE _ALIGN_EX_V_BOTTOM2_	'2'
+#DEFINE _ALIGN_EX_V_CENTER3_	'3'
