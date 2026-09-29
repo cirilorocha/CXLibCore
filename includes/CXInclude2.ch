@@ -1,5 +1,5 @@
 //-------------------------------------------------------------------------------------------------
-/*/{Protheus.doc} CXInclude2.ch  v1.27 (22/09/2026)
+/*/{Protheus.doc} CXInclude2.ch  v1.28 (29/09/2026)
 @description	Conjunto de comanandos básicos para auxiliar no desenvolvimento de fontes
 @autor			Cirilo Rocha
 @since			07/01/2026
@@ -165,19 +165,23 @@
 	<cTexto>+If(Empty(<cTexto>).Or.Empty(<cTxtAdic>),'',<cSep>)+<cTxtAdic>
 
 
-//-- Pseudo-Função para completar com zeros a esquerda, sem truncar o conteúdo
-#xTranslate _CXCplCpoEsq(<cConteudo>,<cCampo>)	=> ;
+//-- Pseudo-Função para completar com zeros a esquerda, sem truncar o conteúdo se for maior, evidencia erro se vier maior
+#xTranslate _CXCplZeroEsq(<cConteudo>,<cCampo>)	=> ;
 	_CXCplCpoEsq(<cConteudo>,<cCampo>,'0')
 
+#xTranslate _CXCplCpoEsq(<cConteudo>,<cCampo>)	=> ;
+	_CXCplCpoEsq(<cConteudo>,<cCampo>,Space(1))
 
 #xTranslate _CXCplCpoEsq(<cConteudo>,<cCampo>,<cChar>)	=> ;
 	Replicate(<cChar>,FWTamSX3(<cCampo>)\[1\]-Len(AllTrim(<cConteudo>)))+AllTrim(<cConteudo>)
 
 
-//-- Pseudo-Função para completar com espaços a esquerda, sem truncar o conteúdo
+//-- Pseudo-Função para completar com espaços a direita, sem truncar o conteúdo se for maior, evidencia erro se vier maior
+//#xTranslate _CXCplCpoDir(<cConteudo>,<cCampo>)	=> ;
+//	AllTrim(<cConteudo>)+Space(FWTamSX3(<cCampo>)\[1\]-Len(AllTrim(<cConteudo>)))
+
 #xTranslate _CXCplCpoDir(<cConteudo>,<cCampo>)	=> ;
 	_CXCplCpoDir(<cConteudo>,<cCampo>,Space(1))
-
 
 #xTranslate _CXCplCpoDir(<cConteudo>,<cCampo>,<cChar>)	=> ;
 	AllTrim(<cConteudo>)+Replicate(<cChar>,FWTamSX3(<cCampo>)\[1\]-Len(AllTrim(<cConteudo>)))
