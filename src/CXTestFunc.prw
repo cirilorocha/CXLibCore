@@ -1,12 +1,11 @@
-#INCLUDE "rwmake.ch"
+#include 'totvs.ch'
+#include 'fwmvcdef.ch'
 #INCLUDE "SHELL.CH"
-#INCLUDE "Protheus.ch"
 #INCLUDE "TBICONN.CH"
-#Include "ParmType.ch"
 #Include "CXInclude.ch"
 
-Static _cVersao := '1.64'							AS Character
-Static _cDtVersao := '25/12/2025'					AS Character
+Static _cVersao := '1.65'							AS Character
+Static _cDtVersao := '28/09/2026'					AS Character
 
 // MANTER EM .PRW PARA PODER EXECUTAR STATICCALL
 //#############################################################################
@@ -69,6 +68,9 @@ Static _cDtVersao := '25/12/2025'					AS Character
 //##|          |           |                                                |##
 //##+==========+===========+================================================+##
 //#############################################################################
+//-- Pseudo método para adicionar atributos em objetos Json, apenas para deixar a sintaxe mais clara
+#xTranslate	 :_addAtributo(<cAtributo>) => \[<cAtributo>\]
+
 //Bloco de codigo de tratamento de erro
 Static bErroCst      := {|oErr| MsgErroCst(oErr) }		AS CodeBlock
 //-------------------------------------------------------------------------------------------------
@@ -1228,10 +1230,10 @@ Static Function sfSingleSignOn(cUser)	/*@cUser*/		AS Logical
 	//-------------------------------------------------------------------------
 	//-- Chave = Data Atual + Credencial do Windows Cliente + Usuário Windows -- Validade só de 1 dia por isso a data atual
 	cHashAtual	:= Sha1(Dtos(Date())+'|'+GetCredential()+'|'+LogUserName(),2)
-	If 	jCredUsr:hasProperty('hash') .And. ;
-		jCredUsr:hasProperty('user')
-		If cHashAtual == jCredUsr['hash']
-			cUser	:= Decode64(jCredUsr['user'])	//-- Decodifica o código de usuário!
+	If 	jCredUsr:hasProperty('HASH') .And. ;
+		jCredUsr:hasProperty('USER')
+		If cHashAtual == jCredUsr:hash
+			cUser	:= Decode64(jCredUsr:user)	//-- Decodifica o código de usuário!
 
 			PswOrder(1)	//-- Ordem por codigo
 			If PswSeek(cUser)
@@ -1248,8 +1250,8 @@ Static Function sfSingleSignOn(cUser)	/*@cUser*/		AS Logical
 		If FWAuthUser(@cUser) 	//-- Solicita a senha do usuário
 			If FWIsAdmin(cUser) //-- Usuário é administrador
 				lOK	:= .T.
-				jCredUsr['hash']	:= cHashAtual
-				jCredUsr['user']	:= Encode64(cUser)
+				jCredUsr:_addAtributo('HASH')	:= cHashAtual
+				jCredUsr:_addAtributo('USER')	:= Encode64(cUser)
 				cJson	:= jCredUsr:toJson()
 				MemoWrite(cArqCred,cJson)
 			Else
