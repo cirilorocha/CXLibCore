@@ -1,0 +1,368 @@
+#include 'tlpp-core.th'
+#include 'totvs.ch'
+#include 'fwmvcdef.ch'
+//TODO MODERNIZAR USANDO FWMODAL E JSON
+/*=================================================================================================
+Autor      : Cirilo Rocha
+Data       : 25/04/2023 
+Info       : Função para efetuar o inventário dos fontes do RPO gerando um arquivo CSV com os dados
+*================================================================================================*/
+#Define _MsgErro_		'CXInvRPO-'+StrZero(ProcLine(),5)
+Static cExtPrj		:= 'PRG,PRW,PRX,TLPP'	//Extenções de arquivos válidas para o projeto
+//-- Pseudo-Função para Extrair extensão do arquivo
+#xTranslate _CxGetExt(<cTexto>) => ;
+	Iif( (_nP:=Rat('.',<cTexto>))>0 , SubStr(<cTexto>,_nP+1) ,'')
+//---------------------------------------------------------------------------------------------
+User Function CXInvRPO()
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cDescr				AS Character
+	Local cDirDst				AS Character
+	Local cDirPrj				AS Character
+	Local oDlg					AS Object
+
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	cDescr	:= 'Esta rotina tem por objeto gerar um inventário dos fontes customizados do RPO e '+;
+				'pesquisá-los no diretório do projeto comparando a data e hora dos arquivos com '+;
+				'o que está no RPO.'
+	
+	cDirDst	:= Padr('C:\Protheus\',250)
+	cDirPrj	:= Space(250)
+	Set(_SET_DATEFORMAT, 'mm/dd/yyyy') // Data com QUATRO digitos para Ano
+
+	//---------------------------------------------------------------------------------------------
+	oDlg := MSDialog():New(000, 000, 350, 400, "Geração de Invetário de Fontes" ,,,,,,CLR_WHITE,,,.T.,,,)
+
+		TGroup():New(005,004,033,197,"Destino:"  ,oDlg,,,.T.)
+		TGet():New(014,008,bSetGet(cDirDst),,171,010,,,,,,,,.T.)
+		TBtnBmp2():New(028,359,026,026,"SDUOPEN",,,,{|| GetDir(@cDirDst) },oDlg,"Pesquisa local de destino")
+
+		TGroup():New(045,004,073,197,"Diretório Projeto:"  ,oDlg,,,.T.)
+		TGet():New(054,008,bSetGet(cDirPrj),,171,010,,,,,,,,.T.)
+		TBtnBmp2():New(106,359,026,026,"SDUOPEN",,,,{|| GetDir(@cDirPrj) },oDlg,"Pesquisa local do projeto")
+
+		TGroup():New(085,004,140,197," Descrição: ",oDlg,,,.T.)
+		TMultiGet():New(094,008,bSetGet(cDescr),,185,040,,,,,,.T.,,,,,,.T.,,,)
+																
+		SButton():New(150, 005, 2, {|| oDlg:End() }) // Cancela
+		SButton():New(150, 170, 1, {|| BuscaFontes(cDirDst,cDirPrj), oDlg:End() }) // Ok
+
+	oDlg:Activate(/*uPar1*/,/*uPar2*/,/*uPar3*/,.T./*lCenter*/,/*{|Self| Valid }*/,/*uPar6*/,/*{|Self| Init }*/ )
+
+	FreeObj(oDlg)
+
+Return
+
+//---------------------------------------------------------------------------------------------
+Static Function GetDir(	cDiretorio	)
+	
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cPath			AS Character
+	Local nOpcoes		AS Numeric
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cDiretorio		AS Character
+
+	//---------------------------------------------------------------------------------------------
+	nOpcoes	:= GETF_LOCALFLOPPY+GETF_NETWORKDRIVE+GETF_LOCALHARD+GETF_RETDIRECTORY
+	cPath 	:= cGetFile('*.*'					,;	//01 cMascara
+						"Selecione o diretório"	,;	//02 cTitulo
+						0						,;	//03 nMascPadrao
+						cDiretorio				,;	//04 cDirInicial
+						.T.						,;	//05 lSalvar
+						nOpcoes					,;	//06 nOpcoes
+						.T.						,;	//07 lServer
+						.T.						)	//08 lKeepCase
+	
+	If .Not. Empty(cPath)
+		cDiretorio	:= PadR(cPath,250)
+	EndIf
+
+Return
+
+Static Function BuscaFontes(cDirDst	,;	//01 cDirDst
+							cDirPrj	)	//02 cDirPrj
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local cArqDst					AS Character
+	Local lOK		:= .F.			AS Logical
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cDirDst		AS Character
+	ParamType 1		VAR cDirPrj		AS Character
+	
+	//Inicializa Variaveis-------------------------------------------------------------------------
+	cDirDst	:= AllTrim(cDirDst)
+	cDirPrj	:= AllTrim(cDirPrj)
+	cArqDst	:= cDirDst+'\CXInvRPO-'+DtoS(Date())+'-'+StrTran(Time(),':',';')+'.csv'
+
+	//---------------------------------------------------------------------------------------------
+	FWMsgRun(/*oSay*/,	{|| lOK	:= ProcRPO(cArqDst,	cDirPrj	) }	,;
+			_MsgErro_+' - Preenchendo dados...'					,;
+			'Aguarde...'										)
+	
+	If lOK
+		FwAlertInfo('Inventário gravado com sucesso.'+CRLF+;
+					cArqDst,_MsgErro_)
+	EndIf
+
+Return
+
+//---------------------------------------------------------------------------------------------
+Static Function ProcRPO(cArqDst	,;	//01 cArqDst
+						cDirPrj	);	//02 cDirPrj
+							AS Logical
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aArquivos		:= {}			AS Array
+	Local aFontes		:= {}			AS Array
+	Local aRPOSrc						AS Array
+
+	// Para retornar a origem da função: FULL, USER, PARTNER, PATCH, TEMPLATE ou NONE
+	Local aType			:= {}			AS Array
+	// Para retornar o nome do arquivo onde foi declarada a função
+	Local aFile			:= {}			AS Array
+	// Para retornar o número da linha no arquivo onde foi declarada a função
+	Local aLine			:= {}			AS Array
+	// Para retornar a data do código fonte compilado
+	Local aDate			:= {}			AS Array
+	// Para retornar a hora do código fonte compilado
+	Local aTime			:= {}			AS Array  
+
+	Local cTexto						AS Character
+	Local cDirDst						AS Character
+
+	Local cDrive						AS Character
+	Local cDir							AS Character
+	Local cFile							AS Character
+	Local cExten						AS Character
+
+	Local lOK			:= .T.			AS Logical
+
+	Local nPos							AS Numeric
+	Local nX							AS Numeric
+	Local nRPOCustom	:= 3			AS Numeric		//1 - RPO Padrão, 2 - RPO TLPP, 3 - RPO Custom
+
+	Local oFile							AS Object
+
+	//Posições do array aFontes
+	Local cSRC_PROGRA	:= 01			AS Integer
+	Local cSRC_PRJSCR	:= 02			AS Integer
+	Local dSRC_PRJDAT	:= 03			AS Integer
+	Local cSRC_PRJHOR	:= 04			AS Integer
+	Local cSRC_RPOSRC	:= 05			AS Integer
+	Local dSRC_RPODAT	:= 06			AS Integer
+	Local cSRC_RPOHOR	:= 07			AS Integer
+
+	Local nSRC_TAMARR	:= 07			AS Integer
+
+	//Posições do retorno da função Directory
+	Private cDR_NOME	:= 01			AS Numeric
+//	Private nDR_TAM		:= 02			AS Numeric
+	Private dDR_DATA	:= 03			AS Numeric
+	Private cDR_HORA	:= 04			AS Numeric
+	Private cDR_TIPO	:= 05			AS Numeric
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cArqDst		AS Character
+	ParamType 1		VAR cDirPrj		AS Character
+
+	//---------------------------------------------------------------------------------------------
+	If lOK
+		SplitPath( cArqDst,@cDrive,@cDir, @cFile, @cExten )
+		cDirDst	:= cDrive+cDir
+
+		oFile	:= FWFileWriter():New(cArqDst,.T.)
+		oFile:SetCaseSensitive(.T.) //Força respeitar case do nome do arquivo
+		If .Not. ExistDir(cDirDst)
+			oFile:CreateDirectory()
+		EndIf
+		If .Not. ExistDir(cDirDst)
+			FwAlertError(	'ERRO ao criar diretório destino.'+CRLF+;
+							'Destino: '+cDirDst,_MsgErro_)
+			lOK	:= .F.
+		EndIf
+
+		If 	lOK .And. ;
+			.Not. oFile:Create()
+ 
+			FwAlertError('ERRO ao criar arquivo de destino.'+CRLF+;
+						'Arquivo: '+AllTrim(oFile:cFileName)+CRLF+;
+						'Erro: '+oFile:Error():Message,_MsgErro_)
+			lOK	:= .F.
+		EndIf
+	EndIf
+
+	//Busca os fontes do RPO-----------------------------------------------------------------------
+	If lOK
+		aRPOSrc := GetFuncArray('*',@aType,@aFile,@aLine,@aDate,@aTime,nRPOCustom)
+
+		For nX := 1 to Len(aRPOSrc)
+			If Upper(_CxGetExt(aFile[nX])) $ cExtPrj	//Apenas estas extensões!
+				nPos	:= aScan(aFontes,{|x| Upper(x[cSRC_PROGRA]) == Upper(aFile[nX]) })
+				If nPos == 0
+					aAdd(aFontes,Array(nSRC_TAMARR))
+					nPos	:= Len(aFontes)
+					aFontes[nPos][cSRC_PROGRA]	:= aFile[nX]
+					aFontes[nPos][cSRC_PRJSCR]	:= ''
+					aFontes[nPos][dSRC_PRJDAT]	:= Ctod('')
+					aFontes[nPos][cSRC_PRJHOR]	:= ''
+					aFontes[nPos][cSRC_RPOSRC]	:= aFile[nX]
+					aFontes[nPos][dSRC_RPODAT]	:= aDate[nX]
+					aFontes[nPos][cSRC_RPOHOR]	:= aTime[nX]
+				EndIf
+				//NO CASO DO RPO PRECISO FAZER AQUI MESMO E APENAS ADICIONANDO, PORQUE OS FONTES VEM 
+				// REPEDITOS, VISTO QUE A ROTINA RETORNA NOMES DE FUNÇÕES E NÃO DOS FONTES
+			EndIf
+		Next
+	EndIf
+
+	//Carrego a lista dos arquivos do projeto------------------------------------------------------
+	If lOK
+		If .Not. Empty(cDirPrj)
+			GetArqDir(	cDirPrj		,;	//01 cDir
+						@aArquivos	)	//02 @aArquivos
+		EndIf
+		aSort(aArquivos,/*nPIni*/,/*nQtd*/,{|x,y| x[cDR_NOME] > y[cDR_NOME] })	//Precisei forçar a ordenadação!
+
+		For nX := 1 to Len(aArquivos)
+			If Upper(_CxGetExt(aArquivos[nX][cDR_NOME])) $ cExtPrj	//Apenas estas extensões!
+				SplitPath( aArquivos[nX][cDR_NOME],@cDrive,@cDir, @cFile, @cExten )
+				nPos		:= aScan(aFontes,{|x| Upper(x[cSRC_PROGRA]) == Upper(cFile+cExten) })
+				If nPos == 0
+					aAdd(aFontes,Array(nSRC_TAMARR))
+					nPos	:= Len(aFontes)
+					aFontes[nPos][cSRC_PROGRA]	:= cFile+cExten
+					aFontes[nPos][cSRC_PRJSCR]	:= ''
+					aFontes[nPos][dSRC_PRJDAT]	:= Ctod('')
+					aFontes[nPos][cSRC_PRJHOR]	:= ''
+					aFontes[nPos][cSRC_RPOSRC]	:= ''
+					aFontes[nPos][dSRC_RPODAT]	:= Ctod('')
+					aFontes[nPos][cSRC_RPOHOR]	:= ''
+				EndIf
+
+				//Preencho os dados
+				aFontes[nPos][cSRC_PRJSCR]	:= aArquivos[nX][cDR_NOME]
+				aFontes[nPos][dSRC_PRJDAT]	:= aArquivos[nX][dDR_DATA]
+				aFontes[nPos][cSRC_PRJHOR]	:= aArquivos[nX][cDR_HORA]
+			EndIf
+		Next
+	EndIf
+
+	//Gravação do arquivo--------------------------------------------------------------------------
+	If lOK
+		//Cabeçalho
+		If .Not. oFile:Write('Programa;Fonte Projeto;Data Projeto;Hora Projeto;Fonte RPO;Data RPO;Hora RPO;Divergente?'+CRLF)
+			FwAlertError('ERRO ao gravar arquivo de destino.'+CRLF+;
+						'Arquivo: '+AllTrim(oFile:cFileName)+CRLF+;
+						'Erro: '+oFile:Error():Message,_MsgErro_)
+			lOK	:= .F.
+		EndIf
+
+		If lOK
+			For nX := 1 to Len(aFontes)
+				cTexto	:= 	aFontes[nX][cSRC_PROGRA]+';'+;
+							aFontes[nX][cSRC_PRJSCR]+';'+;
+							DtoC(aFontes[nX][dSRC_PRJDAT],'DD/MM/YYYY')+';'+;
+							aFontes[nX][cSRC_PRJHOR]+';'+;
+							aFontes[nX][cSRC_RPOSRC]+';'+;
+							DtoC(aFontes[nX][dSRC_RPODAT],'DD/MM/YYYY')+';'+;
+							aFontes[nX][cSRC_RPOHOR]+';'
+				//Divergencias---------------------------------------------------
+				If 		Empty(aFontes[nX][dSRC_PRJDAT])
+					cTexto	+= '4=NÃO Existe no Projeto'
+				ElseIf	Empty(aFontes[nX][dSRC_RPODAT])
+					cTexto	+= '3=NÃO Existe no RPO'
+				ElseIf FwSubtHora(	aFontes[nX][dSRC_RPODAT],aFontes[nX][cSRC_RPOHOR]		,;	//RPO
+									aFontes[nX][dSRC_PRJDAT],aFontes[nX][cSRC_PRJHOR]) > 1		//Projeto
+					cTexto	+= '2=RPO Mais ANTIGO'
+				ElseIf FwSubtHora(	aFontes[nX][dSRC_RPODAT],aFontes[nX][cSRC_RPOHOR]		,;	//RPO
+									aFontes[nX][dSRC_PRJDAT],aFontes[nX][cSRC_PRJHOR]) < -1		//Projeto
+					cTexto	+= '1=RPO Mais RECENTE'
+				EndIf
+				cTexto	+= CRLF
+
+				//PRECISEI FAZER A COMPARAÇÃO USANDO OS SEGUNDOS PORQUE MUITOS ARQUIVOS OCORRE 
+				// UMA DIFERENÇA DE 1 SEGUNDO MESMO SENDO O MESMO ARQUIVO!
+
+				If .Not. oFile:Write(cTexto)
+					FwAlertError('ERRO ao gravar arquivo de destino.'+CRLF+;
+								'Arquivo: '+AllTrim(oFile:cFileName)+CRLF+;
+								'Erro: '+oFile:Error():Message,_MsgErro_)
+					lOK	:= .F.
+					Exit
+				EndIf
+			Next
+		EndIf
+	EndIf
+
+	//Libera memória!------------------------------------------------------------------------------
+	If ValType(oFile) == 'O'
+		oFile:Close()
+	EndIf
+	FreeObj(oFile)
+
+	FWFreeArray(aFontes)
+	FWFreeArray(aArquivos)
+
+	FWFreeArray(aRPOSrc)
+	FWFreeArray(aType)
+	FWFreeArray(aFile)
+	FWFreeArray(aLine)
+	FWFreeArray(aDate)
+	FWFreeArray(aTime)
+
+Return lOK
+
+/*=================================================================================================
+Autor      : Cirilo Rocha
+Data       : 21/04/2023 
+Info       : Rotina para gerar uma listagem dos arquivos de um diretório do servidor, de forma
+				recursiva
+*================================================================================================*/
+Static Function GetArqDir(	cDir		AS Character,;	//01 cDir
+							aArquivos	AS Array	);	//02 @aArquivos
+												AS Logical
+
+	//Declaracao de variaveis----------------------------------------------------------------------
+	Local aListaArq	:= {}			AS Array
+	Local nX						AS Numeric
+
+	//Parametros da rotina-------------------------------------------------------------------------
+	ParamType 0		VAR cDir		AS Character
+	
+	Default aArquivos	:= {}
+
+	//---------------------------------------------------------------------------------------------
+	If Right(cDir,1) <> '\'
+		cDir	+= '\'
+	EndIf
+	aListaArq	:= Directory(cDir+'*.*','HSD',/*uParam1*/,.F.,/*nTypeOrder*/)
+	
+	If Len(aListaArq) >= (10000-1)	//10k arquivos!!!!
+		FwAlertYesNo(	'PROBLEMA: A listagem de arquivos do diretório: '+cDir+' ultrapassa o limite '+;
+						' de 10k arquivos.'+CRLF+CRLF+;
+						'PROSSEGUE MESMO ASSIM ?',_MsgErro_)
+		FwFreeArray(aListaArq)
+		Return .F.
+	EndIf
+
+	For nX := 1 to Len(aListaArq)
+		If 	aListaArq[nX][cDR_NOME] == '.' .Or. ;
+			aListaArq[nX][cDR_NOME] == '..'
+			Loop
+		EndIf
+		If 'D' $ aListaArq[nX][cDR_TIPO] //Sub-Diretório! PRECISA SER ASSIM
+			If .Not. GetArqDir(	cDir+aListaArq[nX][cDR_NOME],;
+								@aArquivos					)
+				FwFreeArray(aListaArq)
+				Return .F.
+			EndIf
+		Else
+			aAdd(aArquivos,aClone(aListaArq[nX]))
+			aTail(aArquivos)[cDR_NOME]	:= cDir+aTail(aArquivos)[cDR_NOME]
+		EndIf
+	Next
+	FwFreeArray(aListaArq)
+
+Return .T.
