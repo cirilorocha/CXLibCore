@@ -1,7 +1,6 @@
-#INCLUDE 'RWMake.ch'
-#INCLUDE 'Totvs.ch'
-#INCLUDE 'ParmType.ch'
-#INCLUDE 'CXInclude.ch'
+#include 'tlpp-core.th'
+#include 'totvs.ch'
+#include 'fwmvcdef.ch'
 
 /*=================================================================================================
 Autor      : Cirilo Rocha
@@ -12,26 +11,37 @@ Info       : Função baseada na função padrão FormBatch, acrescentando opção de u
    Data   | Responsável   |Ticket| Manutenção Efetuada
 ==========+===============+======+=================================================================
 28/04/2025| Cirilo Rocha  |      | Modernização do visual da rotina
-05/06/2025| Cirilo Rocha  |      | Adicionados outros tipos de botão no PrxFormBatch
+05/06/2025| Cirilo Rocha  |      | Adicionados outros tipos de botão no CXFormBatch
+30/09/2026| Cirilo Rocha  |      | Revisão no fonte
           |               |      | 
 ==========+===============+======+===============================================================*/
-User Function CXFormBatch(	cTitle		AS Character,;	//01 cTitle
-							aSays		AS Array	,;	//02 aSays
-							aButtons	AS Array	,;	//03 aButtons
-							bValid		AS CodeBlock,;	//04 bValid
-							nAltura		AS Numeric	,;	//05 nAltura
-							nLargura	AS Numeric	)	//06 nLargura
+/*
+//-- Converte o FormBatch para U_CXFormBatch
+#xTranslate FormBatch(<cTitulo>,<aTexto>,<aBotoes>[,<bValid>[,<nAltura>[,<nLargura>]]]) => ;
+			U_CXFormBatch(<cTitulo>,<aTexto>,<aBotoes>,<bValid>,<nAltura>,<nLargura>)
+
+#xTranslate FechaBatch() => oDlg:End()	//-- Tratamento para compatibilizar com o CXFormBatch com o FormBatch padrão
+*/
+User Function CXFormBatch(	cTitle		AS Character;	//01 cTitle
+						,	aSays		AS Array	;	//02 aSays
+						,	aButtons	AS Array	;	//03 aButtons
+						,	bValid		AS CodeBlock;	//04 bValid
+						,	nAltura		AS Numeric	;	//05 nAltura
+						,	nLargura	AS Numeric	;	//06 nLargura
+						)
 
 	//-- Declaração de Variáveis ----------------------------------------------
-	Local aTxtBtn	:= {/*01*/'Ok'			,/*02*/'Cancelar'	,	/*03*/'Excluir'		,;
-						/*04*/'Incluir'		,/*05*/'Parâmetros'	,	/*06*/'Imprimir'	,;
-						/*07*/'Susp. Impr.'	,/*08*/'Canc. Impr.',	/*09*/'Ordem'		,;
-						/*10*/'Prioridade'	,/*11*/'Editar'		,	/*12*/'Ouvir'		,;
-						/*13*/'Salvar'		,/*14*/'Abrir'		,	/*15*/'Visualizar'	,;
-						/*16*/'Cond. Neg.'	,/*17*/'Filtrar'	,	/*18*/'Financ.'		,;	
-						/*19*/'Avançar'		,/*20*/'Voltar'		,	/*21*/'Avançar'		,;	
-						/*22*/'Voltar'		,/*23*/'Gráfico'	;
+	Local aTxtBtn	:= {/*01*/'Ok'			,/*02*/'Cancelar'	,	/*03*/'Excluir'		;
+					,	/*04*/'Incluir'		,/*05*/'Parâmetros'	,	/*06*/'Imprimir'	;
+					,	/*07*/'Susp. Impr.'	,/*08*/'Canc. Impr.',	/*09*/'Ordem'		;
+					,	/*10*/'Prioridade'	,/*11*/'Editar'		,	/*12*/'Ouvir'		;
+					,	/*13*/'Salvar'		,/*14*/'Abrir'		,	/*15*/'Visualizar'	;
+					,	/*16*/'Cond. Neg.'	,/*17*/'Filtrar'	,	/*18*/'Financ.'		;
+					,	/*19*/'Avançar'		,/*20*/'Voltar'		,	/*21*/'Avançar'		;
+					,	/*22*/'Voltar'		,/*23*/'Gráfico'	;
 											}		AS Array
+	
+	//-- Declaração de Varíaveis ----------------------------------------------
 	Local cCaption									AS Character
 	Local nX										AS Numeric
 	Local nTop										AS Numeric
@@ -39,12 +49,13 @@ User Function CXFormBatch(	cTitle		AS Character,;	//01 cTitle
 	Local nLarguraBox								AS Numeric
 	Local nLarguraSay								AS Numeric
 	Local oFont										AS Object
-	Local oModal,oPnl								AS Object
+	Local oModal									AS Object
+	Local oPnl										AS Object
 	
 	//-- Parâmetros da Rotina -------------------------------------------------
-	ParamObg 0		VAR cTitle
-	ParamObg 1		VAR aSays
-	ParamObg 2		VAR aButtons
+	ParamType 0		VAR cTitle			AS Character		//-- OBRIGATÓRIO
+	ParamType 1		VAR aSays			AS Array			//-- OBRIGATÓRIO
+	ParamType 2		VAR aButtons		AS Array			//-- OBRIGATÓRIO
 
 	Default nAltura		:= 300
 	Default nLargura	:= 600
