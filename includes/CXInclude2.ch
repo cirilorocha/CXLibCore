@@ -1,5 +1,5 @@
 //-------------------------------------------------------------------------------------------------
-/*/{Protheus.doc} CXInclude2.ch  v1.31 (02/10/2026)
+/*/{Protheus.doc} CXInclude2.ch  v1.32 (02/10/2026)
 @description	Conjunto de comanandos básicos para auxiliar no desenvolvimento de fontes
 @autor			Cirilo Rocha
 @since			07/01/2026
@@ -104,11 +104,14 @@
 					)
 
 
+#Define _AMBIENTE_CARREGADO_	AMBIENTE_CARREGADO
+
 #Define AMBIENTE_CARREGADO	(	Type('cEmpAnt') == 'C' .And. ;
 								Type('cFilAnt') == 'C' .And. ;
 								Select('SX2') > 0 )
 
 
+#define _TamX3_CAMPO_	_TamX3_CAMPO
 #define _TamX3_CAMPO	10
 
 
@@ -129,8 +132,8 @@
 
 
 //-- Parâmetros usados em MVC
-#Define nTP_MODEL		1
-#Define nTP_VIEW		2
+#Define nTP_MODEL		1	//-- Apenas por compatibilidade com fontes legados CX
+#Define nTP_VIEW		2	//-- Apenas por compatibilidade com fontes legados CX
 
 #Define _nTP_MODEL1_	1
 #Define _nTP_VIEW2_		2
@@ -288,7 +291,7 @@
 #xTranslate MesAno(<dDate>)				=> Left(DtoS(<dDate>),6)	//-- Otimização
 
 
-#xTranslate  _ConOut(<cMsg>) => ;
+#xTranslate  _CXConOut(<cMsg>) => ;
 	LogMsg(	RetFileName(ProcSource())	;	//01 cFunc		//-- Mostra fonte da função chamadora!
 		,	22 /*FAC_FRAME_*/			;	//02 nFacility
 		,	6 /*SEV_INFORM_*/			;	//03 nSeverity
@@ -300,7 +303,7 @@
 
 
 
-#xTranslate _EhDic(<cTab>)	=> ;	//-- É dicionário
+#xTranslate _CXEhDic(<cTab>)	=> ;	//-- É dicionário
 	( Left(AllTrim(<cTab>), 3)  + "," $ "SIX," .OR. Left(AllTrim(<cTab>), 2)  + "," $ "SX,XX,XA,XB," )
 
 
@@ -312,7 +315,7 @@
 
 
 //-- Pseudo método para adicionar atributos em objetos Json, apenas para deixar a sintaxe mais clara
-#xTranslate	 :_addAtributo(<cAtributo>) => \[<cAtributo>\]
+#xTranslate	 :_CXAddAtributo(<cAtributo>,<xValor>) => \[<cAtributo>\]	:= <xValor>
 
 
 //-- Pseudo função para testar se um valor numérico está contido em uma lista de valores
@@ -345,7 +348,7 @@
 #Define _nSteps_		200
 
 
-#xTranslate _InicRegua() => ;
+#xTranslate _CXInicRegua() => ;
 	SetPrvt('_nPasso,_nCont,_nQtdReg')	
 
 
@@ -366,19 +369,19 @@
 	EndIf
 
 
-#xTranslate _ProcRegua(<nQtRg>) => ;
+#xTranslate _CXProcRegua(<nQtRg>) => ;
 	__ProcRegua(<nQtRg>,ProcRegua)
 
 
-#xTranslate _IncProc(<cTxtProc>) => ;
+#xTranslate _CXIncProc(<cTxtProc>) => ;
 	__IncProc(<cTxtProc>,IncProc)
 
 
-#xTranslate _SetRegua(<nQtRg>) => ;
+#xTranslate _CXSetRegua(<nQtRg>) => ;
 	__ProcRegua(<nQtRg>,SetRegua)
 
 
-#xTranslate _IncRegua() => ;
+#xTranslate _CXIncRegua() => ;
 	If (_nCont++ % _nPasso) == 0 ;;
 		IncRegua();;
 		ProcessMessages();;
@@ -471,6 +474,7 @@
 	StrTokArr2(<cTexto>,',',.F.)
 
 
+//-- Troca função terceirizada pela função do framework/lib
 #xTranslate Separa(<cTexto>,<cSeparador>[,<lPodenulo>]) => ;
 	StrTokArr2(<cTexto>,<cSeparador>,<lPodenulo>)
 	
