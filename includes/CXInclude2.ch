@@ -315,7 +315,7 @@
 
 
 //-- Pseudo método para adicionar atributos em objetos Json, apenas para deixar a sintaxe mais clara
-#xTranslate	 :_CXAddAtributo(<cAtributo>,<xValor>) => \[<cAtributo>\]	:= <xValor>
+#xTranslate	 :_CXAddAtributo(<cAtributo>) => \[<cAtributo>\]	//-- PRECISA SER ESSA SINTAXE SENÃO O TRANSLATE SE PERDE
 
 
 //-- Pseudo função para testar se um valor numérico está contido em uma lista de valores
