@@ -1,5 +1,5 @@
 //-------------------------------------------------------------------------------------------------
-/*/{Protheus.doc} CXInclude2.ch  v1.29 (29/09/2026)
+/*/{Protheus.doc} CXInclude2.ch  v1.31 (02/10/2026)
 @description	Conjunto de comanandos básicos para auxiliar no desenvolvimento de fontes
 @autor			Cirilo Rocha
 @since			07/01/2026
@@ -264,8 +264,14 @@
 	_CXImpBox(<oRpt>,<nTop>,<nLeft>,<nBottom>,<nRight>,<cPixel>)
 
 
-#xTranslate _CxSubStr(<cText>,[<nPIni>],[<nPFim>]) => ;
-	SubStr(<cText>,<nPIni>,<nPFim>-<nPIni>+1+IIF(<nPFim><0,Len(<cText>),0))
+//-- Pseudo-Função para cortar strings, se o terceiro argumento negativo corta no final
+#xTranslate _CxSubStr(<cTexto>,[<nPIni>],[<nPFim>]) => ;
+	SubStr(<cTexto>,<nPIni>,<nPFim>-<nPIni>+1+IIF(<nPFim><0,Len(<cTexto>),0))
+
+
+//-- Pseudo-Função para cortar string, se o segundo argumento negativo corta no final
+#xTranslate _CxLeft(<cTexto>,<nTam>) => ;
+	Left(<cTexto>,<nTam>+IIF(<nTam><0,Len(<cTexto>),0))
 
 	
 #xTranslate _CXQryCount(<cQuery>[,<aBindParam>]) => ;
@@ -308,9 +314,24 @@
 //-- Pseudo método para adicionar atributos em objetos Json, apenas para deixar a sintaxe mais clara
 #xTranslate	 :_addAtributo(<cAtributo>) => \[<cAtributo>\]
 
+
 //-- Pseudo função para testar se um valor numérico está contido em uma lista de valores
 #xTranslate _CXIF(<nVlr>):IN(<nVlrTeste,...>)	=> ;
 	( aScan({<nVlrTeste>},<nVlr>) > 0 )
+
+
+//-- Pseudo-Funções para salvar áreas
+#xTranslate _CXGetAreas(<aTabelas>) => ;
+	Default aAreas := {}	;
+	aEval(<aTabelas>,{|x| aAdd(aAreas,(x)->(FwGetArea())) })	;;				//-- Salva áreas
+	If .Not. Empty(Alias())	;	aAdd(aAreas,FwGetArea())		; 	EndIf		//-- Salva área atual se está aberta
+
+
+//-- Pseudo-Função para restauração de áreas
+#xTranslate _CXRestAreas(<aAreas>) => ;
+	aEval(aAreas,{|x| (x[1])->(FwRestArea(x)) })	;;	//-- Restaura áreas
+	dbSelectArea(aTail(aAreas)[1])						//-- Restaura área atual (último)
+
 
 //#############################################################################
 //#############################################################################
