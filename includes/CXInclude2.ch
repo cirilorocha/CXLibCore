@@ -322,15 +322,16 @@
 
 //-- Pseudo-Funções para salvar áreas
 #xTranslate _CXGetAreas(<aTabelas>) => ;
-	Default aAreas := {}	;
-	aEval(<aTabelas>,{|x| aAdd(aAreas,(x)->(FwGetArea())) })	;;				//-- Salva áreas
-	If .Not. Empty(Alias())	;	aAdd(aAreas,FwGetArea())		; 	EndIf		//-- Salva área atual se está aberta
+	\( __aAreas := {}	,;
+	aEval(<aTabelas>,{|x| aAdd(__aAreas,(x)->(FwGetArea())) })	,;	//-- Salva áreas
+	Iif(Empty(Alias()),,aAdd(__aAreas,FwGetArea()))				,;	//-- Salva área atual se está aberta
+	__aAreas \)
 
 
 //-- Pseudo-Função para restauração de áreas
 #xTranslate _CXRestAreas(<aAreas>) => ;
-	aEval(aAreas,{|x| (x[1])->(FwRestArea(x)) })	;;	//-- Restaura áreas
-	dbSelectArea(aTail(aAreas)[1])						//-- Restaura área atual (último)
+	aEval(<aAreas>,{|x| (x\[1\])->(FwRestArea(x)) })	;;	//-- Restaura áreas
+	dbSelectArea(aTail(<aAreas>)\[1\])						//-- Restaura área atual (último)
 
 
 //#############################################################################
