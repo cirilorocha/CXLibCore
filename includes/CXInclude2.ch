@@ -1,5 +1,5 @@
 //-------------------------------------------------------------------------------------------------
-/*/{Protheus.doc} CXInclude2.ch  v1.32 (02/10/2026)
+/*/{Protheus.doc} CXInclude2.ch  v1.33 (06/10/2026)
 @description	Conjunto de comanandos básicos para auxiliar no desenvolvimento de fontes
 @autor			Cirilo Rocha
 @since			07/01/2026
@@ -335,6 +335,17 @@
 #xTranslate _CXRestAreas(<aAreas>) => ;
 	aEval(<aAreas>,{|x| (x\[1\])->(FwRestArea(x)) })	;;	//-- Restaura áreas
 	dbSelectArea(aTail(<aAreas>)\[1\])						//-- Restaura área atual (último)
+
+
+//-- Pseudo-Função para posicionar / restaurar a posição da SM0
+#xTranslate _CXPosSM0(<cFilPos>) => ;
+	If cFilAnt \<\> <cFilPos>	;
+	.Or. FwCodFil() \<\> <cFilPos>	;;
+	;;
+		cFilAnt	:= <cFilPos>	;;
+		FWSM0Util():setSM0PositionBycFilAnt()	;;
+		cFilAnt	:= FWCodFil()	;;	//-- Tratamento de erro
+	EndIf
 
 
 //#############################################################################
