@@ -1,6 +1,6 @@
-#INCLUDE "RWMake.ch"
-#INCLUDE "Totvs.ch"
-#INCLUDE "ParmType.ch"
+#include 'tlpp-core.th'
+#include 'totvs.ch'
+#include 'fwmvcdef.ch'
 #INCLUDE "CXInclude.ch"
 
 //#############################################################################
@@ -28,7 +28,8 @@
 //##| 19/11/21 | Cirilo R.| Pequena revisão no fonte                        |##
 //##| 26/11/21 | Cirilo R.| Ajuste na mensagem de help quando existia que-  |##
 //##|          |          |  bra de linhas                                  |##
-//##|          |          |                                                 |##
+//##| 08/02/26 | Cirilo R.| Tratamento p/ rotinas automáticas               |##
+//##| 10/10/26 | Cirilo R.| Ajuste para não gravar duas vezes o log no Help |##
 //##|          |          |                                                 |##
 //##|          |          |                                                 |##
 //##+----------+----------+-------------------------------------------------+##
@@ -37,14 +38,14 @@ Static nAlert	:= 1	AS Integer
 Static nHelp	:= 2	AS Integer
 Static nCons	:= 3	AS Integer
 //-------------------------------------------------------------------------------------------------
-User Function CXHelp(	cCampo	,;	//01 Codigo do Help no sigahlp, caso nao for informado, deve-se informar o cMsg
-						cNome	,;	//02 Caso informado, substitui o cCampo (Usado para o cMsg)
-						cMsg	,;	//03 Mensagem apresentada pelo help quando o codigo nao eh informado
-						lGrvLog	,;	//04 Indica se deve gravar log da mensagem de Help (def .f.)
-						xSoluc	,;	//05 Array/String simples com mensagem de solucao para o Help
-						lAviso	,;	//06 Se a mensagem eh apenas um aviso, porque se usar Help no execauto o sistema entende que eh erro (def .f.)
-						lHelp	)	//07 Forca a execução do help (def .f.)
-
+User Function CXHelp(	cCampo	AS Character;	//01 Codigo do Help no sigahlp, caso nao for informado, deve-se informar o cMsg
+					,	cNome	AS Character;	//02 Caso informado, substitui o cCampo (Usado para o cMsg)
+					,	cMsg	AS Character;	//03 Mensagem apresentada pelo help quando o codigo nao eh informado
+					,	lGrvLog	AS Logical	;	//04 Indica se deve gravar log da mensagem de Help (def .f.)
+					,	xSoluc	AS Variant	;	//05 Array/String simples com mensagem de solucao para o Help
+					,	lAviso	AS Logical	;	//06 Se a mensagem eh apenas um aviso, porque se usar Help no execauto o sistema entende que eh erro (def .f.)
+					,	lHelp	AS Logical	;	//07 Forca a execução do help (def .f.)
+					)
 	//Declaracao de variaveis----------------------------------------------------------------------
 	Local lExecAuto		AS Logical
 	Local lInJob		AS Logical
@@ -59,16 +60,13 @@ User Function CXHelp(	cCampo	,;	//01 Codigo do Help no sigahlp, caso nao for inf
 	Local cMsgAux		AS Character
 
 	//Parametros da rotina-------------------------------------------------------------------------
-	ParamType  0	VAR cCampo		  		AS Character				Optional Default NIL
-	ParamType  1	VAR cNome		  	  	AS Character				Optional Default NIL
-	ParamType  2	VAR cMsg		  		AS Character				Optional Default NIL
-	ParamType  3	VAR lGrvLog		  	  	AS Logical					Optional Default .F.
+	Default lGrvLog		:= .F.
 	ParamType  4	VAR xSoluc			  	AS Array,Character			Optional Default NIL
-	ParamType  5	VAR lAviso				AS Logical					Optional Default .F.
-	ParamType  6	VAR lHelp				AS Logical					Optional Default .F.
-
-	//Inicializa Variaveis-------------------------------------------------------------------------
-
+	Default lAviso		:= .F.
+	Default lHelp		:= .F.
+	
+	_lGrvLogHelp	:= IIF( Type('_lGrvLogHelp') == 'L', _lGrvLogHelp , .T. )		//-- Força a função CXHelp chamar Help sem a gravação de novo no log
+	
 	//Rotina automatica? //PRECISA SER DESTA FORMA MESMO NAO USAR CXRotAuto()
 	lExecAuto	:= 	FWIsInCallStack('MSExecAuto') .Or. ;//Verifica se a funcao passada esta dentro da pilha de execucao (s/ U_)
 					FWIsInCallStack('FWMVCRotAuto')
@@ -89,12 +87,13 @@ User Function CXHelp(	cCampo	,;	//01 Codigo do Help no sigahlp, caso nao for inf
 	EndIf
 
 	//Tipo de interface utilizada
-	If 	lExecAuto .Or. ;
-		lHelp .Or. ;
-		FWIsInCallStack('ValidField') .Or. ; 	//Se validacao de campo chama a funcao help tambem
-		FWIsInCallStack('VldData') .Or. ;		//Validacao de campo MVC (precisa chamar o Help senao nao mostra)
-		FWIsInCallStack('VldLineData') .Or. ;	//MVC
-		FWIsInCallStack('VldLineOk')			//MVC
+	If 	lExecAuto 	;
+	.Or.lHelp 		;
+	.Or.U_CXRotAuto()	;	//Indica que a rotina esta sendo executada em modo automático, ou seja, sem interação com o usuário
+	.Or.FWIsInCallStack('ValidField') 	; 	//Se validacao de campo chama a funcao help tambem
+	.Or.FWIsInCallStack('VldData') 		;	//Validacao de campo MVC (precisa chamar o Help senao nao mostra)
+	.Or.FWIsInCallStack('VldLineData') 	;	//MVC
+	.Or.FWIsInCallStack('VldLineOk')	;	//MVC
 		
 		If 	lAviso .And. ;	//Forca exibição como aviso apenas
 			.Not. lInJob
@@ -213,21 +212,10 @@ User Function CXHelp(	cCampo	,;	//01 Codigo do Help no sigahlp, caso nao for inf
 	If 	lGrvLog
 
 		//Controle de erros
-		If Type('cFilAnt') <> 'C'
-			cFilAnt	:= 'XX'
-		EndIf
-		
-		If Type('cEmpAnt') <> 'C'
-			cEmpAnt	:= 'XX'
-		EndIf
-		
-		If Type('__cUserID') <> 'C'
-			__cUserID	:= 'XXXXXX'
-		EndIf
-		
-		If Type('cUserName') <> 'C'
-			cUserName	:= 'ERRO USR'
-		EndIf
+		If Type('cFilAnt') <> 'C'	;	cFilAnt	:= 'XX'				;	EndIf
+		If Type('cEmpAnt') <> 'C'	;	cEmpAnt	:= 'XX'				;	EndIf
+		If Type('__cUserID') <> 'C'	;	__cUserID	:= 'XXXXXX'		;	EndIf
+		If Type('cUserName') <> 'C'	;	cUserName	:= 'ERRO USR'	;	EndIf
 
 		cFunName	:= U_CXTxtMsg(/*oObjeto*/,2)
 		cLinha		:= '0'
@@ -258,19 +246,20 @@ User Function CXHelp(	cCampo	,;	//01 Codigo do Help no sigahlp, caso nao for inf
 				xSoluc[nX] := StrTran(xSoluc[nX],CRLF,'<br>')
 			Next
 
-			HeLP(''						,;	//01 Mantido por compatibilidade, não utilizar
-				1						,;  //02 Mantido por compatibilidade, não utilizar
-				cCampo					,;  //03 Codigo do Help no sigahlp, caso nao for informado, deve-se informar o cMsg
-				cNome					,;  //04 Caso informado, substitui o cCampo (Usado para o cMsg)
-				cMsg					,;  //05 Mensagem apresentada pelo help quando o codigo nao eh informado
-				1						,;  //06 Linha inicial para apresentar a mensagem
-				/*nColuna*/				,;  //07 Coluna inicial para apresentar a mensagem
-				/*lPop*/				,;  //08 Mantido por compatibilidade, não utilizar
-				/*hWnd*/				,;  //09 Mantido por compatibilidade, não utilizar
-				/*nHeight*/				,;  //10 Mantido por compatibilidade, não utilizar
-				/*nWidth*/				,;  //11 Mantido por compatibilidade, não utilizar
-				,;//lExecAuto .Or. !lGrvLog	,;  //12 Indica se deve gravar log da mensagem de Help (ja gravei antes)
-				xSoluc					)   //13 Array simples com mensagem de solução para o Help
+			HeLP(''							; //01 Mantido por compatibilidade, não utilizar
+				,1							; //02 Mantido por compatibilidade, não utilizar
+				,cCampo						; //03 Codigo do Help no sigahlp, caso nao for informado, deve-se informar o cMsg
+				,cNome						; //04 Caso informado, substitui o cCampo (Usado para o cMsg)
+				,cMsg						; //05 Mensagem apresentada pelo help quando o codigo nao eh informado
+				,1							; //06 Linha inicial para apresentar a mensagem
+				,/*nColuna*/				; //07 Coluna inicial para apresentar a mensagem
+				,/*lPop*/					; //08 Mantido por compatibilidade, não utilizar
+				,/*hWnd*/					; //09 Mantido por compatibilidade, não utilizar
+				,/*nHeight*/				; //10 Mantido por compatibilidade, não utilizar
+				,/*nWidth*/					; //11 Mantido por compatibilidade, não utilizar
+				,_lGrvLogHelp				; //12 Indica se deve gravar log da mensagem de Help (ja gravei antes)
+				,xSoluc						; //13 Array simples com mensagem de solução para o Help
+				)
 		EndIf
 	ElseIf nTpMsg	== nAlert
 		If Empty(cCampo)
@@ -284,23 +273,25 @@ Return
 //-------------------------------------------------------------------------------------------------
 //Ajuste para sobrepor a funcao padrao, funciona em conjunto com o include
 //-------------------------------------------------------------------------------------------------
-User Function HeLP(	cRotina	,;	//01
-					nLinha	,;	//02
-					cCampo	,;	//03
-					cNome	,;	//04
-					cMsg	,;	//05
-					nLinha1	,;	//06
-					nColuna	,;	//07
-					lPop	,;	//08
-					hWnd	,;	//09
-					nHeight	,;	//10
-					nWidth	,;	//11
-					lGrvLog	,;	//12
-					aSoluc	) 	//13
+User Function HeLP(	cRotina	;	//01
+				,	nLinha	;	//02
+				,	cCampo	;	//03
+				,	cNome	;	//04
+				,	cMsg	;	//05
+				,	nLinha1	;	//06
+				,	nColuna	;	//07
+				,	lPop	;	//08
+				,	hWnd	;	//09
+				,	nHeight	;	//10
+				,	nWidth	;	//11
+				,	lGrvLog	;	//12
+				,	aSoluc	; 	//13
+				)
 
-Return U_CXHelp(cCampo	,;	//01
-				cNome	,;	//02
-				cMsg	,;	//03
-				lGrvLog	,;	//04
-				aSoluc	,;	//05
-				.F.		) 	//06
+Return U_CXHelp(cCampo	;	//01
+			,	cNome	;	//02
+			,	cMsg	;	//03
+			,	lGrvLog	;	//04
+			,	aSoluc	;	//05
+			,	.F.		; 	//06
+			)

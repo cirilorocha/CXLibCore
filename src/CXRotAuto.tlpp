@@ -1,6 +1,6 @@
-#INCLUDE "RWMake.ch"
-#INCLUDE "Totvs.ch"
-#INCLUDE "ParmType.ch"
+#include 'tlpp-core.th'
+#include 'totvs.ch'
+#include 'fwmvcdef.ch'
 #INCLUDE "PrConst.ch"
 #INCLUDE "CXInclude.ch"
 
@@ -17,6 +17,8 @@
 //##| 26/06/19 | Cirilo R.| Adicionadas novas rotinas automáticas           |##
 //##| 17/11/21 | Cirilo R.| Pequena revisão no código                       |##
 //##| 25/11/25 | Cirilo R.| Tratamento para execução automática via MVC     |##
+//##| 08/02/26 | Cirilo R.| Melhoria no tratamento de execução automática   |##
+//##| 11/10/26 | Cirilo R.| Melhoria no tratamento de execução automática   |##
 //##|          |          |                                                 |##
 //##+----------+----------+-------------------------------------------------+##
 //#############################################################################
@@ -36,11 +38,13 @@ User Function CXRotAuto(lApenasJob	AS Logical	;	//01 lApenasJob
 	If lApenasJob
 		lRotAuto	:= .F.
 	Else
-		lRotAuto	:= 	FWIsInCallStack('FWMVCRotAuto') .Or. ;	//Execauto MVC
-						FWIsInCallStack('MSExecAuto') 	.Or. ;	//Execauto padrao
-						FWIsInCallStack('EnchAuto') 	.Or. ;	//Execauto enchoice
-						FWIsInCallStack('mBrowseAuto')	.Or. ;	//Execauto browser
-						( Type('ulCXRotAuto') == 'L' .And. ulCXRotAuto )
+		lRotAuto	:= 	FWIsInCallStack('FWMVCRotAuto') ;	//-- Execauto MVC
+				.Or.	FWIsInCallStack('MSExecAuto') 	;	//-- Execauto padrao
+				.Or.	FWIsInCallStack('EnchAuto') 	;	//-- Execauto enchoice
+				.Or.	FWIsInCallStack('mBrowseAuto')	;	//-- Execauto browser
+				.Or.	Type('lMsErroAuto') == 'L' 		;	//-- Existe a variável de execauto
+				.Or.	( Type('lMSHelpAuto') == 'L' .And. lMSHelpAuto )	;
+				.Or.	( Type('ulCXRotAuto') == 'L' .And. ulCXRotAuto )	;
 		
 		//-- Rotina automática via MVC ---------------------------------------
 		If 		.Not. lRotAuto	;
