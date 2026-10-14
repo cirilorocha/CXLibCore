@@ -1,5 +1,5 @@
 //-------------------------------------------------------------------------------------------------
-/*/{Protheus.doc} CXInclude2.ch  v1.34 (11/10/2026)
+/*/{Protheus.doc} CXInclude2.ch  v1.35 (14/10/2026)
 @description	Conjunto de comanandos básicos para auxiliar no desenvolvimento de fontes
 @autor			Cirilo Rocha
 @since			07/01/2026
@@ -99,12 +99,12 @@
 					.Or.	FWIsInCallStack('EnchAuto') 	;	//-- Execauto enchoice
 					.Or.	FWIsInCallStack('mBrowseAuto')	;	//-- Execauto browser
 					.Or.	IsBlind() 						;	//-- Sem Interface
-					.Or.	Type('lMsErroAuto') == 'L' 		;	//-- Existe a variável de execauto
 					.Or.	( Type('lMSHelpAuto') == 'L' .And. lMSHelpAuto )	;
 					.Or.	GetRemoteType() == NO_REMOTE 	;	//-- Se SmartClient (-1)
 					.Or.	(Type('__cInterNet') == 'C' .And. __cInterNet == 'AUTOMATICO') ;	//-- Rotina automática
 					)
 
+//					.Or.	Type('lMsErroAuto') == 'L' 		;	//-- Existe a variável de execauto -- NÃO USAR PORQUE TEM ROTINAS QUE CRIAM A VARIÁVEL
 
 #Define _AMBIENTE_CARREGADO_	AMBIENTE_CARREGADO
 

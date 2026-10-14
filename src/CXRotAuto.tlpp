@@ -19,6 +19,8 @@
 //##| 25/11/25 | Cirilo R.| Tratamento para execução automática via MVC     |##
 //##| 08/02/26 | Cirilo R.| Melhoria no tratamento de execução automática   |##
 //##| 11/10/26 | Cirilo R.| Melhoria no tratamento de execução automática   |##
+//##| 14/10/26 | Cirilo R.| Reversão no tratamento c/ a variável lMsErroAuto|##
+//##|          |          |  alguns fontes padrão criam a variável (mata120)|##
 //##|          |          |                                                 |##
 //##+----------+----------+-------------------------------------------------+##
 //#############################################################################
@@ -42,9 +44,9 @@ User Function CXRotAuto(lApenasJob	AS Logical	;	//01 lApenasJob
 				.Or.	FWIsInCallStack('MSExecAuto') 	;	//-- Execauto padrao
 				.Or.	FWIsInCallStack('EnchAuto') 	;	//-- Execauto enchoice
 				.Or.	FWIsInCallStack('mBrowseAuto')	;	//-- Execauto browser
-				.Or.	Type('lMsErroAuto') == 'L' 		;	//-- Existe a variável de execauto
 				.Or.	( Type('lMSHelpAuto') == 'L' .And. lMSHelpAuto )	;
 				.Or.	( Type('ulCXRotAuto') == 'L' .And. ulCXRotAuto )	;
+	//			.Or.	Type('lMsErroAuto') == 'L' 		;	//-- Existe a variável de execauto -- NÃO USAR PORQUE TEM ROTINAS QUE CRIAM A VARIÁVEL
 		
 		//-- Rotina automática via MVC ---------------------------------------
 		If 		.Not. lRotAuto	;
