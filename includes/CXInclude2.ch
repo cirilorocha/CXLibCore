@@ -1,5 +1,5 @@
 //-------------------------------------------------------------------------------------------------
-/*/{Protheus.doc} CXInclude2.ch  v1.35 (14/10/2026)
+/*/{Protheus.doc} CXInclude2.ch  v1.36 (12/11/2026)
 @description	Conjunto de comanandos básicos para auxiliar no desenvolvimento de fontes
 @autor			Cirilo Rocha
 @since			07/01/2026
@@ -80,7 +80,7 @@
 #Define _nDIR_ARQ_TAM2_		2
 #Define _nDIR_ARQ_DATA3_	3
 #Define _nDIR_ARQ_HORA4_	4
-#Define _nDIR_ARQ_TIPO4_	5
+#Define _nDIR_ARQ_TIPO5_	5
 
 
 //-- Ordenação da função Directory
