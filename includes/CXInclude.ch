@@ -1,4 +1,4 @@
-//-- versão 2026-07-24
+//-- versão 2026-11-20
 #DEFINE TOTVS_PROTHEUS
 
 #Define _LINHA_		StrZero(ProcLine(),5)+' '
@@ -333,3 +333,37 @@
 	#Define _CUNS_LOAD_			\'_USE_NAMESPACE_.QUALQUERCOISA\'			//-- NÃO ENTENDO PORQUE PRECISA TER ALGUM SUFIXO PARA FUNCIONAR!!!
 	USING NAMESPACE	_USE_NAMESPACE_
 #ENDIF
+
+
+//-- Pseudo método para adicionar atributos em objetos Json, apenas para deixar a sintaxe mais clara
+#xTranslate	 :_CXAddAtributo(<cAtributo>) => \[<cAtributo>\]	//-- PRECISA SER ESSA SINTAXE SENÃO O TRANSLATE SE PERDE
+
+
+//-- Pseudo função para testar se um valor numérico está contido em uma lista de valores
+#xTranslate _CXIF(<nVlr>):IN(<nVlrTeste,...>)	=> ;
+	( aScan({<nVlrTeste>},<nVlr>) > 0 )
+
+
+//-- Pseudo-Funções para salvar áreas
+#xTranslate _CXGetAreas(<aTabelas>) => ;
+	\( __aAreas := {}	,;
+	aEval(<aTabelas>,{|x| aAdd(__aAreas,(x)->(FwGetArea())) })	,;	//-- Salva áreas
+	Iif(Empty(Alias()),,aAdd(__aAreas,FwGetArea()))				,;	//-- Salva área atual se está aberta
+	__aAreas \)
+
+
+//-- Pseudo-Função para restauração de áreas
+#xTranslate _CXRestAreas(<aAreas>) => ;
+	aEval(<aAreas>,{|x| (x\[1\])->(FwRestArea(x)) })	;;	//-- Restaura áreas
+	dbSelectArea(aTail(<aAreas>)\[1\])						//-- Restaura área atual (último)
+
+
+//-- Pseudo-Função para posicionar / restaurar a posição da SM0
+#xTranslate _CXPosSM0(<cFilPos>) => ;
+	If cFilAnt \<\> <cFilPos>	;
+	.Or. FwCodFil() \<\> <cFilPos>	;;
+	;;
+		cFilAnt	:= <cFilPos>	;;
+		FWSM0Util():setSM0PositionBycFilAnt()	;;
+		cFilAnt	:= FWCodFil()	;;	//-- Tratamento de erro
+	EndIf
